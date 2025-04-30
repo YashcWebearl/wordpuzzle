@@ -384,7 +384,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
     final screenSize = MediaQuery.of(context).size;
     final isLandscape = screenSize.width > screenSize.height;
     final maxGridWidth = isLandscape
-        ? screenSize.height * 0.8
+        ? screenSize.height * 0.5
         : screenSize.width * 0.9;
     final cellSize = maxGridWidth / gridSize;
     final fontSizeFactor = screenSize.width / 360; // Base font size for 360px width
@@ -398,12 +398,12 @@ class _WordSearchPageState extends State<WordSearchPage> {
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 18 * fontSizeFactor,
+            fontSize: 18,
           ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white, size: 24 * fontSizeFactor),
+          icon: Icon(Icons.arrow_back, color: Colors.white, size: 24 ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -411,7 +411,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              SizedBox(height: 20 * fontSizeFactor),
+              SizedBox(height: 20),
               Center(
                 child: GestureDetector(
                   onPanStart: (details) => handleDragStart(details, cellSize),
@@ -420,14 +420,14 @@ class _WordSearchPageState extends State<WordSearchPage> {
                   child: Container(
                     width: cellSize * gridSize,
                     height: cellSize * gridSize,
-                    padding: EdgeInsets.all(8 * fontSizeFactor),
+                    padding: EdgeInsets.all(8),
                     child: GridView.builder(
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: gridSize * gridSize,
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: gridSize,
-                        mainAxisSpacing: 4 * fontSizeFactor,
-                        crossAxisSpacing: 4 * fontSizeFactor,
+                        mainAxisSpacing: 4,
+                        crossAxisSpacing: 4,
                       ),
                       itemBuilder: (context, index) {
                         final row = index ~/ gridSize;
@@ -438,7 +438,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
                           decoration: BoxDecoration(
                             color: color ?? const Color(0xFFFFF8E1),
                             borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-                            border: Border.all(color: const Color(0xFF7A5821), width: 1 * fontSizeFactor),
+                            border: Border.all(color: const Color(0xFF7A5821), width: 1),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black12,
@@ -451,7 +451,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
                           child: Text(
                             grid[row][col],
                             style: TextStyle(
-                              fontSize: 20 * fontSizeFactor,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                               fontFamily: 'Courier',
                               color: color != null ? Colors.white : const Color(0xFF7A5821),
