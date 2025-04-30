@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'difficultyselect.dart';
-import 'levelselect.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -16,19 +15,19 @@ class HomePage extends StatelessWidget {
             children: [
               Image.asset(
                 'assets/icon/icon.png',
-                width: 180,
+                width: 200,
               ),
+              // const SizedBox(height: 60),
+              // Text(
+              //   'Word Puzzle',
+              //   style: TextStyle(
+              //     fontSize: 36,
+              //     fontWeight: FontWeight.w900,
+              //     color: const Color(0xFF7A5821),
+              //     fontFamily: 'Georgia', // Use a serif font for word-game feel
+              //   ),
+              // ),
               const SizedBox(height: 60),
-              Text(
-                'Word Puzzle',
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF7A5821),
-                  fontFamily: 'Georgia', // Use a serif font for word-game feel
-                ),
-              ),
-              const SizedBox(height: 120),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 20),

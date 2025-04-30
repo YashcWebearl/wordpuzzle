@@ -1,27 +1,24 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-
-void main() {
-  runApp(const MaterialApp(
-    home: WordSearchPage(initialLevel: 1, gridSize: 6),
-  ));
-}
+import '../db/prefs.dart';
 
 class WordSearchPage extends StatefulWidget {
   final int initialLevel;
   final int gridSize;
-  const WordSearchPage({Key? key, required this.initialLevel, required this.gridSize}) : super(key: key);
+  const WordSearchPage({super.key, required this.initialLevel, required this.gridSize});
 
   @override
-  _WordSearchPageState createState() => _WordSearchPageState();
+  WordSearchPageState createState() => WordSearchPageState();
 }
 
-class _WordSearchPageState extends State<WordSearchPage> {
+class WordSearchPageState extends State<WordSearchPage> with SingleTickerProviderStateMixin {
   late int level;
   int timeLeft = 90;
   Timer? timer;
   late int gridSize;
+  late AnimationController _animationController; // For dialog animation
+  late Animation<double> _scaleAnimation; // Scale animation for dialog
   final Map<String, List<String>> wordBank = {
     'tech': [
       'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE', 'GAME', 'LEVEL', 'TIMER',
@@ -69,7 +66,16 @@ class _WordSearchPageState extends State<WordSearchPage> {
     super.initState();
     level = widget.initialLevel;
     gridSize = widget.gridSize;
+    // Initialize animation controller
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
+    );
     startLevel();
+    _animationController.forward(); // Start animation
   }
 
   void startLevel() {
@@ -217,9 +223,10 @@ class _WordSearchPageState extends State<WordSearchPage> {
     }
   }
 
-  void handleDragEnd() {
+  Future<void> handleDragEnd() async {
     if (start != null && end != null && _isValidDirection(start!, end!)) {
       String selectedWord = _getSelectedWord(start!, end!);
+      debugPrint('Selected word: $selectedWord');
       if (selectedWord.length < 3) {
         setState(() {
           currentDragPath.clear();
@@ -228,24 +235,33 @@ class _WordSearchPageState extends State<WordSearchPage> {
         return;
       }
 
-      String reversedWord = selectedWord.split('').reversed.join();
       String? matchedWord;
-
       if (currentWords.contains(selectedWord)) {
         matchedWord = selectedWord;
-      } else if (currentWords.contains(reversedWord)) {
-        matchedWord = reversedWord;
+      } else {
+        String reversedWord = selectedWord.split('').reversed.join();
+        debugPrint('Reverse word attempted: $reversedWord');
+        if (currentWords.contains(reversedWord)) {
+          debugPrint('Reverse word $reversedWord is in currentWords, but direction is incorrect');
+        }
       }
 
+      debugPrint('Matched word: $matchedWord');
       if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
         final path = _getHighlightedCells(start!, end!);
         setState(() {
           foundWordPaths[matchedWord!] = path;
           currentDragPath.clear();
         });
+        debugPrint('Found words: ${foundWordPaths.keys}');
+        debugPrint('Current words: $currentWords');
+        debugPrint('Found: ${foundWordPaths.length}, Expected: ${currentWords.length}');
 
         if (foundWordPaths.length == currentWords.length) {
+          debugPrint('All words found! Showing success dialog.');
           timer?.cancel();
+          final newMaxLevel = level + 1;
+          await Prefs.saveMaxLevel(gridSize, newMaxLevel);
           showSuccessDialog();
         }
       } else {
@@ -299,7 +315,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
     final current = Offset(row.toDouble(), col.toDouble());
 
     if (currentDragPath.contains(current)) {
-      return Colors.yellow.withOpacity(0.5);
+      return Colors.yellow.withValues(alpha: 0.5);
     }
 
     int index = 0;
@@ -313,60 +329,245 @@ class _WordSearchPageState extends State<WordSearchPage> {
   }
 
   void showSuccessDialog() {
+    _animationController.forward(from: 0); // Reset and play animation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => ScaleTransition(
+          scale: _scaleAnimation,
+          child: AlertDialog(
+            backgroundColor: Colors.transparent, // Transparent to use custom container
+            elevation: 0,
+            contentPadding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.0),
+            ),
+            content: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFDAAB5C), // Primary color
+                    const Color(0xFFB38F4A), // Slightly darker shade
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20.0),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10.0,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(
+                  color: const Color(0xFF7A5821), // Secondary color
+                  width: 2.0,
+                ),
+              ),
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Puzzle piece icon or text decoration
+
+                  Text(
+                    'Level Complete!',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontFamily: 'Georgia',
+                      shadows: [
+                        Shadow(
+                          color: const Color(0xFF7A5821).withValues(alpha: 0.5),
+                          offset: const Offset(2, 2),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height:5),
+                  Icon(
+                    Icons.star, // Star icon for success
+                    color: const Color(0xFF7A5821),
+                    size: 40,
+                  ),
+
+                  const SizedBox(height: 16),
+                  Text(
+                    'You solved Level $level of the Word Puzzle!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildDialogButton(
+                        text: 'Back to Levels',
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.pop(context, level + 1);
+                        },
+                      ),
+                      _buildDialogButton(
+                        text: 'Next Level',
+                        onPressed: () {
+                          Navigator.pop(context);
+                          setState(() {
+                            level++;
+                            startLevel();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  void showGameOverDialog() {
+    _animationController.forward(from: 0); // Reset and play animation
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Level Complete!'),
-        content: Text('You’ve completed Level $level!'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context, level + 1);
-            },
-            child: const Text('Back to Levels'),
+      builder: (context) => ScaleTransition(
+        scale: _scaleAnimation,
+        child: AlertDialog(
+          backgroundColor: Colors.transparent, // Transparent to use custom container
+          elevation: 0,
+          contentPadding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() {
-                level++;
-                startLevel();
-              });
-            },
-            child: const Text('Next Level'),
+          content: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFDAAB5C), // Primary color
+                  const Color(0xFFB38F4A), // Slightly darker shade
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10.0,
+                  offset: Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color: const Color(0xFF7A5821), // Secondary color
+                width: 2.0,
+              ),
+            ),
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Puzzle piece icon or text decoration
+
+                Text(
+                  'Time’s Up!',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontFamily: 'Georgia',
+                    shadows: [
+                      Shadow(
+                        color: const Color(0xFF7A5821).withValues(alpha: 0.5),
+                        offset: const Offset(2, 2),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height:5),
+                Icon(
+                  Icons.extension, // Puzzle piece icon
+                  color: const Color(0xFF7A5821),
+                  size: 40,
+                ),
+
+                const SizedBox(height: 16),
+                Text(
+                  'You reached Level $level in the Word Puzzle!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontFamily: 'Courier',
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildDialogButton(
+                      text: 'Back to Levels',
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                      },
+                    ),
+                    _buildDialogButton(
+                      text: 'Retry Puzzle',
+                      onPressed: () {
+                        Navigator.pop(context);
+                        setState(() {
+                          startLevel();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  void showGameOverDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Time Up!'),
-        content: Text('You reached level $level.'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text('Back to Levels'),
+  Widget _buildDialogButton({required String text, required VoidCallback onPressed}) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF7A5821), // Secondary color
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontFamily: 'Georgia',
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() {
-                startLevel();
-              });
-            },
-            child: const Text('Retry'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -374,12 +575,13 @@ class _WordSearchPageState extends State<WordSearchPage> {
   @override
   void dispose() {
     timer?.cancel();
+    _animationController.dispose(); // Dispose animation controller
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final containerWidth = 360;
+    final containerWidth = 384;
     final gridPadding = 16;
     final availableGridWidth = containerWidth - gridPadding;
     final cellSize = availableGridWidth / gridSize;
@@ -400,19 +602,20 @@ class _WordSearchPageState extends State<WordSearchPage> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white, size: 24),
-          onPressed: () => Navigator.pop(context),
+          // onPressed: () => Navigator.pop(context),
+          onPressed: () =>  Navigator.pop(context, level),
         ),
       ),
       body: Center(
         child: Container(
           width: 360,
-          height: 640,
+          height: double.infinity,
           color: const Color(0xFFDAAB5C),
           child: SafeArea(
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  SizedBox(height: 20),
+                  SizedBox(height: 70),
                   Center(
                     child: GestureDetector(
                       onPanStart: (details) => handleDragStart(details, cellSize),
@@ -464,7 +667,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 20 * fontSizeFactor),
+                  SizedBox(height: 40),
                   Text(
                     'Find the Words:',
                     style: TextStyle(
@@ -496,7 +699,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
                             boxShadow: [
                               if (found)
                                 BoxShadow(
-                                  color: Colors.green.shade900.withOpacity(0.3),
+                                  color: Colors.green.shade900.withValues(alpha: 0.3),
                                   offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
                                   blurRadius: 2 * fontSizeFactor,
                                 ),
@@ -525,6 +728,1488 @@ class _WordSearchPageState extends State<WordSearchPage> {
     );
   }
 }
+
+
+
+
+// import 'dart:async';
+// import 'dart:math';
+// import 'package:flutter/material.dart';
+// import '../db/prefs.dart';
+//
+// class WordSearchPage extends StatefulWidget {
+//   final int initialLevel;
+//   final int gridSize;
+//   const WordSearchPage({super.key, required this.initialLevel, required this.gridSize});
+//
+//   @override
+//   _WordSearchPageState createState() => _WordSearchPageState();
+// }
+//
+// class _WordSearchPageState extends State<WordSearchPage> with SingleTickerProviderStateMixin {
+//   late int level;
+//   int timeLeft = 90;
+//   Timer? timer;
+//   late int gridSize;
+//   late AnimationController _animationController; // For dialog animation
+//   late Animation<double> _scaleAnimation; // Scale animation for dialog
+//   final Map<String, List<String>> wordBank = {
+//     'tech': [
+//       'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE', 'GAME', 'LEVEL', 'TIMER',
+//       'BONUS', 'SOFTWARE', 'MOBILE', 'WIDGET', 'MATERIAL', 'ALGORITHM', 'DEBUG',
+//       'TEST', 'DATABASE', 'SERVER', 'CLOUD', 'API', 'FRAMEWORK', 'REACT', 'VUE',
+//       'ANGULAR', 'NODE', 'PYTHON', 'JAVA', 'KOTLIN', 'SWIFT', 'RUBY'
+//     ],
+//     'nature': [
+//       'FOREST', 'RIVER', 'MOUNTAIN', 'OCEAN', 'DESERT', 'VALLEY', 'CANYON',
+//       'LAKE', 'TREE', 'FLOWER', 'GRASS', 'SKY', 'CLOUD', 'SUNSET', 'MOON',
+//       'STAR', 'WIND', 'RAIN', 'SNOW', 'FOG', 'BEACH', 'ISLAND', 'REEF', 'CAVE',
+//       'GLACIER', 'MEADOW', 'HILL', 'STREAM', 'POND', 'BAY'
+//     ],
+//     'general': [
+//       'CHALLENGE', 'LOGIC', 'SOLVE', 'FUN', 'ADVENTURE', 'MYSTERY', 'QUEST',
+//       'JOURNEY', 'TRAVEL', 'DREAM', 'HOPE', 'PEACE', 'LOVE', 'JOY', 'SMILE',
+//       'FRIEND', 'FAMILY', 'HOME', 'CITY', 'VILLAGE', 'SCHOOL', 'BOOK', 'MUSIC',
+//       'ART', 'SPORT', 'HEALTH', 'FOOD', 'DRINK', 'TIME', 'WORK'
+//     ],
+//   };
+//
+//   List<Offset> currentDragPath = [];
+//   late List<String> currentWords;
+//   late List<List<String>> grid;
+//   Offset? start;
+//   Offset? end;
+//   final Map<String, List<Offset>> foundWordPaths = {};
+//   final List<Color> highlightColors = [
+//     Colors.orange.shade300,
+//     Colors.teal.shade300,
+//     Colors.purple.shade300,
+//     Colors.blue.shade300,
+//     Colors.pink.shade300,
+//     Colors.green.shade300,
+//     Colors.red.shade300,
+//     Colors.amber.shade300,
+//     Colors.cyan.shade300,
+//     Colors.indigo.shade300,
+//   ];
+//   final Random random = Random();
+//   List<String> usedWords = [];
+//
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     level = widget.initialLevel;
+//     gridSize = widget.gridSize;
+//     // Initialize animation controller
+//     _animationController = AnimationController(
+//       vsync: this,
+//       duration: const Duration(milliseconds: 300),
+//     );
+//     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+//       CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
+//     );
+//     startLevel();
+//     _animationController.forward(); // Start animation
+//   }
+//
+//   void startLevel() {
+//     try {
+//       currentWords = _generateDynamicWords();
+//       grid = generateGridWithWords(currentWords);
+//       timeLeft = 90;
+//       foundWordPaths.clear();
+//       currentDragPath.clear();
+//       start = end = null;
+//       startTimer();
+//     } catch (e) {
+//       showGameOverDialog();
+//     }
+//   }
+//
+//   List<String> _generateDynamicWords() {
+//     List<String> availableWords = wordBank.values.expand((words) => words).toList();
+//     availableWords.removeWhere((word) => usedWords.contains(word));
+//
+//     if (availableWords.length < 5 + level) {
+//       usedWords.clear();
+//       availableWords = wordBank.values.expand((words) => words).toList();
+//     }
+//
+//     availableWords.shuffle(random);
+//     List<String> selectedWords = availableWords.take(5 + level).toList();
+//     usedWords.addAll(selectedWords);
+//
+//     return selectedWords
+//         .where((word) => word.length <= gridSize)
+//         .map((word) => word.toUpperCase())
+//         .toList();
+//   }
+//
+//   void startTimer() {
+//     timer?.cancel();
+//     timer = Timer.periodic(const Duration(seconds: 1), (t) {
+//       setState(() {
+//         timeLeft--;
+//         if (timeLeft <= 0) {
+//           t.cancel();
+//           showGameOverDialog();
+//         }
+//       });
+//     });
+//   }
+//
+//   List<List<String>> generateGridWithWords(List<String> words) {
+//     List<List<String>> grid;
+//     bool success;
+//     int attempts = 0;
+//
+//     do {
+//       success = true;
+//       grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
+//       final directions = [
+//         [0, 1], [1, 0], [1, 1], [-1, 1],
+//         [0, -1], [-1, 0], [-1, -1], [1, -1]
+//       ];
+//
+//       for (String word in words) {
+//         if (!_placeWord(word, grid, directions, random)) {
+//           success = false;
+//           break;
+//         }
+//       }
+//       attempts++;
+//     } while (!success && attempts < 200);
+//
+//     if (!success) throw Exception("Failed to generate grid");
+//
+//     for (int r = 0; r < gridSize; r++) {
+//       for (int c = 0; c < gridSize; c++) {
+//         if (grid[r][c] == '') {
+//           grid[r][c] = String.fromCharCode(65 + random.nextInt(26));
+//         }
+//       }
+//     }
+//
+//     return grid;
+//   }
+//
+//   bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
+//     for (int attempt = 0; attempt < 200; attempt++) {
+//       final dir = directions[random.nextInt(directions.length)];
+//       final dx = dir[0], dy = dir[1];
+//
+//       int maxRow = gridSize - (dx.abs() * (word.length - 1));
+//       int maxCol = gridSize - (dy.abs() * (word.length - 1));
+//       if (maxRow <= 0 || maxCol <= 0) continue;
+//
+//       int row = dx < 0 ? random.nextInt(maxRow) + (gridSize - maxRow) : random.nextInt(maxRow);
+//       int col = dy < 0 ? random.nextInt(maxCol) + (gridSize - maxCol) : random.nextInt(maxCol);
+//
+//       bool fits = true;
+//       for (int i = 0; i < word.length; i++) {
+//         int r = row + dx * i;
+//         int c = col + dy * i;
+//         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
+//             (grid[r][c] != '' && grid[r][c] != word[i])) {
+//           fits = false;
+//           break;
+//         }
+//       }
+//
+//       if (fits) {
+//         for (int i = 0; i < word.length; i++) {
+//           int r = row + dx * i;
+//           int c = col + dy * i;
+//           grid[r][c] = word[i];
+//         }
+//         return true;
+//       }
+//     }
+//     return false;
+//   }
+//
+//   bool _isValidDirection(Offset a, Offset b) {
+//     int dx = (b.dx - a.dx).round().abs();
+//     int dy = (b.dy - a.dy).round().abs();
+//     return dx == 0 || dy == 0 || dx == dy;
+//   }
+//
+//   void handleDragStart(DragStartDetails details, double cellSize) {
+//     final position = details.localPosition;
+//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
+//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
+//     start = Offset(row.toDouble(), col.toDouble());
+//     setState(() {
+//       currentDragPath = [start!];
+//     });
+//   }
+//
+//   void handleDragUpdate(DragUpdateDetails details, double cellSize) {
+//     final position = details.localPosition;
+//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
+//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
+//     end = Offset(row.toDouble(), col.toDouble());
+//
+//     if (start != null && _isValidDirection(start!, end!)) {
+//       setState(() {
+//         currentDragPath = _getHighlightedCells(start!, end!);
+//       });
+//     }
+//   }
+//   Future<void> handleDragEnd() async {
+//     if (start != null && end != null && _isValidDirection(start!, end!)) {
+//       String selectedWord = _getSelectedWord(start!, end!);
+//       debugPrint('Selected word: $selectedWord');
+//       if (selectedWord.length < 3) {
+//         setState(() {
+//           currentDragPath.clear();
+//         });
+//         start = end = null;
+//         return;
+//       }
+//
+//       String reversedWord = selectedWord.split('').reversed.join();
+//       String? matchedWord;
+//
+//       if (currentWords.contains(selectedWord)) {
+//         matchedWord = selectedWord;
+//       } else if (currentWords.contains(reversedWord)) {
+//         matchedWord = reversedWord;
+//       }
+//
+//       debugPrint('Matched word: $matchedWord');
+//       if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
+//         final path = _getHighlightedCells(start!, end!);
+//         setState(() {
+//           foundWordPaths[matchedWord!] = path;
+//           currentDragPath.clear();
+//         });
+//         debugPrint('Found words: ${foundWordPaths.keys}');
+//         debugPrint('Current words: $currentWords');
+//         debugPrint('Found: ${foundWordPaths.length}, Expected: ${currentWords.length}');
+//
+//         if (foundWordPaths.length == currentWords.length) {
+//           debugPrint('All words found! Showing success dialog.');
+//           timer?.cancel();
+//           final newMaxLevel = level + 1;
+//           await Prefs.saveMaxLevel(gridSize, newMaxLevel);
+//           showSuccessDialog();
+//         }
+//       } else {
+//         setState(() {
+//           currentDragPath.clear();
+//         });
+//       }
+//     } else {
+//       setState(() {
+//         currentDragPath.clear();
+//       });
+//     }
+//     start = end = null;
+//   }
+//
+//   String _getSelectedWord(Offset a, Offset b) {
+//     final dx = (b.dx - a.dx).round();
+//     final dy = (b.dy - a.dy).round();
+//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
+//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
+//     int x = a.dx.round(), y = a.dy.round();
+//     String word = '';
+//
+//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
+//       word += grid[x][y];
+//       if (x == b.dx.round() && y == b.dy.round()) break;
+//       x += stepX;
+//       y += stepY;
+//     }
+//     return word;
+//   }
+//
+//   List<Offset> _getHighlightedCells(Offset a, Offset b) {
+//     final List<Offset> cells = [];
+//     final dx = (b.dx - a.dx).round();
+//     final dy = (b.dy - a.dy).round();
+//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
+//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
+//     int x = a.dx.round(), y = a.dy.round();
+//
+//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
+//       cells.add(Offset(x.toDouble(), y.toDouble()));
+//       if (x == b.dx.round() && y == b.dy.round()) break;
+//       x += stepX;
+//       y += stepY;
+//     }
+//     return cells;
+//   }
+//
+//   Color? getCellColor(int row, int col) {
+//     final current = Offset(row.toDouble(), col.toDouble());
+//
+//     if (currentDragPath.contains(current)) {
+//       return Colors.yellow.withValues(alpha: 0.5);
+//     }
+//
+//     int index = 0;
+//     for (var entry in foundWordPaths.entries) {
+//       if (entry.value.contains(current)) {
+//         return highlightColors[index % highlightColors.length];
+//       }
+//       index++;
+//     }
+//     return null;
+//   }
+//
+//   void showSuccessDialog() {
+//     _animationController.forward(from: 0); // Reset and play animation
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       showDialog(
+//         context: context,
+//         barrierDismissible: false,
+//         builder: (context) => ScaleTransition(
+//           scale: _scaleAnimation,
+//           child: AlertDialog(
+//             backgroundColor: Colors.transparent, // Transparent to use custom container
+//             elevation: 0,
+//             contentPadding: EdgeInsets.zero,
+//             shape: RoundedRectangleBorder(
+//               borderRadius: BorderRadius.circular(20.0),
+//             ),
+//             content: Container(
+//               decoration: BoxDecoration(
+//                 gradient: LinearGradient(
+//                   colors: [
+//                     const Color(0xFFDAAB5C), // Primary color
+//                     const Color(0xFFB38F4A), // Slightly darker shade
+//                   ],
+//                   begin: Alignment.topLeft,
+//                   end: Alignment.bottomRight,
+//                 ),
+//                 borderRadius: BorderRadius.circular(20.0),
+//                 boxShadow: const [
+//                   BoxShadow(
+//                     color: Colors.black26,
+//                     blurRadius: 10.0,
+//                     offset: Offset(0, 4),
+//                   ),
+//                 ],
+//                 border: Border.all(
+//                   color: const Color(0xFF7A5821), // Secondary color
+//                   width: 2.0,
+//                 ),
+//               ),
+//               padding: const EdgeInsets.all(20.0),
+//               child: Column(
+//                 mainAxisSize: MainAxisSize.min,
+//                 children: [
+//                   // Puzzle piece icon or text decoration
+//
+//                       Text(
+//                         'Level Complete!',
+//                         style: TextStyle(
+//                           fontSize: 28,
+//                           fontWeight: FontWeight.bold,
+//                           color: Colors.white,
+//                           fontFamily: 'Georgia',
+//                           shadows: [
+//                             Shadow(
+//                               color: const Color(0xFF7A5821).withValues(alpha: 0.5),
+//                               offset: const Offset(2, 2),
+//                               blurRadius: 4,
+//                             ),
+//                           ],
+//                         ),
+//                       ),
+//
+//                     Icon(
+//                           Icons.star, // Star icon for success
+//                           color: const Color(0xFF7A5821),
+//                           size: 40,
+//                         ),
+//
+//                   const SizedBox(height: 5),
+//                   Text(
+//                     'You solved Level $level of the Word Puzzle!',
+//                     textAlign: TextAlign.center,
+//                     style: TextStyle(
+//                       fontSize: 18,
+//                       color: Colors.white.withValues(alpha: 0.9),
+//                       fontFamily: 'Courier',
+//                     ),
+//                   ),
+//                   const SizedBox(height: 24),
+//                   Row(
+//                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+//                     children: [
+//                       _buildDialogButton(
+//                         text: 'Back to Levels',
+//                         onPressed: () {
+//                           Navigator.pop(context);
+//                           Navigator.pop(context, level + 1);
+//                         },
+//                       ),
+//                       _buildDialogButton(
+//                         text: 'Next Level',
+//                         onPressed: () {
+//                           Navigator.pop(context);
+//                           setState(() {
+//                             level++;
+//                             startLevel();
+//                           });
+//                         },
+//                       ),
+//                     ],
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+//         ),
+//       );
+//     });
+//   }
+//
+//   void showGameOverDialog() {
+//     _animationController.forward(from: 0); // Reset and play animation
+//     showDialog(
+//       context: context,
+//       barrierDismissible: false,
+//       builder: (context) => ScaleTransition(
+//         scale: _scaleAnimation,
+//         child: AlertDialog(
+//           backgroundColor: Colors.transparent, // Transparent to use custom container
+//           elevation: 0,
+//           contentPadding: EdgeInsets.zero,
+//           shape: RoundedRectangleBorder(
+//             borderRadius: BorderRadius.circular(20.0),
+//           ),
+//           content: Container(
+//             decoration: BoxDecoration(
+//               gradient: LinearGradient(
+//                 colors: [
+//                   const Color(0xFFDAAB5C), // Primary color
+//                   const Color(0xFFB38F4A), // Slightly darker shade
+//                 ],
+//                 begin: Alignment.topLeft,
+//                 end: Alignment.bottomRight,
+//               ),
+//               borderRadius: BorderRadius.circular(20.0),
+//               boxShadow: const [
+//                 BoxShadow(
+//                   color: Colors.black26,
+//                   blurRadius: 10.0,
+//                   offset: Offset(0, 4),
+//                 ),
+//               ],
+//               border: Border.all(
+//                 color: const Color(0xFF7A5821), // Secondary color
+//                 width: 2.0,
+//               ),
+//             ),
+//             padding: const EdgeInsets.all(20.0),
+//             child: Column(
+//               mainAxisSize: MainAxisSize.min,
+//               children: [
+//                 // Puzzle piece icon or text decoration
+//
+//                     Text(
+//                       'Time’s Up!',
+//                       style: TextStyle(
+//                         fontSize: 28,
+//                         fontWeight: FontWeight.bold,
+//                         color: Colors.white,
+//                         fontFamily: 'Georgia',
+//                         shadows: [
+//                           Shadow(
+//                             color: const Color(0xFF7A5821).withValues(alpha: 0.5),
+//                             offset: const Offset(2, 2),
+//                             blurRadius: 4,
+//                           ),
+//                         ],
+//                       ),
+//                     ),
+//                      Icon(
+//                         Icons.extension, // Puzzle piece icon
+//                         color: const Color(0xFF7A5821),
+//                         size: 40,
+//                       ),
+//
+//                 const SizedBox(height: 16),
+//                 Text(
+//                   'You reached Level $level in the Word Puzzle!',
+//                   textAlign: TextAlign.center,
+//                   style: TextStyle(
+//                     fontSize: 18,
+//                     color: Colors.white.withValues(alpha: 0.9),
+//                     fontFamily: 'Courier',
+//                   ),
+//                 ),
+//                 const SizedBox(height: 24),
+//                 Row(
+//                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+//                   children: [
+//                     _buildDialogButton(
+//                       text: 'Back to Levels',
+//                       onPressed: () {
+//                         Navigator.pop(context);
+//                         Navigator.pop(context);
+//                       },
+//                     ),
+//                     _buildDialogButton(
+//                       text: 'Retry Puzzle',
+//                       onPressed: () {
+//                         Navigator.pop(context);
+//                         setState(() {
+//                           startLevel();
+//                         });
+//                       },
+//                     ),
+//                   ],
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildDialogButton({required String text, required VoidCallback onPressed}) {
+//     return GestureDetector(
+//       onTap: onPressed,
+//       child: Container(
+//         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+//         decoration: BoxDecoration(
+//           color: const Color(0xFF7A5821), // Secondary color
+//           borderRadius: BorderRadius.circular(12),
+//           boxShadow: const [
+//             BoxShadow(
+//               color: Colors.black26,
+//               blurRadius: 6,
+//               offset: Offset(0, 2),
+//             ),
+//           ],
+//         ),
+//         child: Text(
+//           text,
+//           style: const TextStyle(
+//             fontSize: 16,
+//             fontWeight: FontWeight.bold,
+//             color: Colors.white,
+//             fontFamily: 'Georgia',
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//
+//   @override
+//   void dispose() {
+//     timer?.cancel();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final containerWidth = 384;
+//     final gridPadding = 16;
+//     final availableGridWidth = containerWidth - gridPadding;
+//     final cellSize = availableGridWidth / gridSize;
+//     final fontSizeFactor = 1.0;
+//
+//     return Scaffold(
+//       backgroundColor: const Color(0xFFDAAB5C),
+//       appBar: AppBar(
+//         backgroundColor: const Color(0xFF7A5821),
+//         title: Text(
+//           "Level $level — ⏱ $timeLeft",
+//           style: TextStyle(
+//             color: Colors.white,
+//             fontWeight: FontWeight.bold,
+//             fontSize: 18,
+//           ),
+//         ),
+//         centerTitle: true,
+//         leading: IconButton(
+//           icon: Icon(Icons.arrow_back, color: Colors.white, size: 24),
+//           onPressed: () => Navigator.pop(context),
+//         ),
+//       ),
+//       body: Center(
+//         child: Container(
+//           width: 360,
+//           height: double.infinity,
+//           color: const Color(0xFFDAAB5C),
+//           child: SafeArea(
+//             child: SingleChildScrollView(
+//               child: Column(
+//                 // crossAxisAlignment: CrossAxisAlignment.end,
+//                 // mainAxisAlignment: MainAxisAlignment.center,
+//                 children: [
+//                   SizedBox(height: 70),
+//                   Center(
+//                     child: GestureDetector(
+//                       onPanStart: (details) => handleDragStart(details, cellSize),
+//                       onPanUpdate: (details) => handleDragUpdate(details, cellSize),
+//                       onPanEnd: (_) => handleDragEnd(),
+//                       child: Container(
+//                         width: cellSize * gridSize,
+//                         height: cellSize * gridSize,
+//                         padding: EdgeInsets.all(8),
+//                         child: GridView.builder(
+//                           physics: const NeverScrollableScrollPhysics(),
+//                           itemCount: gridSize * gridSize,
+//                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+//                             crossAxisCount: gridSize,
+//                             mainAxisSpacing: 4,
+//                             crossAxisSpacing: 4,
+//                           ),
+//                           itemBuilder: (context, index) {
+//                             final row = index ~/ gridSize;
+//                             final col = index % gridSize;
+//                             final color = getCellColor(row, col);
+//
+//                             return Container(
+//                               decoration: BoxDecoration(
+//                                 color: color ?? const Color(0xFFFFF8E1),
+//                                 borderRadius: BorderRadius.circular(8 * fontSizeFactor),
+//                                 border: Border.all(color: const Color(0xFF7A5821), width: 1),
+//                                 boxShadow: [
+//                                   BoxShadow(
+//                                     color: Colors.black12,
+//                                     blurRadius: 2 * fontSizeFactor,
+//                                     offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
+//                                   ),
+//                                 ],
+//                               ),
+//                               alignment: Alignment.center,
+//                               child: Text(
+//                                 grid[row][col],
+//                                 style: TextStyle(
+//                                   fontSize: 20,
+//                                   fontWeight: FontWeight.bold,
+//                                   fontFamily: 'Courier',
+//                                   color: color != null ? Colors.white : const Color(0xFF7A5821),
+//                                 ),
+//                               ),
+//                             );
+//                           },
+//                         ),
+//                       ),
+//                     ),
+//                   ),
+//                   SizedBox(height: 40),
+//                   Text(
+//                     'Find the Words:',
+//                     style: TextStyle(
+//                       fontSize: 20 * fontSizeFactor,
+//                       fontWeight: FontWeight.bold,
+//                       color: const Color(0xFF7A5821),
+//                     ),
+//                   ),
+//                   SizedBox(height: 10 * fontSizeFactor),
+//                   Padding(
+//                     padding: EdgeInsets.symmetric(horizontal: 16 * fontSizeFactor),
+//                     child: Wrap(
+//                       spacing: 8 * fontSizeFactor,
+//                       runSpacing: 8 * fontSizeFactor,
+//                       children: currentWords.map((word) {
+//                         final found = foundWordPaths.containsKey(word);
+//                         return Container(
+//                           padding: EdgeInsets.symmetric(
+//                             horizontal: 10 * fontSizeFactor,
+//                             vertical: 5 * fontSizeFactor,
+//                           ),
+//                           decoration: BoxDecoration(
+//                             color: found ? Colors.green.shade300 : Colors.white,
+//                             borderRadius: BorderRadius.circular(8 * fontSizeFactor),
+//                             border: Border.all(
+//                               color: const Color(0xFF7A5821),
+//                               width: 1 * fontSizeFactor,
+//                             ),
+//                             boxShadow: [
+//                               if (found)
+//                                 BoxShadow(
+//                                   color: Colors.green.shade900.withValues(alpha: 0.3),
+//                                   offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
+//                                   blurRadius: 2 * fontSizeFactor,
+//                                 ),
+//                             ],
+//                           ),
+//                           child: Text(
+//                             word,
+//                             style: TextStyle(
+//                               fontSize: 16 * fontSizeFactor,
+//                               fontWeight: FontWeight.w600,
+//                               color: found ? Colors.white : const Color(0xFF7A5821),
+//                               decoration: found ? TextDecoration.lineThrough : null,
+//                             ),
+//                           ),
+//                         );
+//                       }).toList(),
+//                     ),
+//                   ),
+//                   SizedBox(height: 20 * fontSizeFactor),
+//                 ],
+//               ),
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+
+
+
+
+
+
+// import 'dart:async';
+// import 'dart:math';
+// import 'package:flutter/material.dart';
+//
+// import '../db/prefs.dart';
+//
+// void main() {
+//   runApp(const MaterialApp(
+//     home: WordSearchPage(initialLevel: 1, gridSize: 6),
+//   ));
+// }
+//
+// class WordSearchPage extends StatefulWidget {
+//   final int initialLevel;
+//   final int gridSize;
+//   const WordSearchPage({super.key, required this.initialLevel, required this.gridSize});
+//
+//   @override
+//   _WordSearchPageState createState() => _WordSearchPageState();
+// }
+//
+// class _WordSearchPageState extends State<WordSearchPage> {
+//   late int level;
+//   int timeLeft = 90;
+//   Timer? timer;
+//   late int gridSize;
+//   final Map<String, List<String>> wordBank = {
+//     'tech': [
+//       'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE', 'GAME', 'LEVEL', 'TIMER',
+//       'BONUS', 'SOFTWARE', 'MOBILE', 'WIDGET', 'MATERIAL', 'ALGORITHM', 'DEBUG',
+//       'TEST', 'DATABASE', 'SERVER', 'CLOUD', 'API', 'FRAMEWORK', 'REACT', 'VUE',
+//       'ANGULAR', 'NODE', 'PYTHON', 'JAVA', 'KOTLIN', 'SWIFT', 'RUBY'
+//     ],
+//     'nature': [
+//       'FOREST', 'RIVER', 'MOUNTAIN', 'OCEAN', 'DESERT', 'VALLEY', 'CANYON',
+//       'LAKE', 'TREE', 'FLOWER', 'GRASS', 'SKY', 'CLOUD', 'SUNSET', 'MOON',
+//       'STAR', 'WIND', 'RAIN', 'SNOW', 'FOG', 'BEACH', 'ISLAND', 'REEF', 'CAVE',
+//       'GLACIER', 'MEADOW', 'HILL', 'STREAM', 'POND', 'BAY'
+//     ],
+//     'general': [
+//       'CHALLENGE', 'LOGIC', 'SOLVE', 'FUN', 'ADVENTURE', 'MYSTERY', 'QUEST',
+//       'JOURNEY', 'TRAVEL', 'DREAM', 'HOPE', 'PEACE', 'LOVE', 'JOY', 'SMILE',
+//       'FRIEND', 'FAMILY', 'HOME', 'CITY', 'VILLAGE', 'SCHOOL', 'BOOK', 'MUSIC',
+//       'ART', 'SPORT', 'HEALTH', 'FOOD', 'DRINK', 'TIME', 'WORK'
+//     ],
+//   };
+//
+//   List<Offset> currentDragPath = [];
+//   late List<String> currentWords;
+//   late List<List<String>> grid;
+//   Offset? start;
+//   Offset? end;
+//   final Map<String, List<Offset>> foundWordPaths = {};
+//   final List<Color> highlightColors = [
+//     Colors.orange.shade300,
+//     Colors.teal.shade300,
+//     Colors.purple.shade300,
+//     Colors.blue.shade300,
+//     Colors.pink.shade300,
+//     Colors.green.shade300,
+//     Colors.red.shade300,
+//     Colors.amber.shade300,
+//     Colors.cyan.shade300,
+//     Colors.indigo.shade300,
+//   ];
+//   final Random random = Random();
+//   List<String> usedWords = [];
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     level = widget.initialLevel;
+//     gridSize = widget.gridSize;
+//     startLevel();
+//   }
+//
+//   void startLevel() {
+//     try {
+//       currentWords = _generateDynamicWords();
+//       grid = generateGridWithWords(currentWords);
+//       timeLeft = 90;
+//       foundWordPaths.clear();
+//       currentDragPath.clear();
+//       start = end = null;
+//       startTimer();
+//     } catch (e) {
+//       showGameOverDialog();
+//     }
+//   }
+//
+//   List<String> _generateDynamicWords() {
+//     List<String> availableWords = wordBank.values.expand((words) => words).toList();
+//     availableWords.removeWhere((word) => usedWords.contains(word));
+//
+//     if (availableWords.length < 5 + level) {
+//       usedWords.clear();
+//       availableWords = wordBank.values.expand((words) => words).toList();
+//     }
+//
+//     availableWords.shuffle(random);
+//     List<String> selectedWords = availableWords.take(5 + level).toList();
+//     usedWords.addAll(selectedWords);
+//
+//     return selectedWords
+//         .where((word) => word.length <= gridSize)
+//         .map((word) => word.toUpperCase())
+//         .toList();
+//   }
+//
+//   void startTimer() {
+//     timer?.cancel();
+//     timer = Timer.periodic(const Duration(seconds: 1), (t) {
+//       setState(() {
+//         timeLeft--;
+//         if (timeLeft <= 0) {
+//           t.cancel();
+//           showGameOverDialog();
+//         }
+//       });
+//     });
+//   }
+//
+//   List<List<String>> generateGridWithWords(List<String> words) {
+//     List<List<String>> grid;
+//     bool success;
+//     int attempts = 0;
+//
+//     do {
+//       success = true;
+//       grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
+//       final directions = [
+//         [0, 1], [1, 0], [1, 1], [-1, 1],
+//         [0, -1], [-1, 0], [-1, -1], [1, -1]
+//       ];
+//
+//       for (String word in words) {
+//         if (!_placeWord(word, grid, directions, random)) {
+//           success = false;
+//           break;
+//         }
+//       }
+//       attempts++;
+//     } while (!success && attempts < 200);
+//
+//     if (!success) throw Exception("Failed to generate grid");
+//
+//     for (int r = 0; r < gridSize; r++) {
+//       for (int c = 0; c < gridSize; c++) {
+//         if (grid[r][c] == '') {
+//           grid[r][c] = String.fromCharCode(65 + random.nextInt(26));
+//         }
+//       }
+//     }
+//
+//     return grid;
+//   }
+//
+//   bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
+//     for (int attempt = 0; attempt < 200; attempt++) {
+//       final dir = directions[random.nextInt(directions.length)];
+//       final dx = dir[0], dy = dir[1];
+//
+//       int maxRow = gridSize - (dx.abs() * (word.length - 1));
+//       int maxCol = gridSize - (dy.abs() * (word.length - 1));
+//       if (maxRow <= 0 || maxCol <= 0) continue;
+//
+//       int row = dx < 0 ? random.nextInt(maxRow) + (gridSize - maxRow) : random.nextInt(maxRow);
+//       int col = dy < 0 ? random.nextInt(maxCol) + (gridSize - maxCol) : random.nextInt(maxCol);
+//
+//       bool fits = true;
+//       for (int i = 0; i < word.length; i++) {
+//         int r = row + dx * i;
+//         int c = col + dy * i;
+//         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
+//             (grid[r][c] != '' && grid[r][c] != word[i])) {
+//           fits = false;
+//           break;
+//         }
+//       }
+//
+//       if (fits) {
+//         for (int i = 0; i < word.length; i++) {
+//           int r = row + dx * i;
+//           int c = col + dy * i;
+//           grid[r][c] = word[i];
+//         }
+//         return true;
+//       }
+//     }
+//     return false;
+//   }
+//
+//   bool _isValidDirection(Offset a, Offset b) {
+//     int dx = (b.dx - a.dx).round().abs();
+//     int dy = (b.dy - a.dy).round().abs();
+//     return dx == 0 || dy == 0 || dx == dy;
+//   }
+//
+//   void handleDragStart(DragStartDetails details, double cellSize) {
+//     final position = details.localPosition;
+//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
+//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
+//     start = Offset(row.toDouble(), col.toDouble());
+//     setState(() {
+//       currentDragPath = [start!];
+//     });
+//   }
+//
+//   void handleDragUpdate(DragUpdateDetails details, double cellSize) {
+//     final position = details.localPosition;
+//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
+//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
+//     end = Offset(row.toDouble(), col.toDouble());
+//
+//     if (start != null && _isValidDirection(start!, end!)) {
+//       setState(() {
+//         currentDragPath = _getHighlightedCells(start!, end!);
+//       });
+//     }
+//   }
+//
+//   // Future<void> handleDragEnd() async {
+//   //   if (start != null && end != null && _isValidDirection(start!, end!)) {
+//   //     String selectedWord = _getSelectedWord(start!, end!);
+//   //     if (selectedWord.length < 3) {
+//   //       setState(() {
+//   //         currentDragPath.clear();
+//   //       });
+//   //       start = end = null;
+//   //       return;
+//   //     }
+//   //
+//   //     String reversedWord = selectedWord.split('').reversed.join();
+//   //     String? matchedWord;
+//   //
+//   //     if (currentWords.contains(selectedWord)) {
+//   //       matchedWord = selectedWord;
+//   //     } else if (currentWords.contains(reversedWord)) {
+//   //       matchedWord = reversedWord;
+//   //     }
+//   //
+//   //     if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
+//   //       final path = _getHighlightedCells(start!, end!);
+//   //       setState(() {
+//   //         foundWordPaths[matchedWord!] = path;
+//   //         currentDragPath.clear();
+//   //       });
+//   //
+//   //       if (foundWordPaths.length == currentWords.length) {
+//   //         timer?.cancel();
+//   //         final newMaxLevel = level + 1;
+//   //         await Prefs.saveMaxLevel(gridSize, newMaxLevel);
+//   //         showSuccessDialog();
+//   //       }
+//   //     } else {
+//   //       setState(() {
+//   //         currentDragPath.clear();
+//   //       });
+//   //     }
+//   //   } else {
+//   //     setState(() {
+//   //       currentDragPath.clear();
+//   //     });
+//   //   }
+//   //   start = end = null;
+//   // }
+//   Future<void> handleDragEnd() async {
+//     if (start != null && end != null && _isValidDirection(start!, end!)) {
+//       String selectedWord = _getSelectedWord(start!, end!);
+//       debugPrint('Selected word: $selectedWord');
+//       if (selectedWord.length < 3) {
+//         setState(() {
+//           currentDragPath.clear();
+//         });
+//         start = end = null;
+//         return;
+//       }
+//
+//       String reversedWord = selectedWord.split('').reversed.join();
+//       String? matchedWord;
+//
+//       if (currentWords.contains(selectedWord)) {
+//         matchedWord = selectedWord;
+//       } else if (currentWords.contains(reversedWord)) {
+//         matchedWord = reversedWord;
+//       }
+//
+//       debugPrint('Matched word: $matchedWord');
+//       if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
+//         final path = _getHighlightedCells(start!, end!);
+//         setState(() {
+//           foundWordPaths[matchedWord!] = path;
+//           currentDragPath.clear();
+//         });
+//         debugPrint('Found words: ${foundWordPaths.keys}');
+//         debugPrint('Current words: $currentWords');
+//         debugPrint('Found: ${foundWordPaths.length}, Expected: ${currentWords.length}');
+//
+//         if (foundWordPaths.length == currentWords.length) {
+//           debugPrint('All words found! Showing success dialog.');
+//           timer?.cancel();
+//           final newMaxLevel = level + 1;
+//           await Prefs.saveMaxLevel(gridSize, newMaxLevel);
+//           showSuccessDialog();
+//         }
+//       } else {
+//         setState(() {
+//           currentDragPath.clear();
+//         });
+//       }
+//     } else {
+//       setState(() {
+//         currentDragPath.clear();
+//       });
+//     }
+//     start = end = null;
+//   }
+//
+//   String _getSelectedWord(Offset a, Offset b) {
+//     final dx = (b.dx - a.dx).round();
+//     final dy = (b.dy - a.dy).round();
+//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
+//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
+//     int x = a.dx.round(), y = a.dy.round();
+//     String word = '';
+//
+//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
+//       word += grid[x][y];
+//       if (x == b.dx.round() && y == b.dy.round()) break;
+//       x += stepX;
+//       y += stepY;
+//     }
+//     return word;
+//   }
+//
+//   List<Offset> _getHighlightedCells(Offset a, Offset b) {
+//     final List<Offset> cells = [];
+//     final dx = (b.dx - a.dx).round();
+//     final dy = (b.dy - a.dy).round();
+//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
+//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
+//     int x = a.dx.round(), y = a.dy.round();
+//
+//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
+//       cells.add(Offset(x.toDouble(), y.toDouble()));
+//       if (x == b.dx.round() && y == b.dy.round()) break;
+//       x += stepX;
+//       y += stepY;
+//     }
+//     return cells;
+//   }
+//
+//   Color? getCellColor(int row, int col) {
+//     final current = Offset(row.toDouble(), col.toDouble());
+//
+//     if (currentDragPath.contains(current)) {
+//       return Colors.yellow.withValues(alpha: 0.5);
+//     }
+//
+//     int index = 0;
+//     for (var entry in foundWordPaths.entries) {
+//       if (entry.value.contains(current)) {
+//         return highlightColors[index % highlightColors.length];
+//       }
+//       index++;
+//     }
+//     return null;
+//   }
+//   // void showSuccessDialog() {
+//   //   WidgetsBinding.instance.addPostFrameCallback((_) {
+//   //     showDialog(
+//   //       context: context,
+//   //       barrierDismissible: false,
+//   //       builder: (context) => AlertDialog(
+//   //         title: const Text('Level Complete!'),
+//   //         content: Text('You’ve completed Level $level!'),
+//   //         actions: [
+//   //           TextButton(
+//   //             onPressed: () {
+//   //               Navigator.pop(context);
+//   //               Navigator.pop(context, level + 1);
+//   //             },
+//   //             child: const Text('Back to Levels'),
+//   //           ),
+//   //           TextButton(
+//   //             onPressed: () {
+//   //               Navigator.pop(context);
+//   //               setState(() {
+//   //                 level++;
+//   //                 startLevel();
+//   //               });
+//   //             },
+//   //             child: const Text('Next Level'),
+//   //           ),
+//   //         ],
+//   //       ),
+//   //     );
+//   //   });
+//   // }
+//
+//
+//   void showSuccessDialog() {
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       showDialog(
+//         context: context,
+//         barrierDismissible: false,
+//         builder: (context) => AlertDialog(
+//           backgroundColor: const Color(0xFFDAAB5C), // Golden background
+//           shape: RoundedRectangleBorder(
+//             borderRadius: BorderRadius.circular(16.0),
+//           ),
+//           title: const Text(
+//             'Level Complete!',
+//             style: TextStyle(
+//               color: Colors.white,
+//               fontWeight: FontWeight.bold,
+//             ),
+//           ),
+//           content: Text(
+//             'You’ve completed Level $level!',
+//             style: TextStyle(
+//               color: Colors.white,
+//             ),
+//           ),
+//           actions: [
+//             TextButton(
+//               style: TextButton.styleFrom(
+//                 foregroundColor: Colors.white,
+//                 backgroundColor: Colors.black.withValues(alpha: 0.15),
+//                 shape: RoundedRectangleBorder(
+//                   borderRadius: BorderRadius.circular(8.0),
+//                 ),
+//               ),
+//               onPressed: () {
+//                 Navigator.pop(context);
+//                 Navigator.pop(context, level + 1);
+//               },
+//               child: const Text('Back to Levels'),
+//             ),
+//             TextButton(
+//               style: TextButton.styleFrom(
+//                 foregroundColor: Colors.white,
+//                 backgroundColor: Colors.black.withValues(alpha: 0.15),
+//                 shape: RoundedRectangleBorder(
+//                   borderRadius: BorderRadius.circular(8.0),
+//                 ),
+//               ),
+//               onPressed: () {
+//                 Navigator.pop(context);
+//                 setState(() {
+//                   level++;
+//                   startLevel();
+//                 });
+//               },
+//               child: const Text('Next Level'),
+//             ),
+//           ],
+//         ),
+//       );
+//     });
+//   }
+//
+//
+//
+//   // void showSuccessDialog() {
+//   //   showDialog(
+//   //     context: context,
+//   //     barrierDismissible: false,
+//   //     builder: (context) => AlertDialog(
+//   //       title: const Text('Level Complete!'),
+//   //       content: Text('You’ve completed Level $level!'),
+//   //       actions: [
+//   //         TextButton(
+//   //           onPressed: () {
+//   //             Navigator.pop(context);
+//   //             Navigator.pop(context, level + 1);
+//   //           },
+//   //           child: const Text('Back to Levels'),
+//   //         ),
+//   //         TextButton(
+//   //           onPressed: () {
+//   //             Navigator.pop(context);
+//   //             setState(() {
+//   //               level++;
+//   //               startLevel();
+//   //             });
+//   //           },
+//   //           child: const Text('Next Level'),
+//   //         ),
+//   //       ],
+//   //     ),
+//   //   );
+//   // }
+//
+//
+//   void showGameOverDialog() {
+//     showDialog(
+//       context: context,
+//       barrierDismissible: false,
+//       builder: (context) => AlertDialog(
+//         backgroundColor: const Color(0xFFDAAB5C), // Set background to #DAAB5C
+//         shape: RoundedRectangleBorder(
+//           borderRadius: BorderRadius.circular(16.0), // Rounded corners
+//         ),
+//         title: const Text(
+//           'Time Up!',
+//           style: TextStyle(
+//             color: Colors.white, // White title text
+//             fontWeight: FontWeight.bold,
+//           ),
+//         ),
+//         content: Text(
+//           'You reached level $level.',
+//           style: TextStyle(
+//             color: Colors.white.withValues(alpha: 0.9), // Slightly transparent white
+//           ),
+//         ),
+//         actions: [
+//           TextButton(
+//             style: TextButton.styleFrom(
+//               foregroundColor: Colors.white, // White text
+//               backgroundColor: Colors.black.withValues(alpha: 0.15), // Semi-transparent black background
+//               shape: RoundedRectangleBorder(
+//                 borderRadius: BorderRadius.circular(8.0),
+//               ),
+//             ),
+//             onPressed: () {
+//               Navigator.pop(context);
+//               Navigator.pop(context);
+//             },
+//             child: const Text('Back to Levels'),
+//           ),
+//           TextButton(
+//             style: TextButton.styleFrom(
+//               foregroundColor: Colors.white, // White text
+//               backgroundColor: Colors.black.withValues(alpha: 0.15), // Semi-transparent black background
+//               shape: RoundedRectangleBorder(
+//                 borderRadius: BorderRadius.circular(8.0),
+//               ),
+//             ),
+//             onPressed: () {
+//               Navigator.pop(context);
+//               setState(() {
+//                 startLevel();
+//               });
+//             },
+//             child: const Text('Retry'),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   // void showGameOverDialog() {
+//   //   showDialog(
+//   //     context: context,
+//   //     barrierDismissible: false,
+//   //     builder: (context) => AlertDialog(
+//   //       title: const Text('Time Up!'),
+//   //       content: Text('You reached level $level.'),
+//   //       actions: [
+//   //         TextButton(
+//   //           onPressed: () {
+//   //             Navigator.pop(context);
+//   //             Navigator.pop(context);
+//   //           },
+//   //           child: const Text('Back to Levels'),
+//   //         ),
+//   //         TextButton(
+//   //           onPressed: () {
+//   //             Navigator.pop(context);
+//   //             setState(() {
+//   //               startLevel();
+//   //             });
+//   //           },
+//   //           child: const Text('Retry'),
+//   //         ),
+//   //       ],
+//   //     ),
+//   //   );
+//   // }
+//
+//   @override
+//   void dispose() {
+//     timer?.cancel();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final containerWidth = 384;
+//     final gridPadding = 16;
+//     final availableGridWidth = containerWidth - gridPadding;
+//     final cellSize = availableGridWidth / gridSize;
+//     final fontSizeFactor = 1.0;
+//
+//     return Scaffold(
+//       backgroundColor: const Color(0xFFDAAB5C),
+//       appBar: AppBar(
+//         backgroundColor: const Color(0xFF7A5821),
+//         title: Text(
+//           "Level $level — ⏱ $timeLeft",
+//           style: TextStyle(
+//             color: Colors.white,
+//             fontWeight: FontWeight.bold,
+//             fontSize: 18,
+//           ),
+//         ),
+//         centerTitle: true,
+//         leading: IconButton(
+//           icon: Icon(Icons.arrow_back, color: Colors.white, size: 24),
+//           onPressed: () => Navigator.pop(context),
+//         ),
+//       ),
+//       body: Center(
+//         child: Container(
+//           width: 360,
+//           height: double.infinity,
+//           color: const Color(0xFFDAAB5C),
+//           child: SafeArea(
+//             child: SingleChildScrollView(
+//               child: Column(
+//                 // crossAxisAlignment: CrossAxisAlignment.end,
+//                 // mainAxisAlignment: MainAxisAlignment.center,
+//                 children: [
+//                   SizedBox(height: 70),
+//                   Center(
+//                     child: GestureDetector(
+//                       onPanStart: (details) => handleDragStart(details, cellSize),
+//                       onPanUpdate: (details) => handleDragUpdate(details, cellSize),
+//                       onPanEnd: (_) => handleDragEnd(),
+//                       child: Container(
+//                         width: cellSize * gridSize,
+//                         height: cellSize * gridSize,
+//                         padding: EdgeInsets.all(8),
+//                         child: GridView.builder(
+//                           physics: const NeverScrollableScrollPhysics(),
+//                           itemCount: gridSize * gridSize,
+//                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+//                             crossAxisCount: gridSize,
+//                             mainAxisSpacing: 4,
+//                             crossAxisSpacing: 4,
+//                           ),
+//                           itemBuilder: (context, index) {
+//                             final row = index ~/ gridSize;
+//                             final col = index % gridSize;
+//                             final color = getCellColor(row, col);
+//
+//                             return Container(
+//                               decoration: BoxDecoration(
+//                                 color: color ?? const Color(0xFFFFF8E1),
+//                                 borderRadius: BorderRadius.circular(8 * fontSizeFactor),
+//                                 border: Border.all(color: const Color(0xFF7A5821), width: 1),
+//                                 boxShadow: [
+//                                   BoxShadow(
+//                                     color: Colors.black12,
+//                                     blurRadius: 2 * fontSizeFactor,
+//                                     offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
+//                                   ),
+//                                 ],
+//                               ),
+//                               alignment: Alignment.center,
+//                               child: Text(
+//                                 grid[row][col],
+//                                 style: TextStyle(
+//                                   fontSize: 20,
+//                                   fontWeight: FontWeight.bold,
+//                                   fontFamily: 'Courier',
+//                                   color: color != null ? Colors.white : const Color(0xFF7A5821),
+//                                 ),
+//                               ),
+//                             );
+//                           },
+//                         ),
+//                       ),
+//                     ),
+//                   ),
+//                   SizedBox(height: 40),
+//                   Text(
+//                     'Find the Words:',
+//                     style: TextStyle(
+//                       fontSize: 20 * fontSizeFactor,
+//                       fontWeight: FontWeight.bold,
+//                       color: const Color(0xFF7A5821),
+//                     ),
+//                   ),
+//                   SizedBox(height: 10 * fontSizeFactor),
+//                   Padding(
+//                     padding: EdgeInsets.symmetric(horizontal: 16 * fontSizeFactor),
+//                     child: Wrap(
+//                       spacing: 8 * fontSizeFactor,
+//                       runSpacing: 8 * fontSizeFactor,
+//                       children: currentWords.map((word) {
+//                         final found = foundWordPaths.containsKey(word);
+//                         return Container(
+//                           padding: EdgeInsets.symmetric(
+//                             horizontal: 10 * fontSizeFactor,
+//                             vertical: 5 * fontSizeFactor,
+//                           ),
+//                           decoration: BoxDecoration(
+//                             color: found ? Colors.green.shade300 : Colors.white,
+//                             borderRadius: BorderRadius.circular(8 * fontSizeFactor),
+//                             border: Border.all(
+//                               color: const Color(0xFF7A5821),
+//                               width: 1 * fontSizeFactor,
+//                             ),
+//                             boxShadow: [
+//                               if (found)
+//                                 BoxShadow(
+//                                   color: Colors.green.shade900.withValues(alpha: 0.3),
+//                                   offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
+//                                   blurRadius: 2 * fontSizeFactor,
+//                                 ),
+//                             ],
+//                           ),
+//                           child: Text(
+//                             word,
+//                             style: TextStyle(
+//                               fontSize: 16 * fontSizeFactor,
+//                               fontWeight: FontWeight.w600,
+//                               color: found ? Colors.white : const Color(0xFF7A5821),
+//                               decoration: found ? TextDecoration.lineThrough : null,
+//                             ),
+//                           ),
+//                         );
+//                       }).toList(),
+//                     ),
+//                   ),
+//                   SizedBox(height: 20 * fontSizeFactor),
+//                 ],
+//               ),
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+
+
+
+
 // import 'dart:async';
 // import 'dart:math';
 // import 'package:flutter/material.dart';

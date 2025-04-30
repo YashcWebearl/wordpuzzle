@@ -37,11 +37,17 @@ class DifficultySelectPage extends StatelessWidget {
   }
 }
 
-class DifficultyButton extends StatelessWidget {
+class DifficultyButton extends StatefulWidget {
   final String title;
   final int gridSize;
 
   const DifficultyButton({super.key, required this.title, required this.gridSize});
+
+  @override
+  State<DifficultyButton> createState() => _DifficultyButtonState();
+}
+
+class _DifficultyButtonState extends State<DifficultyButton> {
 
   @override
   Widget build(BuildContext context) {
@@ -56,12 +62,12 @@ class DifficultyButton extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => LevelSelectPage(currentMaxLevel: 3, gridSize: gridSize),
+            builder: (context) => LevelSelectPage( gridSize: widget.gridSize),
           ),
         );
       },
       child: Text(
-        title,
+        widget.title,
         style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold),
       ),
     );
