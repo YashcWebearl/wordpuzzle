@@ -1,7 +1,26 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:word_puzzle/view/homepage.dart';
 
-void main() => runApp(const WordSearchApp());
+void main(){
+  FlutterError.onError = (FlutterErrorDetails details) async {
+    FlutterError.presentError(details);
+    FlutterError.dumpErrorToConsole(details);
+    print(details.exceptionAsString());
+    // await SystemChrome.setPreferredOrientations([
+    //   DeviceOrientation.portraitUp,
+    //   DeviceOrientation.portraitDown,
+    // ]);
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    print('Caught Dart Error: $error');
+    print('Stack trace: $stack');
+    return true;
+  };
+  runApp(const WordSearchApp());
+}
 
 class WordSearchApp extends StatelessWidget {
   const WordSearchApp({super.key});
