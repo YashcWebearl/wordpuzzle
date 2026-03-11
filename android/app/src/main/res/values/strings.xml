@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--    <string name="default_web_client_id">1081302925486-l5b3hab4bs6or7admprtjjt0ild3rjvc.apps.googleusercontent.com</string>-->
+<!--    <string name="default_web_client_id">803414846464-2nj6foukcak1vksj7jciv6evsouq3pa5.apps.googleusercontent.com</string>-->
+    <string name="default_web_client_id">
+  803414846464-2nj6foukcak1vksj7jciv6evsouq3pa5.apps.googleusercontent.com
+</string>
+
+</resources>

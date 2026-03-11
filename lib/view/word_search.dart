@@ -1,516 +1,534 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../db/prefs.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:word_puzzle/view/success_screen.dart';
+import 'package:word_puzzle/db/prefs.dart';
+import 'package:word_puzzle/widget/bg_container.dart';
+import 'package:word_puzzle/widget/button.dart';
+import 'package:word_puzzle/widget/coin_container.dart';
+import 'package:word_puzzle/widget/coin_service.dart';
+import 'package:word_puzzle/widget/found_word.dart';
+import 'package:word_puzzle/widget/hint_button.dart';
+import 'package:word_puzzle/widget/sound.dart';
+import 'package:word_puzzle/widget/word_highliter.dart';
+import 'package:word_puzzle/view/ad_show.dart';
 
 class WordSearchPage extends StatefulWidget {
   final int initialLevel;
   final int gridSize;
-  const WordSearchPage({super.key, required this.initialLevel, required this.gridSize});
+
+  const WordSearchPage({
+    super.key,
+    required this.initialLevel,
+    required this.gridSize,
+  });
 
   @override
   WordSearchPageState createState() => WordSearchPageState();
 }
 
-class WordSearchPageState extends State<WordSearchPage> with SingleTickerProviderStateMixin {
+class WordSearchPageState extends State<WordSearchPage>
+    with TickerProviderStateMixin {
   late int level;
-  int timeLeft = 90;
-  Timer? timer;
+  late int timeLeft;
   late int gridSize;
+  late int moveCount;
+  bool _lastSecondSoundPlayed = false;
+
+  int? maxMoves;
   late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-  bool _isDialogShowing = false; // Prevent dialog overlap
-  final Map<String, List<String>> wordBank = {
+  late AnimationController _blinkController;
+  late Animation<double> _blinkAnimation;
+  bool _isDialogShowing = false;
+  Timer? _timer;
+  Timer? _hintTimer;
+  List<Offset>? _hintedPath;
+  List<Offset> _currentDragPath = [];
+  List<String> _currentWords = [];
+  late List<List<String>> _grid;
+  Offset? _start;
+  Offset? _end;
+  final Map<String, List<Offset>> _foundWordPaths = {};
+  final Random _random = Random();
+  final List<String> _usedWords = [];
+
+  static const _wordBank = {
     'tech': [
-      'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE', 'GAME', 'LEVEL', 'TIMER',
-      'BONUS', 'SOFTWARE', 'MOBILE', 'WIDGET', 'MATERIAL', 'ALGORITHM', 'DEBUG',
-      'TEST', 'DATABASE', 'SERVER', 'CLOUD', 'API', 'FRAMEWORK', 'REACT', 'VUE',
-      'ANGULAR', 'NODE', 'PYTHON', 'JAVA', 'KOTLIN', 'SWIFT', 'RUBY'
+      'flutter',
+      'dart',
+      'code',
+      'grid',
+      'puzzle',
+      'game',
+      'level',
+      'timer',
+      'bonus',
+      'software'
     ],
     'nature': [
-      'FOREST', 'RIVER', 'MOUNTAIN', 'OCEAN', 'DESERT', 'VALLEY', 'CANYON',
-      'LAKE', 'TREE', 'FLOWER', 'GRASS', 'SKY', 'CLOUD', 'SUNSET', 'MOON',
-      'STAR', 'WIND', 'RAIN', 'SNOW', 'FOG', 'BEACH', 'ISLAND', 'REEF', 'CAVE',
-      'GLACIER', 'MEADOW', 'HILL', 'STREAM', 'POND', 'BAY'
+      'forest',
+      'river',
+      'mountain',
+      'ocean',
+      'desert',
+      'valley',
+      'canyon',
+      'lake',
+      'tree',
+      'flower'
     ],
     'general': [
-      'CHALLENGE', 'LOGIC', 'SOLVE', 'FUN', 'ADVENTURE', 'MYSTERY', 'QUEST',
-      'JOURNEY', 'TRAVEL', 'DREAM', 'HOPE', 'PEACE', 'LOVE', 'JOY', 'SMILE',
-      'FRIEND', 'FAMILY', 'HOME', 'CITY', 'VILLAGE', 'SCHOOL', 'BOOK', 'MUSIC',
-      'ART', 'SPORT', 'HEALTH', 'FOOD', 'DRINK', 'TIME', 'WORK'
+      'challenge',
+      'logic',
+      'solve',
+      'fun',
+      'adventure',
+      'mystery',
+      'quest',
+      'journey',
+      'travel',
+      'dream'
     ],
   };
 
-  List<Offset> currentDragPath = [];
-  List<String> currentWords = [];
-  late List<List<String>> grid; // Initialized in initState
-  Offset? start;
-  Offset? end;
-  final Map<String, List<Offset>> foundWordPaths = {};
-  final List<Color> highlightColors = [
-    Colors.orange.shade300,
-    Colors.teal.shade300,
-    Colors.purple.shade300,
-    Colors.blue.shade300,
-    Colors.pink.shade300,
-    Colors.green.shade300,
-    Colors.red.shade300,
-    Colors.amber.shade300,
-    Colors.cyan.shade300,
-    Colors.indigo.shade300,
+  static const _directions = [
+    [0, 1],
+    [1, 0],
+    [1, 1],
+    [-1, 1],
+    [0, -1],
+    [-1, 0],
+    [-1, -1],
+    [1, -1]
   ];
-  final Random random = Random();
-  List<String> usedWords = [];
+
+  static const _highlightColors = [
+    Color(0xFFFFB300),
+    Color(0xFF4DB6AC),
+    Color(0xFFCE93D8),
+    Color(0xFF64B5F6),
+    Color(0xFFF06292),
+  ];
 
   @override
   void initState() {
     super.initState();
+    AudioHelper().playScreenOpenSound();
+
     level = widget.initialLevel;
     gridSize = widget.gridSize;
-    grid = List.generate(gridSize, (_) => List.filled(gridSize, '')); // Initialize grid
+    timeLeft = 90;
+    moveCount = 0;
+    maxMoves = 0; // Initialize early to avoid LateInitializationError
+    _currentWords = []; // Initialize early
+    _grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
     _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
-    );
+        vsync: this, duration: const Duration(milliseconds: 300));
+    _blinkController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 500))
+      ..repeat(reverse: true);
+    _blinkAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+        CurvedAnimation(parent: _blinkController, curve: Curves.easeInOut));
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      startLevel();
+      _startLevel();
       _animationController.forward();
     });
   }
 
-  void startLevel() {
+  Future<void> _startLevel() async {
     try {
-      currentWords = _generateDynamicWords();
-      if (currentWords.isEmpty) {
-        currentWords = ['ERROR', 'RETRY']; // Fallback words
+      final potentialWords = _generateDynamicWords();
+      _grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
+      _currentWords = [];
+
+      for (final word in potentialWords) {
+        if (_placeWord(word, _grid)) {
+          _currentWords.add(word);
+        }
       }
 
-      grid = generateGridWithWords(currentWords);
-      if (grid.isEmpty) throw Exception("Grid generation failed");
-
-      // Ensure currentWords only contains words that were placed
-      if (currentWords.isEmpty) {
-        debugPrint("No words were placed in the grid. Using fallback.");
-        currentWords = ['ERROR', 'RETRY'];
-        grid = List.generate(gridSize, (_) => List.filled(gridSize, 'X'));
+      // Fill remaining empty cells with random letters
+      for (var r = 0; r < gridSize; r++) {
+        for (var c = 0; c < gridSize; c++) {
+          if (_grid[r][c].isEmpty)
+            _grid[r][c] = String.fromCharCode(65 + _random.nextInt(26));
+        }
       }
 
-      // Reset state
+      moveCount = 0;
+      maxMoves = _currentWords.length + 2;
+      _foundWordPaths.clear();
+      _currentDragPath.clear();
+      _start = _end = null;
+      _hintedPath = null;
+      _hintTimer?.cancel();
+      _timer?.cancel();
       timeLeft = 90;
-      foundWordPaths.clear();
-      currentDragPath.clear();
-      start = end = null;
+      _lastSecondSoundPlayed = false;
+      _startTimer();
 
-      // Start timer
-      timer?.cancel();
-      startTimer();
-
-      // Force rebuild
+      Prefs.incrementPlayCount().then((count) {
+        if (count % 4 == 0 && count != 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted)
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          AdPlaybackPage(onAdComplete: () {})));
+          });
+        }
+      });
       if (mounted) setState(() {});
     } catch (e) {
-      // Fallback instead of showing game over
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        setState(() {
-          grid = List.generate(gridSize, (_) => List.filled(gridSize, 'X')); // Fallback grid
-          currentWords = ['ERROR', 'RETRY'];
-          startTimer();
-        });
-      });
+      print('Error starting level: $e');
     }
   }
 
   List<String> _generateDynamicWords() {
-    List<String> availableWords = wordBank.values.expand((words) => words).toList();
-    availableWords.removeWhere((word) => usedWords.contains(word));
-
+    final availableWords = _wordBank.values
+        .expand((words) => words)
+        .where((word) => word.length <= gridSize && !_usedWords.contains(word))
+        .toList();
     if (availableWords.length < 5 + level) {
-      usedWords.clear();
-      availableWords = wordBank.values.expand((words) => words).toList();
+      _usedWords.clear();
+      availableWords.addAll(_wordBank.values
+          .expand((words) => words)
+          .where((word) => word.length <= gridSize));
     }
-
-    availableWords.shuffle(random);
-    List<String> selectedWords = availableWords.take(5 + level).toList();
-    usedWords.addAll(selectedWords);
-
-    return selectedWords
-        .where((word) => word.length <= gridSize)
+    availableWords.shuffle(_random);
+    final selectedWords = availableWords
+        .take(min(availableWords.length, 4 + gridSize ~/ 2))
         .map((word) => word.toUpperCase())
         .toList();
+    _usedWords.addAll(selectedWords);
+    return selectedWords;
   }
 
-  void startTimer() {
-    timer?.cancel();
-    timer = Timer.periodic(const Duration(seconds: 1), (t) {
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
       setState(() {
         timeLeft--;
+        if (timeLeft <= 5 && !_lastSecondSoundPlayed) {
+          AudioHelper().playLastSecond();
+          _lastSecondSoundPlayed = true;
+        }
         if (timeLeft <= 0) {
           t.cancel();
-          if (!_isDialogShowing) showGameOverDialog();
+          AudioHelper().stopLastSecond();
+          if (!_isDialogShowing) _showGameOverDialog(reason: 'time');
         }
       });
     });
   }
 
-  List<List<String>> generateGridWithWords(List<String> words) {
-    List<List<String>> grid;
-    bool success;
-    int attempts = 0;
-    const maxAttempts = 500;
-    final directions = [
-      [0, 1], [1, 0], [1, 1], [-1, 1],
-      [0, -1], [-1, 0], [-1, -1], [1, -1]
-    ];
-    List<String> wordsToPlace = List.from(words); // Use all words initially
-
-    do {
-      success = true;
-      grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
-
-      for (String word in wordsToPlace) {
-        if (word.length > gridSize) {
-          debugPrint('Word "$word" is too long for grid size $gridSize. Skipping.');
-          continue; // Skip words that are too long for the grid
-        }
-        if (!_placeWord(word, grid, directions, random)) {
-          success = false;
-          break;
-        }
-      }
-      attempts++;
-    } while (!success && attempts < maxAttempts);
-
-    if (!success) {
-      // Fallback: Reduce the number of words and retry
-      wordsToPlace = words.take(max(3, words.length - 1)).toList(); // Try with fewer words
-      debugPrint('Failed to place all words. Retrying with $wordsToPlace');
-      grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
-      for (String word in wordsToPlace) {
-        if (word.length <= gridSize) {
-          _placeWord(word, grid, directions, random);
-        }
-      }
-    }
-
-    // Fill empty cells
-    for (int r = 0; r < gridSize; r++) {
-      for (int c = 0; c < gridSize; c++) {
-        if (grid[r][c] == '') {
-          grid[r][c] = String.fromCharCode(65 + random.nextInt(26));
-        }
-      }
-    }
-
-    // Validate that all words (or a subset) are placed
-    List<String> placedWords = [];
-    for (String word in wordsToPlace) {
-      if (_isWordInGrid(word, grid, directions)) {
-        placedWords.add(word);
-      }
-    }
-
-    // Update currentWords to only include words that were successfully placed
-    setState(() {
-      currentWords = placedWords;
-    });
-
-    return grid;
+  void _showConfirmationDialog(String actionType, VoidCallback onConfirm) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(30),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                    color: Colors.white.withOpacity(0.2), width: 1.5),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    actionType == 'extra_move' ? 'EXTRA MOVE' : 'GET HINT',
+                    style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white),
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    actionType == 'extra_move'
+                        ? 'Use 10 coins or watch an ad to get an extra move.'
+                        : 'Use 10 coins or watch an ad to reveal a word.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 16, color: Colors.white.withOpacity(0.9)),
+                  ),
+                  const SizedBox(height: 30),
+                  Row(
+                    children: [
+                      Expanded(
+                          child: AppButton(
+                              label: '10 Coins',
+                              onTap: () {
+                                Navigator.pop(context);
+                                onConfirm();
+                              })),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: AppButton(
+                              label: 'AD',
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            AdPlaybackPage(onAdComplete: () {
+                                              if (actionType == 'extra_move')
+                                                _addExtraMove(useCoins: false);
+                                              else
+                                                _showHint(useCoins: false);
+                                            })));
+                              })),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  bool _isWordInGrid(String word, List<List<String>> grid, List<List<int>> directions) {
-    for (int r = 0; r < gridSize; r++) {
-      for (int c = 0; c < gridSize; c++) {
-        for (var dir in directions) {
-          int dx = dir[0], dy = dir[1];
-          bool fits = true;
-          for (int i = 0; i < word.length; i++) {
-            int nr = r + dx * i;
-            int nc = c + dy * i;
-            if (nr < 0 || nr >= gridSize || nc < 0 || nc >= gridSize || grid[nr][nc] != word[i]) {
-              fits = false;
-              break;
-            }
-          }
-          if (fits) return true;
-        }
-      }
-    }
-    debugPrint('Word "$word" not found in grid');
-    return false;
-  }
+  bool _placeWord(String word, List<List<String>> grid) {
+    for (var attempt = 0; attempt < 100; attempt++) {
+      final dir = _directions[_random.nextInt(_directions.length)];
+      final r = _random.nextInt(gridSize);
+      final c = _random.nextInt(gridSize);
+      if (r + dir[0] * (word.length - 1) < 0 ||
+          r + dir[0] * (word.length - 1) >= gridSize ||
+          c + dir[1] * (word.length - 1) < 0 ||
+          c + dir[1] * (word.length - 1) >= gridSize) continue;
 
-  bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
-    for (int attempt = 0; attempt < 200; attempt++) {
-      final dir = directions[random.nextInt(directions.length)];
-      final dx = dir[0], dy = dir[1];
-
-      int maxRow = gridSize - (dx.abs() * (word.length - 1));
-      int maxCol = gridSize - (dy.abs() * (word.length - 1));
-      if (maxRow <= 0 || maxCol <= 0) {
-        debugPrint('Cannot place word "$word": Invalid direction ($dx, $dy)');
-        continue;
-      }
-
-      int row = dx < 0 ? random.nextInt(maxRow) + (gridSize - maxRow) : random.nextInt(maxRow);
-      int col = dy < 0 ? random.nextInt(maxCol) + (gridSize - maxCol) : random.nextInt(maxCol);
-
-      bool fits = true;
-      for (int i = 0; i < word.length; i++) {
-        int r = row + dx * i;
-        int c = col + dy * i;
-        if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
-            (grid[r][c] != '' && grid[r][c] != word[i])) {
+      var fits = true;
+      for (var i = 0; i < word.length; i++) {
+        final nr = r + dir[0] * i, nc = c + dir[1] * i;
+        if (grid[nr][nc].isNotEmpty && grid[nr][nc] != word[i]) {
           fits = false;
           break;
         }
       }
-
       if (fits) {
-        for (int i = 0; i < word.length; i++) {
-          int r = row + dx * i;
-          int c = col + dy * i;
-          grid[r][c] = word[i];
-        }
+        for (var i = 0; i < word.length; i++)
+          grid[r + dir[0] * i][c + dir[1] * i] = word[i];
         return true;
       }
     }
-    debugPrint('Failed to place word "$word" after 200 attempts');
     return false;
   }
 
+  void _handleDragStart(DragStartDetails details, double cellSize) {
+    final col =
+        (details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
+    final row =
+        (details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
+    _start = Offset(col.toDouble(), row.toDouble());
+    setState(() => _currentDragPath = [_start!]);
+    AudioHelper().playDragWordSound();
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details, double cellSize) {
+    final col =
+        (details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
+    final row =
+        (details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
+    final newEnd = Offset(col.toDouble(), row.toDouble());
+    if (_start != null && _isValidDirection(_start!, newEnd)) {
+      setState(() {
+        _end = newEnd;
+        _currentDragPath = _getPointsOnPath(_start!, newEnd);
+      });
+    }
+  }
+
   bool _isValidDirection(Offset a, Offset b) {
-    int dx = (b.dx - a.dx).round().abs();
-    int dy = (b.dy - a.dy).round().abs();
+    final dx = (b.dx - a.dx).abs(), dy = (b.dy - a.dy).abs();
     return dx == 0 || dy == 0 || dx == dy;
   }
 
-  void handleDragStart(DragStartDetails details, double cellSize) {
-    final position = details.localPosition;
-    final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-    final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-    start = Offset(row.toDouble(), col.toDouble());
+  List<Offset> _getPointsOnPath(Offset a, Offset b) {
+    final points = <Offset>[];
+    final dx = (b.dx - a.dx), dy = (b.dy - a.dy);
+    final steps = max(dx.abs(), dy.abs()).round();
+    final stepX = steps == 0 ? 0 : dx / steps,
+        stepY = steps == 0 ? 0 : dy / steps;
+    for (var i = 0; i <= steps; i++)
+      points.add(Offset(a.dx + i * stepX, a.dy + i * stepY));
+    return points;
+  }
+
+  Future<void> _handleDragEnd() async {
+    if (_start != null && _end != null) {
+      final selectedWord = _getSelectedWord(_start!, _end!);
+      if (_currentWords.contains(selectedWord) &&
+          !_foundWordPaths.containsKey(selectedWord)) {
+        setState(() => _foundWordPaths[selectedWord] = _currentDragPath);
+        AudioHelper().playFoundSound();
+        if (_foundWordPaths.length == _currentWords.length) {
+          _timer?.cancel();
+          await Prefs.saveMaxLevel(gridSize, level + 1);
+          _showSuccessDialog();
+        }
+      } else {
+        AudioHelper().playNotFoundSound();
+      }
+      moveCount++;
+      if (moveCount >= (maxMoves ?? 0) &&
+          _foundWordPaths.length < _currentWords.length)
+        _showGameOverDialog(reason: 'moves');
+    }
     setState(() {
-      currentDragPath = [start!];
+      _start = _end = null;
+      _currentDragPath = [];
     });
   }
 
-  void handleDragUpdate(DragUpdateDetails details, double cellSize) {
-    final position = details.localPosition;
-    final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-    final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-    end = Offset(row.toDouble(), col.toDouble());
-
-    if (start != null && _isValidDirection(start!, end!)) {
-      setState(() {
-        currentDragPath = _getHighlightedCells(start!, end!);
-      });
-    }
-  }
-
-  Future<void> handleDragEnd() async {
-    if (start != null && end != null && _isValidDirection(start!, end!)) {
-      String selectedWord = _getSelectedWord(start!, end!);
-      debugPrint('Selected word: $selectedWord');
-      if (selectedWord.length < 3) {
-        setState(() {
-          currentDragPath.clear();
-        });
-        start = end = null;
-        return;
-      }
-
-      String? matchedWord;
-      if (currentWords.contains(selectedWord)) {
-        matchedWord = selectedWord;
-      } else {
-        String reversedWord = selectedWord.split('').reversed.join();
-        debugPrint('Reverse word attempted: $reversedWord');
-        if (currentWords.contains(reversedWord)) {
-          debugPrint('Reverse word $reversedWord is in currentWords, but direction is incorrect');
-        }
-      }
-
-      debugPrint('Matched word: $matchedWord');
-      if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
-        final path = _getHighlightedCells(start!, end!);
-        setState(() {
-          foundWordPaths[matchedWord!] = path;
-          currentDragPath.clear();
-        });
-        debugPrint('Found words: ${foundWordPaths.keys}');
-        debugPrint('Current words: $currentWords');
-        debugPrint('Found: ${foundWordPaths.length}, Expected: ${currentWords.length}');
-
-        if (foundWordPaths.length == currentWords.length) {
-          debugPrint('All words found! Showing success dialog.');
-          timer?.cancel();
-          final newMaxLevel = level + 1;
-          await Prefs.saveMaxLevel(gridSize, newMaxLevel);
-          showSuccessDialog();
-        }
-      } else {
-        setState(() {
-          currentDragPath.clear();
-        });
-      }
-    } else {
-      setState(() {
-        currentDragPath.clear();
-      });
-    }
-    start = end = null;
-  }
-
   String _getSelectedWord(Offset a, Offset b) {
-    final dx = (b.dx - a.dx).round();
-    final dy = (b.dy - a.dy).round();
-    final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-    final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-    int x = a.dx.round(), y = a.dy.round();
-    String word = '';
-
-    while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-      word += grid[x][y];
-      if (x == b.dx.round() && y == b.dy.round()) break;
-      x += stepX;
-      y += stepY;
-    }
-    return word;
+    final path = _getPointsOnPath(a, b);
+    return path.map((p) => _grid[p.dy.round()][p.dx.round()]).join();
   }
 
-  List<Offset> _getHighlightedCells(Offset a, Offset b) {
-    final List<Offset> cells = [];
-    final dx = (b.dx - a.dx).round();
-    final dy = (b.dy - a.dy).round();
-    final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-    final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-    int x = a.dx.round(), y = a.dy.round();
-
-    while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-      cells.add(Offset(x.toDouble(), y.toDouble()));
-      if (x == b.dx.round() && y == b.dy.round()) break;
-      x += stepX;
-      y += stepY;
+  void _showHint({bool useCoins = true}) {
+    final coinProvider = Provider.of<CoinProvider>(context, listen: false);
+    if (useCoins && coinProvider.coins < 10) {
+      _showInsufficientCoinsDialog();
+      return;
     }
-    return cells;
+    if (useCoins) coinProvider.undoCoins(10);
+
+    final unfinished =
+        _currentWords.where((w) => !_foundWordPaths.containsKey(w)).toList();
+    if (unfinished.isEmpty) return;
+    final hintWord = unfinished[_random.nextInt(unfinished.length)];
+    _hintedPath = _findWordPathInGrid(hintWord);
+    setState(() {});
+    _hintTimer = Timer(
+        const Duration(seconds: 4), () => setState(() => _hintedPath = null));
   }
 
-  Color? getCellColor(int row, int col) {
-    final current = Offset(row.toDouble(), col.toDouble());
-
-    if (currentDragPath.contains(current)) {
-      return Colors.yellow.withValues(alpha: 0.5);
-    }
-
-    int index = 0;
-    for (var entry in foundWordPaths.entries) {
-      if (entry.value.contains(current)) {
-        return highlightColors[index % highlightColors.length];
+  List<Offset>? _findWordPathInGrid(String word) {
+    for (var r = 0; r < gridSize; r++) {
+      for (var c = 0; c < gridSize; c++) {
+        for (final dir in _directions) {
+          var found = true;
+          for (var i = 0; i < word.length; i++) {
+            final nr = r + dir[0] * i, nc = c + dir[1] * i;
+            if (nr < 0 ||
+                nr >= gridSize ||
+                nc < 0 ||
+                nc >= gridSize ||
+                _grid[nr][nc] != word[i]) {
+              found = false;
+              break;
+            }
+          }
+          if (found)
+            return List.generate(
+                word.length,
+                (i) => Offset(
+                    (c + dir[1] * i).toDouble(), (r + dir[0] * i).toDouble()));
+        }
       }
-      index++;
     }
     return null;
   }
 
-  void showSuccessDialog() {
+  void _addExtraMove({bool useCoins = true}) {
+    final coinProvider = Provider.of<CoinProvider>(context, listen: false);
+    if (useCoins && coinProvider.coins < 10) {
+      _showInsufficientCoinsDialog();
+      return;
+    }
+    if (useCoins) coinProvider.undoCoins(10);
+    setState(() => maxMoves = (maxMoves ?? 0) + 5);
+  }
+
+  void _showSuccessDialog() {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => SuccessScreen(
+                  level: level,
+                  coin: 20,
+                  gridSize: gridSize,
+                  onNextLevel: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => WordSearchPage(
+                                initialLevel: level + 1,
+                                gridSize: gridSize,
+                              ))),
+                  onBackToLevels: () => Navigator.pop(context),
+                )));
+  }
+
+  void _showGameOverDialog({required String reason}) {
     if (_isDialogShowing) return;
     _isDialogShowing = true;
-    _animationController.forward(from: 0);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => ScaleTransition(
-          scale: _scaleAnimation,
-          child: AlertDialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            contentPadding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20.0),
-            ),
-            content: Container(
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFDAAB5C),
-                    const Color(0xFFB38F4A),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20.0),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 10.0,
-                    offset: Offset(0, 4),
-                  ),
-                ],
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                  color: const Color(0xFF7A5821),
-                  width: 2.0,
-                ),
+                    color: Colors.white.withOpacity(0.2), width: 1.5),
               ),
-              padding: const EdgeInsets.all(20.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Level Complete!',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      fontFamily: 'Georgia',
-                      shadows: [
-                        Shadow(
-                          color: const Color(0xFF7A5821).withValues(alpha: 0.5),
-                          offset: const Offset(2, 2),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Icon(
-                    Icons.star,
-                    color: const Color(0xFF7A5821),
-                    size: 40,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'You solved Level $level of the Word Puzzle!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontFamily: 'Courier',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                  Text(reason == 'time' ? "TIME'S UP!" : "OUT OF MOVES!",
+                      style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white)),
+                  const SizedBox(height: 15),
+                  reason == 'time' ? Image.asset('assets/time_out.png', width: 200, height: 200) : Image.asset('assets/out_of_moves.png', width: 200, height: 200) ,
+                  SizedBox(height: 10),
+                  const Text("Would you like to try again?",
+                      style: TextStyle(color: Colors.white70),
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 30),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildDialogButton(
-                        text: 'Back to Levels',
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.pop(context, level + 1);
-                        },
-                      ),
-                      _buildDialogButton(
-                        text: 'Next Level',
-                        onPressed: () {
-                          Navigator.pop(context);
-                          setState(() {
-                            level++;
-                            startLevel();
-                          });
-                        },
-                      ),
+                      Expanded(
+                          child: AppButton(
+                              label: 'EXIT',
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pop(context);
+                              })),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: AppButton(
+                              label: 'RETRY',
+                              onTap: () {
+                                Navigator.pop(context);
+                                _startLevel();
+                              })),
                     ],
                   ),
                 ],
@@ -518,4057 +536,469 @@ class WordSearchPageState extends State<WordSearchPage> with SingleTickerProvide
             ),
           ),
         ),
-      ).then((_) => _isDialogShowing = false);
-    });
+      ),
+    ).then((_) => _isDialogShowing = false);
   }
 
-  void showGameOverDialog() {
-    if (_isDialogShowing) return;
-    _isDialogShowing = true;
-    _animationController.forward(from: 0);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => ScaleTransition(
-          scale: _scaleAnimation,
-          child: AlertDialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            contentPadding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20.0),
-            ),
-            content: Container(
+  void _showInsufficientCoinsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFDAAB5C),
-                    const Color(0xFFB38F4A),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20.0),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 10.0,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(
-                  color: const Color(0xFF7A5821),
-                  width: 2.0,
-                ),
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(30),
               ),
-              padding: const EdgeInsets.all(20.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Time’s Up!',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      fontFamily: 'Georgia',
-                      shadows: [
-                        Shadow(
-                          color: const Color(0xFF7A5821).withValues(alpha: 0.5),
-                          offset: const Offset(2, 2),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Icon(
-                    Icons.extension,
-                    color: const Color(0xFF7A5821),
-                    size: 40,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'You reached Level $level in the Word Puzzle!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontFamily: 'Courier',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildDialogButton(
-                        text: 'Back to Levels',
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.pop(context);
-                        },
-                      ),
-                      _buildDialogButton(
-                        text: 'Retry Puzzle',
-                        onPressed: () {
-                          Navigator.pop(context);
-                          setState(() {
-                            startLevel();
-                          });
-                        },
-                      ),
-                    ],
-                  ),
+                  const Text('NOT ENOUGH COINS',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white)),
+                  const SizedBox(height: 20),
+                  AppButton(label: 'OK', onTap: () => Navigator.pop(context)),
                 ],
               ),
             ),
-          ),
-        ),
-      ).then((_) => _isDialogShowing = false);
-    });
-  }
-
-  Widget _buildDialogButton({required String text, required VoidCallback onPressed}) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF7A5821),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 6,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontFamily: 'Georgia',
           ),
         ),
       ),
     );
   }
 
-  @override
-  void dispose() {
-    timer?.cancel();
-    _animationController.dispose();
-    super.dispose();
+  void _showExitConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(30),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('EXIT GAME?',
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white)),
+                  const SizedBox(height: 15),
+                  const Text('Your progress in this level will be lost.',
+                      style: TextStyle(color: Colors.white70),
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 30),
+                  Row(
+                    children: [
+                      Expanded(
+                          child: AppButton(
+                              label: 'NO',
+                              onTap: () => Navigator.pop(context))),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: AppButton(
+                              label: 'YES',
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pop(context);
+                              })),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final containerWidth = 384;
-    final gridPadding = 16;
-    final availableGridWidth = containerWidth - gridPadding;
-    final cellSize = availableGridWidth / gridSize;
-    final fontSizeFactor = 1.0;
-
-    if (currentWords.isEmpty || grid.isEmpty || grid.any((row) => row.isEmpty)) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFDAAB5C),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(
-                color: const Color(0xFF7A5821),
-              ),
-              SizedBox(height: 16),
-              Text(
-                'Loading Puzzle...',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: const Color(0xFF7A5821),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    startLevel();
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7A5821),
-                  foregroundColor: Colors.white,
-                ),
-                child: Text('Retry'),
-              ),
-            ],
+    if (_currentWords.isEmpty ||
+        _grid.isEmpty ||
+        _grid.any((row) => row.isEmpty)) {
+      return WillPopScope(
+        onWillPop: () async {
+          _showExitConfirmationDialog(context);
+          return false;
+        },
+        child: Scaffold(
+          body: BackgroundContainer(
+            child: const Center(
+                child: CircularProgressIndicator(color: Colors.white)),
           ),
         ),
       );
     }
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFDAAB5C),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF7A5821),
-        title: Text(
-          "Level $level — ⏱ $timeLeft",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white, size: 24),
-          onPressed: () => Navigator.pop(context, level),
-        ),
-      ),
-      body: Center(
-        child: Container(
-          width: 360,
-          height: double.infinity,
-          color: const Color(0xFFDAAB5C),
+    final cellSize = (MediaQuery.of(context).size.width - 40) / gridSize;
+    return WillPopScope(
+      onWillPop: () async {
+        _showExitConfirmationDialog(context);
+        return false;
+      },
+      child: Scaffold(
+        body: BackgroundContainer(
           child: SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  SizedBox(height: 70),
-                  Center(
-                    child: GestureDetector(
-                      onPanStart: (details) => handleDragStart(details, cellSize),
-                      onPanUpdate: (details) => handleDragUpdate(details, cellSize),
-                      onPanEnd: (_) => handleDragEnd(),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _showExitConfirmationDialog(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(20)),
+                          child: Row(children: [
+                            const Icon(Icons.arrow_back, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Text('Level $level',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold))
+                          ]),
+                        ),
+                      ),
+                      const CoinBalanceWidget(),
+                      Row(
+                        children: [
+                          CustomHintButton(
+                              icon: Icons.lightbulb_outline,
+                              value: 10,
+                              onPressed: () => _showConfirmationDialog(
+                                  'hint', () => _showHint())),
+                          const SizedBox(width: 12),
+                          CustomHintButton(
+                              icon: Icons.auto_fix_high,
+                              value: (maxMoves ?? 0) - moveCount,
+                              showCoin: false,
+                              onPressed: () => _showConfirmationDialog(
+                                  'extra_move', () => _addExtraMove())),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+          // Padding(
+          //     padding:
+          //     const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          //     child: Row(
+          //       mainAxisAlignment: MainAxisAlignment.end,
+          //       children: [
+          //
+          //       ],
+          //     ),
+          //   ),
+                // Premium Glass Header for Word Category
+                // Container(
+                //   margin: const EdgeInsets.symmetric(horizontal: 20),
+                //   padding:
+                //       const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                //   decoration: BoxDecoration(
+                //     gradient: const LinearGradient(
+                //         colors: [Color(0xFF8BC34A), Color(0xFF388E3C)],
+                //         begin: Alignment.topLeft,
+                //         end: Alignment.bottomRight),
+                //     borderRadius: BorderRadius.circular(20),
+                //     boxShadow: [
+                //       BoxShadow(
+                //           color: Colors.black.withOpacity(0.3),
+                //           blurRadius: 10,
+                //           offset: const Offset(0, 4))
+                //     ],
+                //   ),
+                //   child: const Text('SEARCH WORDS',
+                //       style: TextStyle(
+                //           color: Colors.white,
+                //           fontSize: 22,
+                //           fontWeight: FontWeight.w900,
+                //           letterSpacing: 2)),
+                // ),
+                // const SizedBox(height: 15),
+                // Moves Left Indicator
+                // Text(
+                //   'MOVES LEFT: ${(maxMoves ?? 0) - moveCount}',
+                //   style: const TextStyle(
+                //     color: Colors.white,
+                //     fontSize: 18,
+                //     fontWeight: FontWeight.w900,
+                //     letterSpacing: 1.2,
+                //   ),
+                // ),
+                const SizedBox(height: 30),
+                // Found words indicator (Grouped in one dark glass container)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
                       child: Container(
-                        width: cellSize * gridSize,
-                        height: cellSize * gridSize,
-                        padding: EdgeInsets.all(8),
-                        child: GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: gridSize * gridSize,
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: gridSize,
-                            mainAxisSpacing: 4,
-                            crossAxisSpacing: 4,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.4),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.1),
+                            width: 1,
                           ),
-                          itemBuilder: (context, index) {
-                            final row = index ~/ gridSize;
-                            final col = index % gridSize;
-                            final color = getCellColor(row, col);
-
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: color ?? const Color(0xFFFFF8E1),
-                                borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-                                border: Border.all(color: const Color(0xFF7A5821), width: 1),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 2 * fontSizeFactor,
-                                    offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-                                  ),
-                                ],
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                grid[row][col],
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'Courier',
-                                  color: color != null ? Colors.white : const Color(0xFF7A5821),
-                                ),
+                        ),
+                        child: Wrap(
+                          spacing: 16,
+                          runSpacing: 10,
+                          alignment: WrapAlignment.center,
+                          children: _currentWords.map((word) {
+                            final found = _foundWordPaths.containsKey(word);
+                            return Text(
+                              word,
+                              style: TextStyle(
+                                color: found
+                                    ? Colors.white.withOpacity(0.3)
+                                    : Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                decoration:
+                                    found ? TextDecoration.lineThrough : null,
                               ),
                             );
-                          },
+                          }).toList(),
                         ),
                       ),
                     ),
                   ),
-                  SizedBox(height: 40),
-                  Text(
-                    'Find the Words:',
-                    style: TextStyle(
-                      fontSize: 20 * fontSizeFactor,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF7A5821),
+                ),
+                SizedBox(height: 40),
+                // const Spacer(),
+                // Game Board
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: GestureDetector(
+                    onPanStart: (d) => _handleDragStart(d, cellSize),
+                    onPanUpdate: (d) => _handleDragUpdate(d, cellSize),
+                    onPanEnd: (_) => _handleDragEnd(),
+                    child: Container(
+                      width: cellSize * gridSize,
+                      height: cellSize * gridSize,
+                      decoration: BoxDecoration(
+                          color: Colors.black
+                              .withOpacity(0.4), // Darker background
+                          borderRadius: BorderRadius.circular(20),
+                          border:
+                              Border.all(color: Colors.white.withOpacity(0.2))),
+                      child: Stack(
+                        children: [
+                          CustomPaint(
+                              painter: WordLinePainter(
+                                  foundWordPaths: _foundWordPaths,
+                                  hintedPath: _hintedPath,
+                                  cellSize: cellSize,
+                                  colors: _highlightColors,
+                                  blinkValue: _blinkAnimation.value)),
+                          CustomPaint(
+                              painter: DragLinePainter(
+                                  start: _start,
+                                  end: _end,
+                                  cellSize: cellSize,
+                                  gridSize: gridSize)),
+                          GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: gridSize),
+                            itemCount: gridSize * gridSize,
+                            itemBuilder: (c, i) => Center(
+                                child: Text(_grid[i ~/ gridSize][i % gridSize],
+                                    style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white))),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  SizedBox(height: 10 * fontSizeFactor),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16 * fontSizeFactor),
-                    child: Wrap(
-                      spacing: 8 * fontSizeFactor,
-                      runSpacing: 8 * fontSizeFactor,
-                      children: currentWords.map((word) {
-                        final found = foundWordPaths.containsKey(word);
-                        return Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 10 * fontSizeFactor,
-                            vertical: 5 * fontSizeFactor,
-                          ),
+                ),
+                const Spacer(),
+
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: found ? Colors.green.shade300 : Colors.white,
-                            borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-                            border: Border.all(
-                              color: const Color(0xFF7A5821),
-                              width: 1 * fontSizeFactor,
-                            ),
-                            boxShadow: [
-                              if (found)
-                                BoxShadow(
-                                  color: Colors.green.shade900.withValues(alpha: 0.3),
-                                  offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-                                  blurRadius: 2 * fontSizeFactor,
-                                ),
-                            ],
-                          ),
-                          child: Text(
-                            word,
-                            style: TextStyle(
-                              fontSize: 16 * fontSizeFactor,
-                              fontWeight: FontWeight.w600,
-                              color: found ? Colors.white : const Color(0xFF7A5821),
-                              decoration: found ? TextDecoration.lineThrough : null,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                              color: Colors.black.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(15)),
+                          child: Text('Time: $timeLeft',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900))),
+                      //
+                      // Container(
+                      //     padding: const EdgeInsets.all(12),
+                      //     decoration: BoxDecoration(
+                      //         color: Colors.black.withOpacity(0.4),
+                      //         borderRadius: BorderRadius.circular(15)),
+                      //     child: Text('Moves: ${(maxMoves ?? 0) - moveCount}',
+                      //         style: const TextStyle(
+                      //             color: Colors.white,
+                      //             fontWeight: FontWeight.w900))),
+                      movesCircle((maxMoves ?? 0) - moveCount,maxMoves!)
+                    ],
                   ),
-                  SizedBox(height: 20 * fontSizeFactor),
-                ],
-              ),
+                ),
+                // Padding(
+                //   padding:
+                //   const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                //   child: Row(
+                //     mainAxisAlignment: MainAxisAlignment.end,
+                //     children: [
+                //       const CoinBalanceWidget(),
+                //     ],
+                //   ),
+                // ),
+                SizedBox(height: 40),
+              ],
             ),
           ),
         ),
       ),
     );
   }
+  Widget movesCircle(int remainingMoves, int totalMoves, {double size = 70}) {
+
+    double progress = remainingMoves / totalMoves;
+
+    Color ringColor;
+    if (progress > 0.6) {
+      // ringColor = Colors.cyanAccent;
+      ringColor = Colors.yellowAccent;
+    } else if (progress > 0.3) {
+      ringColor = Colors.orangeAccent;
+    } else {
+      ringColor = Colors.red;
+    }
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+
+          /// Outer glow
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: ringColor.withOpacity(0.5),
+                  blurRadius: 40,
+                  spreadRadius: 5,
+                )
+              ],
+            ),
+          ),
+
+          /// Progress ring
+          SizedBox(
+            width: size,
+            height: size,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 8,
+              backgroundColor: Colors.white12,
+              valueColor: AlwaysStoppedAnimation(ringColor),
+            ),
+          ),
+
+          /// Inner glass circle
+          Container(
+            width: size * 0.80,
+            height: size * 0.80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.black.withOpacity(0.4),
+                  Colors.black.withOpacity(0.4),
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white24,
+                width: 1.5,
+              ),
+            ),
+
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+
+                const Text(
+                  "MOVES",
+                  style: TextStyle(
+                    fontSize: 12,
+                    // letterSpacing: 3,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                // const SizedBox(height: 4),
+
+                Text(
+                  "$remainingMoves",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: ringColor,
+                    shadows: [
+                      Shadow(
+                        color: ringColor,
+                        blurRadius: 20,
+                      )
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _hintTimer?.cancel();
+    _animationController.dispose();
+    _blinkController.dispose();
+    super.dispose();
+  }
 }
-
-
-
-
-// import 'dart:async';
-// import 'dart:math';
-// import 'package:flutter/material.dart';
-// import '../db/prefs.dart';
-//
-// class WordSearchPage extends StatefulWidget {
-//   final int initialLevel;
-//   final int gridSize;
-//   const WordSearchPage({super.key, required this.initialLevel, required this.gridSize});
-//
-//   @override
-//   WordSearchPageState createState() => WordSearchPageState();
-// }
-//
-// class WordSearchPageState extends State<WordSearchPage> with SingleTickerProviderStateMixin {
-//   late int level;
-//   int timeLeft = 90;
-//   Timer? timer;
-//   late int gridSize;
-//   late AnimationController _animationController; // For dialog animation
-//   late Animation<double> _scaleAnimation; // Scale animation for dialog
-//   final Map<String, List<String>> wordBank = {
-//     'tech': [
-//       'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE', 'GAME', 'LEVEL', 'TIMER',
-//       'BONUS', 'SOFTWARE', 'MOBILE', 'WIDGET', 'MATERIAL', 'ALGORITHM', 'DEBUG',
-//       'TEST', 'DATABASE', 'SERVER', 'CLOUD', 'API', 'FRAMEWORK', 'REACT', 'VUE',
-//       'ANGULAR', 'NODE', 'PYTHON', 'JAVA', 'KOTLIN', 'SWIFT', 'RUBY'
-//     ],
-//     'nature': [
-//       'FOREST', 'RIVER', 'MOUNTAIN', 'OCEAN', 'DESERT', 'VALLEY', 'CANYON',
-//       'LAKE', 'TREE', 'FLOWER', 'GRASS', 'SKY', 'CLOUD', 'SUNSET', 'MOON',
-//       'STAR', 'WIND', 'RAIN', 'SNOW', 'FOG', 'BEACH', 'ISLAND', 'REEF', 'CAVE',
-//       'GLACIER', 'MEADOW', 'HILL', 'STREAM', 'POND', 'BAY'
-//     ],
-//     'general': [
-//       'CHALLENGE', 'LOGIC', 'SOLVE', 'FUN', 'ADVENTURE', 'MYSTERY', 'QUEST',
-//       'JOURNEY', 'TRAVEL', 'DREAM', 'HOPE', 'PEACE', 'LOVE', 'JOY', 'SMILE',
-//       'FRIEND', 'FAMILY', 'HOME', 'CITY', 'VILLAGE', 'SCHOOL', 'BOOK', 'MUSIC',
-//       'ART', 'SPORT', 'HEALTH', 'FOOD', 'DRINK', 'TIME', 'WORK'
-//     ],
-//   };
-//
-//   List<Offset> currentDragPath = [];
-//   late List<String> currentWords;
-//   late List<List<String>> grid;
-//   Offset? start;
-//   Offset? end;
-//   final Map<String, List<Offset>> foundWordPaths = {};
-//   final List<Color> highlightColors = [
-//     Colors.orange.shade300,
-//     Colors.teal.shade300,
-//     Colors.purple.shade300,
-//     Colors.blue.shade300,
-//     Colors.pink.shade300,
-//     Colors.green.shade300,
-//     Colors.red.shade300,
-//     Colors.amber.shade300,
-//     Colors.cyan.shade300,
-//     Colors.indigo.shade300,
-//   ];
-//   final Random random = Random();
-//   List<String> usedWords = [];
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     level = widget.initialLevel;
-//     gridSize = widget.gridSize;
-//     // Initialize animation controller
-//     _animationController = AnimationController(
-//       vsync: this,
-//       duration: const Duration(milliseconds: 300),
-//     );
-//     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-//       CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
-//     );
-//     startLevel();
-//     _animationController.forward(); // Start animation
-//   }
-//
-//   void startLevel() {
-//     try {
-//       currentWords = _generateDynamicWords();
-//       grid = generateGridWithWords(currentWords);
-//       timeLeft = 90;
-//       foundWordPaths.clear();
-//       currentDragPath.clear();
-//       start = end = null;
-//       startTimer();
-//     } catch (e) {
-//       showGameOverDialog();
-//     }
-//   }
-//
-//   List<String> _generateDynamicWords() {
-//     List<String> availableWords = wordBank.values.expand((words) => words).toList();
-//     availableWords.removeWhere((word) => usedWords.contains(word));
-//
-//     if (availableWords.length < 5 + level) {
-//       usedWords.clear();
-//       availableWords = wordBank.values.expand((words) => words).toList();
-//     }
-//
-//     availableWords.shuffle(random);
-//     List<String> selectedWords = availableWords.take(5 + level).toList();
-//     usedWords.addAll(selectedWords);
-//
-//     return selectedWords
-//         .where((word) => word.length <= gridSize)
-//         .map((word) => word.toUpperCase())
-//         .toList();
-//   }
-//
-//   void startTimer() {
-//     timer?.cancel();
-//     timer = Timer.periodic(const Duration(seconds: 1), (t) {
-//       setState(() {
-//         timeLeft--;
-//         if (timeLeft <= 0) {
-//           t.cancel();
-//           showGameOverDialog();
-//         }
-//       });
-//     });
-//   }
-//
-//   List<List<String>> generateGridWithWords(List<String> words) {
-//     List<List<String>> grid;
-//     bool success;
-//     int attempts = 0;
-//
-//     do {
-//       success = true;
-//       grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
-//       final directions = [
-//         [0, 1], [1, 0], [1, 1], [-1, 1],
-//         [0, -1], [-1, 0], [-1, -1], [1, -1]
-//       ];
-//
-//       for (String word in words) {
-//         if (!_placeWord(word, grid, directions, random)) {
-//           success = false;
-//           break;
-//         }
-//       }
-//       attempts++;
-//     } while (!success && attempts < 200);
-//
-//     if (!success) throw Exception("Failed to generate grid");
-//
-//     for (int r = 0; r < gridSize; r++) {
-//       for (int c = 0; c < gridSize; c++) {
-//         if (grid[r][c] == '') {
-//           grid[r][c] = String.fromCharCode(65 + random.nextInt(26));
-//         }
-//       }
-//     }
-//
-//     return grid;
-//   }
-//
-//   bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
-//     for (int attempt = 0; attempt < 200; attempt++) {
-//       final dir = directions[random.nextInt(directions.length)];
-//       final dx = dir[0], dy = dir[1];
-//
-//       int maxRow = gridSize - (dx.abs() * (word.length - 1));
-//       int maxCol = gridSize - (dy.abs() * (word.length - 1));
-//       if (maxRow <= 0 || maxCol <= 0) continue;
-//
-//       int row = dx < 0 ? random.nextInt(maxRow) + (gridSize - maxRow) : random.nextInt(maxRow);
-//       int col = dy < 0 ? random.nextInt(maxCol) + (gridSize - maxCol) : random.nextInt(maxCol);
-//
-//       bool fits = true;
-//       for (int i = 0; i < word.length; i++) {
-//         int r = row + dx * i;
-//         int c = col + dy * i;
-//         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
-//             (grid[r][c] != '' && grid[r][c] != word[i])) {
-//           fits = false;
-//           break;
-//         }
-//       }
-//
-//       if (fits) {
-//         for (int i = 0; i < word.length; i++) {
-//           int r = row + dx * i;
-//           int c = col + dy * i;
-//           grid[r][c] = word[i];
-//         }
-//         return true;
-//       }
-//     }
-//     return false;
-//   }
-//
-//   bool _isValidDirection(Offset a, Offset b) {
-//     int dx = (b.dx - a.dx).round().abs();
-//     int dy = (b.dy - a.dy).round().abs();
-//     return dx == 0 || dy == 0 || dx == dy;
-//   }
-//
-//   void handleDragStart(DragStartDetails details, double cellSize) {
-//     final position = details.localPosition;
-//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-//     start = Offset(row.toDouble(), col.toDouble());
-//     setState(() {
-//       currentDragPath = [start!];
-//     });
-//   }
-//
-//   void handleDragUpdate(DragUpdateDetails details, double cellSize) {
-//     final position = details.localPosition;
-//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-//     end = Offset(row.toDouble(), col.toDouble());
-//
-//     if (start != null && _isValidDirection(start!, end!)) {
-//       setState(() {
-//         currentDragPath = _getHighlightedCells(start!, end!);
-//       });
-//     }
-//   }
-//
-//   Future<void> handleDragEnd() async {
-//     if (start != null && end != null && _isValidDirection(start!, end!)) {
-//       String selectedWord = _getSelectedWord(start!, end!);
-//       debugPrint('Selected word: $selectedWord');
-//       if (selectedWord.length < 3) {
-//         setState(() {
-//           currentDragPath.clear();
-//         });
-//         start = end = null;
-//         return;
-//       }
-//
-//       String? matchedWord;
-//       if (currentWords.contains(selectedWord)) {
-//         matchedWord = selectedWord;
-//       } else {
-//         String reversedWord = selectedWord.split('').reversed.join();
-//         debugPrint('Reverse word attempted: $reversedWord');
-//         if (currentWords.contains(reversedWord)) {
-//           debugPrint('Reverse word $reversedWord is in currentWords, but direction is incorrect');
-//         }
-//       }
-//
-//       debugPrint('Matched word: $matchedWord');
-//       if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
-//         final path = _getHighlightedCells(start!, end!);
-//         setState(() {
-//           foundWordPaths[matchedWord!] = path;
-//           currentDragPath.clear();
-//         });
-//         debugPrint('Found words: ${foundWordPaths.keys}');
-//         debugPrint('Current words: $currentWords');
-//         debugPrint('Found: ${foundWordPaths.length}, Expected: ${currentWords.length}');
-//
-//         if (foundWordPaths.length == currentWords.length) {
-//           debugPrint('All words found! Showing success dialog.');
-//           timer?.cancel();
-//           final newMaxLevel = level + 1;
-//           await Prefs.saveMaxLevel(gridSize, newMaxLevel);
-//           showSuccessDialog();
-//         }
-//       } else {
-//         setState(() {
-//           currentDragPath.clear();
-//         });
-//       }
-//     } else {
-//       setState(() {
-//         currentDragPath.clear();
-//       });
-//     }
-//     start = end = null;
-//   }
-//
-//   String _getSelectedWord(Offset a, Offset b) {
-//     final dx = (b.dx - a.dx).round();
-//     final dy = (b.dy - a.dy).round();
-//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-//     int x = a.dx.round(), y = a.dy.round();
-//     String word = '';
-//
-//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-//       word += grid[x][y];
-//       if (x == b.dx.round() && y == b.dy.round()) break;
-//       x += stepX;
-//       y += stepY;
-//     }
-//     return word;
-//   }
-//
-//   List<Offset> _getHighlightedCells(Offset a, Offset b) {
-//     final List<Offset> cells = [];
-//     final dx = (b.dx - a.dx).round();
-//     final dy = (b.dy - a.dy).round();
-//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-//     int x = a.dx.round(), y = a.dy.round();
-//
-//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-//       cells.add(Offset(x.toDouble(), y.toDouble()));
-//       if (x == b.dx.round() && y == b.dy.round()) break;
-//       x += stepX;
-//       y += stepY;
-//     }
-//     return cells;
-//   }
-//
-//   Color? getCellColor(int row, int col) {
-//     final current = Offset(row.toDouble(), col.toDouble());
-//
-//     if (currentDragPath.contains(current)) {
-//       return Colors.yellow.withValues(alpha: 0.5);
-//     }
-//
-//     int index = 0;
-//     for (var entry in foundWordPaths.entries) {
-//       if (entry.value.contains(current)) {
-//         return highlightColors[index % highlightColors.length];
-//       }
-//       index++;
-//     }
-//     return null;
-//   }
-//
-//   void showSuccessDialog() {
-//     _animationController.forward(from: 0); // Reset and play animation
-//     WidgetsBinding.instance.addPostFrameCallback((_) {
-//       showDialog(
-//         context: context,
-//         barrierDismissible: false,
-//         builder: (context) => ScaleTransition(
-//           scale: _scaleAnimation,
-//           child: AlertDialog(
-//             backgroundColor: Colors.transparent, // Transparent to use custom container
-//             elevation: 0,
-//             contentPadding: EdgeInsets.zero,
-//             shape: RoundedRectangleBorder(
-//               borderRadius: BorderRadius.circular(20.0),
-//             ),
-//             content: Container(
-//               decoration: BoxDecoration(
-//                 gradient: LinearGradient(
-//                   colors: [
-//                     const Color(0xFFDAAB5C), // Primary color
-//                     const Color(0xFFB38F4A), // Slightly darker shade
-//                   ],
-//                   begin: Alignment.topLeft,
-//                   end: Alignment.bottomRight,
-//                 ),
-//                 borderRadius: BorderRadius.circular(20.0),
-//                 boxShadow: const [
-//                   BoxShadow(
-//                     color: Colors.black26,
-//                     blurRadius: 10.0,
-//                     offset: Offset(0, 4),
-//                   ),
-//                 ],
-//                 border: Border.all(
-//                   color: const Color(0xFF7A5821), // Secondary color
-//                   width: 2.0,
-//                 ),
-//               ),
-//               padding: const EdgeInsets.all(20.0),
-//               child: Column(
-//                 mainAxisSize: MainAxisSize.min,
-//                 children: [
-//                   // Puzzle piece icon or text decoration
-//
-//                   Text(
-//                     'Level Complete!',
-//                     style: TextStyle(
-//                       fontSize: 28,
-//                       fontWeight: FontWeight.bold,
-//                       color: Colors.white,
-//                       fontFamily: 'Georgia',
-//                       shadows: [
-//                         Shadow(
-//                           color: const Color(0xFF7A5821).withValues(alpha: 0.5),
-//                           offset: const Offset(2, 2),
-//                           blurRadius: 4,
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                   SizedBox(height:5),
-//                   Icon(
-//                     Icons.star, // Star icon for success
-//                     color: const Color(0xFF7A5821),
-//                     size: 40,
-//                   ),
-//
-//                   const SizedBox(height: 16),
-//                   Text(
-//                     'You solved Level $level of the Word Puzzle!',
-//                     textAlign: TextAlign.center,
-//                     style: TextStyle(
-//                       fontSize: 18,
-//                       color: Colors.white.withValues(alpha: 0.9),
-//                       fontFamily: 'Courier',
-//                     ),
-//                   ),
-//                   const SizedBox(height: 24),
-//                   Row(
-//                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-//                     children: [
-//                       _buildDialogButton(
-//                         text: 'Back to Levels',
-//                         onPressed: () {
-//                           Navigator.pop(context);
-//                           Navigator.pop(context, level + 1);
-//                         },
-//                       ),
-//                       _buildDialogButton(
-//                         text: 'Next Level',
-//                         onPressed: () {
-//                           Navigator.pop(context);
-//                           setState(() {
-//                             level++;
-//                             startLevel();
-//                           });
-//                         },
-//                       ),
-//                     ],
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ),
-//       );
-//     });
-//   }
-//
-//   void showGameOverDialog() {
-//     _animationController.forward(from: 0); // Reset and play animation
-//     showDialog(
-//       context: context,
-//       barrierDismissible: false,
-//       builder: (context) => ScaleTransition(
-//         scale: _scaleAnimation,
-//         child: AlertDialog(
-//           backgroundColor: Colors.transparent, // Transparent to use custom container
-//           elevation: 0,
-//           contentPadding: EdgeInsets.zero,
-//           shape: RoundedRectangleBorder(
-//             borderRadius: BorderRadius.circular(20.0),
-//           ),
-//           content: Container(
-//             decoration: BoxDecoration(
-//               gradient: LinearGradient(
-//                 colors: [
-//                   const Color(0xFFDAAB5C), // Primary color
-//                   const Color(0xFFB38F4A), // Slightly darker shade
-//                 ],
-//                 begin: Alignment.topLeft,
-//                 end: Alignment.bottomRight,
-//               ),
-//               borderRadius: BorderRadius.circular(20.0),
-//               boxShadow: const [
-//                 BoxShadow(
-//                   color: Colors.black26,
-//                   blurRadius: 10.0,
-//                   offset: Offset(0, 4),
-//                 ),
-//               ],
-//               border: Border.all(
-//                 color: const Color(0xFF7A5821), // Secondary color
-//                 width: 2.0,
-//               ),
-//             ),
-//             padding: const EdgeInsets.all(20.0),
-//             child: Column(
-//               mainAxisSize: MainAxisSize.min,
-//               children: [
-//                 // Puzzle piece icon or text decoration
-//
-//                 Text(
-//                   'Time’s Up!',
-//                   style: TextStyle(
-//                     fontSize: 28,
-//                     fontWeight: FontWeight.bold,
-//                     color: Colors.white,
-//                     fontFamily: 'Georgia',
-//                     shadows: [
-//                       Shadow(
-//                         color: const Color(0xFF7A5821).withValues(alpha: 0.5),
-//                         offset: const Offset(2, 2),
-//                         blurRadius: 4,
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//                 SizedBox(height:5),
-//                 Icon(
-//                   Icons.extension, // Puzzle piece icon
-//                   color: const Color(0xFF7A5821),
-//                   size: 40,
-//                 ),
-//
-//                 const SizedBox(height: 16),
-//                 Text(
-//                   'You reached Level $level in the Word Puzzle!',
-//                   textAlign: TextAlign.center,
-//                   style: TextStyle(
-//                     fontSize: 18,
-//                     color: Colors.white.withValues(alpha: 0.9),
-//                     fontFamily: 'Courier',
-//                   ),
-//                 ),
-//                 const SizedBox(height: 24),
-//                 Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-//                   children: [
-//                     _buildDialogButton(
-//                       text: 'Back to Levels',
-//                       onPressed: () {
-//                         Navigator.pop(context);
-//                         Navigator.pop(context);
-//                       },
-//                     ),
-//                     _buildDialogButton(
-//                       text: 'Retry Puzzle',
-//                       onPressed: () {
-//                         Navigator.pop(context);
-//                         setState(() {
-//                           startLevel();
-//                         });
-//                       },
-//                     ),
-//                   ],
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _buildDialogButton({required String text, required VoidCallback onPressed}) {
-//     return GestureDetector(
-//       onTap: onPressed,
-//       child: Container(
-//         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-//         decoration: BoxDecoration(
-//           color: const Color(0xFF7A5821), // Secondary color
-//           borderRadius: BorderRadius.circular(12),
-//           boxShadow: const [
-//             BoxShadow(
-//               color: Colors.black26,
-//               blurRadius: 6,
-//               offset: Offset(0, 2),
-//             ),
-//           ],
-//         ),
-//         child: Text(
-//           text,
-//           style: const TextStyle(
-//             fontSize: 16,
-//             fontWeight: FontWeight.bold,
-//             color: Colors.white,
-//             fontFamily: 'Georgia',
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   @override
-//   void dispose() {
-//     timer?.cancel();
-//     _animationController.dispose(); // Dispose animation controller
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final containerWidth = 384;
-//     final gridPadding = 16;
-//     final availableGridWidth = containerWidth - gridPadding;
-//     final cellSize = availableGridWidth / gridSize;
-//     final fontSizeFactor = 1.0;
-//
-//     return Scaffold(
-//       backgroundColor: const Color(0xFFDAAB5C),
-//       appBar: AppBar(
-//         backgroundColor: const Color(0xFF7A5821),
-//         title: Text(
-//           "Level $level — ⏱ $timeLeft",
-//           style: TextStyle(
-//             color: Colors.white,
-//             fontWeight: FontWeight.bold,
-//             fontSize: 18,
-//           ),
-//         ),
-//         centerTitle: true,
-//         leading: IconButton(
-//           icon: Icon(Icons.arrow_back, color: Colors.white, size: 24),
-//           // onPressed: () => Navigator.pop(context),
-//           onPressed: () =>  Navigator.pop(context, level),
-//         ),
-//       ),
-//       body: Center(
-//         child: Container(
-//           width: 360,
-//           height: double.infinity,
-//           color: const Color(0xFFDAAB5C),
-//           child: SafeArea(
-//             child: SingleChildScrollView(
-//               child: Column(
-//                 children: [
-//                   SizedBox(height: 70),
-//                   Center(
-//                     child: GestureDetector(
-//                       onPanStart: (details) => handleDragStart(details, cellSize),
-//                       onPanUpdate: (details) => handleDragUpdate(details, cellSize),
-//                       onPanEnd: (_) => handleDragEnd(),
-//                       child: Container(
-//                         width: cellSize * gridSize,
-//                         height: cellSize * gridSize,
-//                         padding: EdgeInsets.all(8),
-//                         child: GridView.builder(
-//                           physics: const NeverScrollableScrollPhysics(),
-//                           itemCount: gridSize * gridSize,
-//                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-//                             crossAxisCount: gridSize,
-//                             mainAxisSpacing: 4,
-//                             crossAxisSpacing: 4,
-//                           ),
-//                           itemBuilder: (context, index) {
-//                             final row = index ~/ gridSize;
-//                             final col = index % gridSize;
-//                             final color = getCellColor(row, col);
-//
-//                             return Container(
-//                               decoration: BoxDecoration(
-//                                 color: color ?? const Color(0xFFFFF8E1),
-//                                 borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-//                                 border: Border.all(color: const Color(0xFF7A5821), width: 1),
-//                                 boxShadow: [
-//                                   BoxShadow(
-//                                     color: Colors.black12,
-//                                     blurRadius: 2 * fontSizeFactor,
-//                                     offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-//                                   ),
-//                                 ],
-//                               ),
-//                               alignment: Alignment.center,
-//                               child: Text(
-//                                 grid[row][col],
-//                                 style: TextStyle(
-//                                   fontSize: 20,
-//                                   fontWeight: FontWeight.bold,
-//                                   fontFamily: 'Courier',
-//                                   color: color != null ? Colors.white : const Color(0xFF7A5821),
-//                                 ),
-//                               ),
-//                             );
-//                           },
-//                         ),
-//                       ),
-//                     ),
-//                   ),
-//                   SizedBox(height: 40),
-//                   Text(
-//                     'Find the Words:',
-//                     style: TextStyle(
-//                       fontSize: 20 * fontSizeFactor,
-//                       fontWeight: FontWeight.bold,
-//                       color: const Color(0xFF7A5821),
-//                     ),
-//                   ),
-//                   SizedBox(height: 10 * fontSizeFactor),
-//                   Padding(
-//                     padding: EdgeInsets.symmetric(horizontal: 16 * fontSizeFactor),
-//                     child: Wrap(
-//                       spacing: 8 * fontSizeFactor,
-//                       runSpacing: 8 * fontSizeFactor,
-//                       children: currentWords.map((word) {
-//                         final found = foundWordPaths.containsKey(word);
-//                         return Container(
-//                           padding: EdgeInsets.symmetric(
-//                             horizontal: 10 * fontSizeFactor,
-//                             vertical: 5 * fontSizeFactor,
-//                           ),
-//                           decoration: BoxDecoration(
-//                             color: found ? Colors.green.shade300 : Colors.white,
-//                             borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-//                             border: Border.all(
-//                               color: const Color(0xFF7A5821),
-//                               width: 1 * fontSizeFactor,
-//                             ),
-//                             boxShadow: [
-//                               if (found)
-//                                 BoxShadow(
-//                                   color: Colors.green.shade900.withValues(alpha: 0.3),
-//                                   offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-//                                   blurRadius: 2 * fontSizeFactor,
-//                                 ),
-//                             ],
-//                           ),
-//                           child: Text(
-//                             word,
-//                             style: TextStyle(
-//                               fontSize: 16 * fontSizeFactor,
-//                               fontWeight: FontWeight.w600,
-//                               color: found ? Colors.white : const Color(0xFF7A5821),
-//                               decoration: found ? TextDecoration.lineThrough : null,
-//                             ),
-//                           ),
-//                         );
-//                       }).toList(),
-//                     ),
-//                   ),
-//                   SizedBox(height: 20 * fontSizeFactor),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-
-
-
-// import 'dart:async';
-// import 'dart:math';
-// import 'package:flutter/material.dart';
-// import '../db/prefs.dart';
-//
-// class WordSearchPage extends StatefulWidget {
-//   final int initialLevel;
-//   final int gridSize;
-//   const WordSearchPage({super.key, required this.initialLevel, required this.gridSize});
-//
-//   @override
-//   _WordSearchPageState createState() => _WordSearchPageState();
-// }
-//
-// class _WordSearchPageState extends State<WordSearchPage> with SingleTickerProviderStateMixin {
-//   late int level;
-//   int timeLeft = 90;
-//   Timer? timer;
-//   late int gridSize;
-//   late AnimationController _animationController; // For dialog animation
-//   late Animation<double> _scaleAnimation; // Scale animation for dialog
-//   final Map<String, List<String>> wordBank = {
-//     'tech': [
-//       'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE', 'GAME', 'LEVEL', 'TIMER',
-//       'BONUS', 'SOFTWARE', 'MOBILE', 'WIDGET', 'MATERIAL', 'ALGORITHM', 'DEBUG',
-//       'TEST', 'DATABASE', 'SERVER', 'CLOUD', 'API', 'FRAMEWORK', 'REACT', 'VUE',
-//       'ANGULAR', 'NODE', 'PYTHON', 'JAVA', 'KOTLIN', 'SWIFT', 'RUBY'
-//     ],
-//     'nature': [
-//       'FOREST', 'RIVER', 'MOUNTAIN', 'OCEAN', 'DESERT', 'VALLEY', 'CANYON',
-//       'LAKE', 'TREE', 'FLOWER', 'GRASS', 'SKY', 'CLOUD', 'SUNSET', 'MOON',
-//       'STAR', 'WIND', 'RAIN', 'SNOW', 'FOG', 'BEACH', 'ISLAND', 'REEF', 'CAVE',
-//       'GLACIER', 'MEADOW', 'HILL', 'STREAM', 'POND', 'BAY'
-//     ],
-//     'general': [
-//       'CHALLENGE', 'LOGIC', 'SOLVE', 'FUN', 'ADVENTURE', 'MYSTERY', 'QUEST',
-//       'JOURNEY', 'TRAVEL', 'DREAM', 'HOPE', 'PEACE', 'LOVE', 'JOY', 'SMILE',
-//       'FRIEND', 'FAMILY', 'HOME', 'CITY', 'VILLAGE', 'SCHOOL', 'BOOK', 'MUSIC',
-//       'ART', 'SPORT', 'HEALTH', 'FOOD', 'DRINK', 'TIME', 'WORK'
-//     ],
-//   };
-//
-//   List<Offset> currentDragPath = [];
-//   late List<String> currentWords;
-//   late List<List<String>> grid;
-//   Offset? start;
-//   Offset? end;
-//   final Map<String, List<Offset>> foundWordPaths = {};
-//   final List<Color> highlightColors = [
-//     Colors.orange.shade300,
-//     Colors.teal.shade300,
-//     Colors.purple.shade300,
-//     Colors.blue.shade300,
-//     Colors.pink.shade300,
-//     Colors.green.shade300,
-//     Colors.red.shade300,
-//     Colors.amber.shade300,
-//     Colors.cyan.shade300,
-//     Colors.indigo.shade300,
-//   ];
-//   final Random random = Random();
-//   List<String> usedWords = [];
-//
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     level = widget.initialLevel;
-//     gridSize = widget.gridSize;
-//     // Initialize animation controller
-//     _animationController = AnimationController(
-//       vsync: this,
-//       duration: const Duration(milliseconds: 300),
-//     );
-//     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-//       CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
-//     );
-//     startLevel();
-//     _animationController.forward(); // Start animation
-//   }
-//
-//   void startLevel() {
-//     try {
-//       currentWords = _generateDynamicWords();
-//       grid = generateGridWithWords(currentWords);
-//       timeLeft = 90;
-//       foundWordPaths.clear();
-//       currentDragPath.clear();
-//       start = end = null;
-//       startTimer();
-//     } catch (e) {
-//       showGameOverDialog();
-//     }
-//   }
-//
-//   List<String> _generateDynamicWords() {
-//     List<String> availableWords = wordBank.values.expand((words) => words).toList();
-//     availableWords.removeWhere((word) => usedWords.contains(word));
-//
-//     if (availableWords.length < 5 + level) {
-//       usedWords.clear();
-//       availableWords = wordBank.values.expand((words) => words).toList();
-//     }
-//
-//     availableWords.shuffle(random);
-//     List<String> selectedWords = availableWords.take(5 + level).toList();
-//     usedWords.addAll(selectedWords);
-//
-//     return selectedWords
-//         .where((word) => word.length <= gridSize)
-//         .map((word) => word.toUpperCase())
-//         .toList();
-//   }
-//
-//   void startTimer() {
-//     timer?.cancel();
-//     timer = Timer.periodic(const Duration(seconds: 1), (t) {
-//       setState(() {
-//         timeLeft--;
-//         if (timeLeft <= 0) {
-//           t.cancel();
-//           showGameOverDialog();
-//         }
-//       });
-//     });
-//   }
-//
-//   List<List<String>> generateGridWithWords(List<String> words) {
-//     List<List<String>> grid;
-//     bool success;
-//     int attempts = 0;
-//
-//     do {
-//       success = true;
-//       grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
-//       final directions = [
-//         [0, 1], [1, 0], [1, 1], [-1, 1],
-//         [0, -1], [-1, 0], [-1, -1], [1, -1]
-//       ];
-//
-//       for (String word in words) {
-//         if (!_placeWord(word, grid, directions, random)) {
-//           success = false;
-//           break;
-//         }
-//       }
-//       attempts++;
-//     } while (!success && attempts < 200);
-//
-//     if (!success) throw Exception("Failed to generate grid");
-//
-//     for (int r = 0; r < gridSize; r++) {
-//       for (int c = 0; c < gridSize; c++) {
-//         if (grid[r][c] == '') {
-//           grid[r][c] = String.fromCharCode(65 + random.nextInt(26));
-//         }
-//       }
-//     }
-//
-//     return grid;
-//   }
-//
-//   bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
-//     for (int attempt = 0; attempt < 200; attempt++) {
-//       final dir = directions[random.nextInt(directions.length)];
-//       final dx = dir[0], dy = dir[1];
-//
-//       int maxRow = gridSize - (dx.abs() * (word.length - 1));
-//       int maxCol = gridSize - (dy.abs() * (word.length - 1));
-//       if (maxRow <= 0 || maxCol <= 0) continue;
-//
-//       int row = dx < 0 ? random.nextInt(maxRow) + (gridSize - maxRow) : random.nextInt(maxRow);
-//       int col = dy < 0 ? random.nextInt(maxCol) + (gridSize - maxCol) : random.nextInt(maxCol);
-//
-//       bool fits = true;
-//       for (int i = 0; i < word.length; i++) {
-//         int r = row + dx * i;
-//         int c = col + dy * i;
-//         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
-//             (grid[r][c] != '' && grid[r][c] != word[i])) {
-//           fits = false;
-//           break;
-//         }
-//       }
-//
-//       if (fits) {
-//         for (int i = 0; i < word.length; i++) {
-//           int r = row + dx * i;
-//           int c = col + dy * i;
-//           grid[r][c] = word[i];
-//         }
-//         return true;
-//       }
-//     }
-//     return false;
-//   }
-//
-//   bool _isValidDirection(Offset a, Offset b) {
-//     int dx = (b.dx - a.dx).round().abs();
-//     int dy = (b.dy - a.dy).round().abs();
-//     return dx == 0 || dy == 0 || dx == dy;
-//   }
-//
-//   void handleDragStart(DragStartDetails details, double cellSize) {
-//     final position = details.localPosition;
-//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-//     start = Offset(row.toDouble(), col.toDouble());
-//     setState(() {
-//       currentDragPath = [start!];
-//     });
-//   }
-//
-//   void handleDragUpdate(DragUpdateDetails details, double cellSize) {
-//     final position = details.localPosition;
-//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-//     end = Offset(row.toDouble(), col.toDouble());
-//
-//     if (start != null && _isValidDirection(start!, end!)) {
-//       setState(() {
-//         currentDragPath = _getHighlightedCells(start!, end!);
-//       });
-//     }
-//   }
-//   Future<void> handleDragEnd() async {
-//     if (start != null && end != null && _isValidDirection(start!, end!)) {
-//       String selectedWord = _getSelectedWord(start!, end!);
-//       debugPrint('Selected word: $selectedWord');
-//       if (selectedWord.length < 3) {
-//         setState(() {
-//           currentDragPath.clear();
-//         });
-//         start = end = null;
-//         return;
-//       }
-//
-//       String reversedWord = selectedWord.split('').reversed.join();
-//       String? matchedWord;
-//
-//       if (currentWords.contains(selectedWord)) {
-//         matchedWord = selectedWord;
-//       } else if (currentWords.contains(reversedWord)) {
-//         matchedWord = reversedWord;
-//       }
-//
-//       debugPrint('Matched word: $matchedWord');
-//       if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
-//         final path = _getHighlightedCells(start!, end!);
-//         setState(() {
-//           foundWordPaths[matchedWord!] = path;
-//           currentDragPath.clear();
-//         });
-//         debugPrint('Found words: ${foundWordPaths.keys}');
-//         debugPrint('Current words: $currentWords');
-//         debugPrint('Found: ${foundWordPaths.length}, Expected: ${currentWords.length}');
-//
-//         if (foundWordPaths.length == currentWords.length) {
-//           debugPrint('All words found! Showing success dialog.');
-//           timer?.cancel();
-//           final newMaxLevel = level + 1;
-//           await Prefs.saveMaxLevel(gridSize, newMaxLevel);
-//           showSuccessDialog();
-//         }
-//       } else {
-//         setState(() {
-//           currentDragPath.clear();
-//         });
-//       }
-//     } else {
-//       setState(() {
-//         currentDragPath.clear();
-//       });
-//     }
-//     start = end = null;
-//   }
-//
-//   String _getSelectedWord(Offset a, Offset b) {
-//     final dx = (b.dx - a.dx).round();
-//     final dy = (b.dy - a.dy).round();
-//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-//     int x = a.dx.round(), y = a.dy.round();
-//     String word = '';
-//
-//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-//       word += grid[x][y];
-//       if (x == b.dx.round() && y == b.dy.round()) break;
-//       x += stepX;
-//       y += stepY;
-//     }
-//     return word;
-//   }
-//
-//   List<Offset> _getHighlightedCells(Offset a, Offset b) {
-//     final List<Offset> cells = [];
-//     final dx = (b.dx - a.dx).round();
-//     final dy = (b.dy - a.dy).round();
-//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-//     int x = a.dx.round(), y = a.dy.round();
-//
-//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-//       cells.add(Offset(x.toDouble(), y.toDouble()));
-//       if (x == b.dx.round() && y == b.dy.round()) break;
-//       x += stepX;
-//       y += stepY;
-//     }
-//     return cells;
-//   }
-//
-//   Color? getCellColor(int row, int col) {
-//     final current = Offset(row.toDouble(), col.toDouble());
-//
-//     if (currentDragPath.contains(current)) {
-//       return Colors.yellow.withValues(alpha: 0.5);
-//     }
-//
-//     int index = 0;
-//     for (var entry in foundWordPaths.entries) {
-//       if (entry.value.contains(current)) {
-//         return highlightColors[index % highlightColors.length];
-//       }
-//       index++;
-//     }
-//     return null;
-//   }
-//
-//   void showSuccessDialog() {
-//     _animationController.forward(from: 0); // Reset and play animation
-//     WidgetsBinding.instance.addPostFrameCallback((_) {
-//       showDialog(
-//         context: context,
-//         barrierDismissible: false,
-//         builder: (context) => ScaleTransition(
-//           scale: _scaleAnimation,
-//           child: AlertDialog(
-//             backgroundColor: Colors.transparent, // Transparent to use custom container
-//             elevation: 0,
-//             contentPadding: EdgeInsets.zero,
-//             shape: RoundedRectangleBorder(
-//               borderRadius: BorderRadius.circular(20.0),
-//             ),
-//             content: Container(
-//               decoration: BoxDecoration(
-//                 gradient: LinearGradient(
-//                   colors: [
-//                     const Color(0xFFDAAB5C), // Primary color
-//                     const Color(0xFFB38F4A), // Slightly darker shade
-//                   ],
-//                   begin: Alignment.topLeft,
-//                   end: Alignment.bottomRight,
-//                 ),
-//                 borderRadius: BorderRadius.circular(20.0),
-//                 boxShadow: const [
-//                   BoxShadow(
-//                     color: Colors.black26,
-//                     blurRadius: 10.0,
-//                     offset: Offset(0, 4),
-//                   ),
-//                 ],
-//                 border: Border.all(
-//                   color: const Color(0xFF7A5821), // Secondary color
-//                   width: 2.0,
-//                 ),
-//               ),
-//               padding: const EdgeInsets.all(20.0),
-//               child: Column(
-//                 mainAxisSize: MainAxisSize.min,
-//                 children: [
-//                   // Puzzle piece icon or text decoration
-//
-//                       Text(
-//                         'Level Complete!',
-//                         style: TextStyle(
-//                           fontSize: 28,
-//                           fontWeight: FontWeight.bold,
-//                           color: Colors.white,
-//                           fontFamily: 'Georgia',
-//                           shadows: [
-//                             Shadow(
-//                               color: const Color(0xFF7A5821).withValues(alpha: 0.5),
-//                               offset: const Offset(2, 2),
-//                               blurRadius: 4,
-//                             ),
-//                           ],
-//                         ),
-//                       ),
-//
-//                     Icon(
-//                           Icons.star, // Star icon for success
-//                           color: const Color(0xFF7A5821),
-//                           size: 40,
-//                         ),
-//
-//                   const SizedBox(height: 5),
-//                   Text(
-//                     'You solved Level $level of the Word Puzzle!',
-//                     textAlign: TextAlign.center,
-//                     style: TextStyle(
-//                       fontSize: 18,
-//                       color: Colors.white.withValues(alpha: 0.9),
-//                       fontFamily: 'Courier',
-//                     ),
-//                   ),
-//                   const SizedBox(height: 24),
-//                   Row(
-//                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-//                     children: [
-//                       _buildDialogButton(
-//                         text: 'Back to Levels',
-//                         onPressed: () {
-//                           Navigator.pop(context);
-//                           Navigator.pop(context, level + 1);
-//                         },
-//                       ),
-//                       _buildDialogButton(
-//                         text: 'Next Level',
-//                         onPressed: () {
-//                           Navigator.pop(context);
-//                           setState(() {
-//                             level++;
-//                             startLevel();
-//                           });
-//                         },
-//                       ),
-//                     ],
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ),
-//       );
-//     });
-//   }
-//
-//   void showGameOverDialog() {
-//     _animationController.forward(from: 0); // Reset and play animation
-//     showDialog(
-//       context: context,
-//       barrierDismissible: false,
-//       builder: (context) => ScaleTransition(
-//         scale: _scaleAnimation,
-//         child: AlertDialog(
-//           backgroundColor: Colors.transparent, // Transparent to use custom container
-//           elevation: 0,
-//           contentPadding: EdgeInsets.zero,
-//           shape: RoundedRectangleBorder(
-//             borderRadius: BorderRadius.circular(20.0),
-//           ),
-//           content: Container(
-//             decoration: BoxDecoration(
-//               gradient: LinearGradient(
-//                 colors: [
-//                   const Color(0xFFDAAB5C), // Primary color
-//                   const Color(0xFFB38F4A), // Slightly darker shade
-//                 ],
-//                 begin: Alignment.topLeft,
-//                 end: Alignment.bottomRight,
-//               ),
-//               borderRadius: BorderRadius.circular(20.0),
-//               boxShadow: const [
-//                 BoxShadow(
-//                   color: Colors.black26,
-//                   blurRadius: 10.0,
-//                   offset: Offset(0, 4),
-//                 ),
-//               ],
-//               border: Border.all(
-//                 color: const Color(0xFF7A5821), // Secondary color
-//                 width: 2.0,
-//               ),
-//             ),
-//             padding: const EdgeInsets.all(20.0),
-//             child: Column(
-//               mainAxisSize: MainAxisSize.min,
-//               children: [
-//                 // Puzzle piece icon or text decoration
-//
-//                     Text(
-//                       'Time’s Up!',
-//                       style: TextStyle(
-//                         fontSize: 28,
-//                         fontWeight: FontWeight.bold,
-//                         color: Colors.white,
-//                         fontFamily: 'Georgia',
-//                         shadows: [
-//                           Shadow(
-//                             color: const Color(0xFF7A5821).withValues(alpha: 0.5),
-//                             offset: const Offset(2, 2),
-//                             blurRadius: 4,
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                      Icon(
-//                         Icons.extension, // Puzzle piece icon
-//                         color: const Color(0xFF7A5821),
-//                         size: 40,
-//                       ),
-//
-//                 const SizedBox(height: 16),
-//                 Text(
-//                   'You reached Level $level in the Word Puzzle!',
-//                   textAlign: TextAlign.center,
-//                   style: TextStyle(
-//                     fontSize: 18,
-//                     color: Colors.white.withValues(alpha: 0.9),
-//                     fontFamily: 'Courier',
-//                   ),
-//                 ),
-//                 const SizedBox(height: 24),
-//                 Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-//                   children: [
-//                     _buildDialogButton(
-//                       text: 'Back to Levels',
-//                       onPressed: () {
-//                         Navigator.pop(context);
-//                         Navigator.pop(context);
-//                       },
-//                     ),
-//                     _buildDialogButton(
-//                       text: 'Retry Puzzle',
-//                       onPressed: () {
-//                         Navigator.pop(context);
-//                         setState(() {
-//                           startLevel();
-//                         });
-//                       },
-//                     ),
-//                   ],
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _buildDialogButton({required String text, required VoidCallback onPressed}) {
-//     return GestureDetector(
-//       onTap: onPressed,
-//       child: Container(
-//         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-//         decoration: BoxDecoration(
-//           color: const Color(0xFF7A5821), // Secondary color
-//           borderRadius: BorderRadius.circular(12),
-//           boxShadow: const [
-//             BoxShadow(
-//               color: Colors.black26,
-//               blurRadius: 6,
-//               offset: Offset(0, 2),
-//             ),
-//           ],
-//         ),
-//         child: Text(
-//           text,
-//           style: const TextStyle(
-//             fontSize: 16,
-//             fontWeight: FontWeight.bold,
-//             color: Colors.white,
-//             fontFamily: 'Georgia',
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//
-//   @override
-//   void dispose() {
-//     timer?.cancel();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final containerWidth = 384;
-//     final gridPadding = 16;
-//     final availableGridWidth = containerWidth - gridPadding;
-//     final cellSize = availableGridWidth / gridSize;
-//     final fontSizeFactor = 1.0;
-//
-//     return Scaffold(
-//       backgroundColor: const Color(0xFFDAAB5C),
-//       appBar: AppBar(
-//         backgroundColor: const Color(0xFF7A5821),
-//         title: Text(
-//           "Level $level — ⏱ $timeLeft",
-//           style: TextStyle(
-//             color: Colors.white,
-//             fontWeight: FontWeight.bold,
-//             fontSize: 18,
-//           ),
-//         ),
-//         centerTitle: true,
-//         leading: IconButton(
-//           icon: Icon(Icons.arrow_back, color: Colors.white, size: 24),
-//           onPressed: () => Navigator.pop(context),
-//         ),
-//       ),
-//       body: Center(
-//         child: Container(
-//           width: 360,
-//           height: double.infinity,
-//           color: const Color(0xFFDAAB5C),
-//           child: SafeArea(
-//             child: SingleChildScrollView(
-//               child: Column(
-//                 // crossAxisAlignment: CrossAxisAlignment.end,
-//                 // mainAxisAlignment: MainAxisAlignment.center,
-//                 children: [
-//                   SizedBox(height: 70),
-//                   Center(
-//                     child: GestureDetector(
-//                       onPanStart: (details) => handleDragStart(details, cellSize),
-//                       onPanUpdate: (details) => handleDragUpdate(details, cellSize),
-//                       onPanEnd: (_) => handleDragEnd(),
-//                       child: Container(
-//                         width: cellSize * gridSize,
-//                         height: cellSize * gridSize,
-//                         padding: EdgeInsets.all(8),
-//                         child: GridView.builder(
-//                           physics: const NeverScrollableScrollPhysics(),
-//                           itemCount: gridSize * gridSize,
-//                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-//                             crossAxisCount: gridSize,
-//                             mainAxisSpacing: 4,
-//                             crossAxisSpacing: 4,
-//                           ),
-//                           itemBuilder: (context, index) {
-//                             final row = index ~/ gridSize;
-//                             final col = index % gridSize;
-//                             final color = getCellColor(row, col);
-//
-//                             return Container(
-//                               decoration: BoxDecoration(
-//                                 color: color ?? const Color(0xFFFFF8E1),
-//                                 borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-//                                 border: Border.all(color: const Color(0xFF7A5821), width: 1),
-//                                 boxShadow: [
-//                                   BoxShadow(
-//                                     color: Colors.black12,
-//                                     blurRadius: 2 * fontSizeFactor,
-//                                     offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-//                                   ),
-//                                 ],
-//                               ),
-//                               alignment: Alignment.center,
-//                               child: Text(
-//                                 grid[row][col],
-//                                 style: TextStyle(
-//                                   fontSize: 20,
-//                                   fontWeight: FontWeight.bold,
-//                                   fontFamily: 'Courier',
-//                                   color: color != null ? Colors.white : const Color(0xFF7A5821),
-//                                 ),
-//                               ),
-//                             );
-//                           },
-//                         ),
-//                       ),
-//                     ),
-//                   ),
-//                   SizedBox(height: 40),
-//                   Text(
-//                     'Find the Words:',
-//                     style: TextStyle(
-//                       fontSize: 20 * fontSizeFactor,
-//                       fontWeight: FontWeight.bold,
-//                       color: const Color(0xFF7A5821),
-//                     ),
-//                   ),
-//                   SizedBox(height: 10 * fontSizeFactor),
-//                   Padding(
-//                     padding: EdgeInsets.symmetric(horizontal: 16 * fontSizeFactor),
-//                     child: Wrap(
-//                       spacing: 8 * fontSizeFactor,
-//                       runSpacing: 8 * fontSizeFactor,
-//                       children: currentWords.map((word) {
-//                         final found = foundWordPaths.containsKey(word);
-//                         return Container(
-//                           padding: EdgeInsets.symmetric(
-//                             horizontal: 10 * fontSizeFactor,
-//                             vertical: 5 * fontSizeFactor,
-//                           ),
-//                           decoration: BoxDecoration(
-//                             color: found ? Colors.green.shade300 : Colors.white,
-//                             borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-//                             border: Border.all(
-//                               color: const Color(0xFF7A5821),
-//                               width: 1 * fontSizeFactor,
-//                             ),
-//                             boxShadow: [
-//                               if (found)
-//                                 BoxShadow(
-//                                   color: Colors.green.shade900.withValues(alpha: 0.3),
-//                                   offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-//                                   blurRadius: 2 * fontSizeFactor,
-//                                 ),
-//                             ],
-//                           ),
-//                           child: Text(
-//                             word,
-//                             style: TextStyle(
-//                               fontSize: 16 * fontSizeFactor,
-//                               fontWeight: FontWeight.w600,
-//                               color: found ? Colors.white : const Color(0xFF7A5821),
-//                               decoration: found ? TextDecoration.lineThrough : null,
-//                             ),
-//                           ),
-//                         );
-//                       }).toList(),
-//                     ),
-//                   ),
-//                   SizedBox(height: 20 * fontSizeFactor),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-
-
-
-
-
-
-// import 'dart:async';
-// import 'dart:math';
-// import 'package:flutter/material.dart';
-//
-// import '../db/prefs.dart';
-//
-// void main() {
-//   runApp(const MaterialApp(
-//     home: WordSearchPage(initialLevel: 1, gridSize: 6),
-//   ));
-// }
-//
-// class WordSearchPage extends StatefulWidget {
-//   final int initialLevel;
-//   final int gridSize;
-//   const WordSearchPage({super.key, required this.initialLevel, required this.gridSize});
-//
-//   @override
-//   _WordSearchPageState createState() => _WordSearchPageState();
-// }
-//
-// class _WordSearchPageState extends State<WordSearchPage> {
-//   late int level;
-//   int timeLeft = 90;
-//   Timer? timer;
-//   late int gridSize;
-//   final Map<String, List<String>> wordBank = {
-//     'tech': [
-//       'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE', 'GAME', 'LEVEL', 'TIMER',
-//       'BONUS', 'SOFTWARE', 'MOBILE', 'WIDGET', 'MATERIAL', 'ALGORITHM', 'DEBUG',
-//       'TEST', 'DATABASE', 'SERVER', 'CLOUD', 'API', 'FRAMEWORK', 'REACT', 'VUE',
-//       'ANGULAR', 'NODE', 'PYTHON', 'JAVA', 'KOTLIN', 'SWIFT', 'RUBY'
-//     ],
-//     'nature': [
-//       'FOREST', 'RIVER', 'MOUNTAIN', 'OCEAN', 'DESERT', 'VALLEY', 'CANYON',
-//       'LAKE', 'TREE', 'FLOWER', 'GRASS', 'SKY', 'CLOUD', 'SUNSET', 'MOON',
-//       'STAR', 'WIND', 'RAIN', 'SNOW', 'FOG', 'BEACH', 'ISLAND', 'REEF', 'CAVE',
-//       'GLACIER', 'MEADOW', 'HILL', 'STREAM', 'POND', 'BAY'
-//     ],
-//     'general': [
-//       'CHALLENGE', 'LOGIC', 'SOLVE', 'FUN', 'ADVENTURE', 'MYSTERY', 'QUEST',
-//       'JOURNEY', 'TRAVEL', 'DREAM', 'HOPE', 'PEACE', 'LOVE', 'JOY', 'SMILE',
-//       'FRIEND', 'FAMILY', 'HOME', 'CITY', 'VILLAGE', 'SCHOOL', 'BOOK', 'MUSIC',
-//       'ART', 'SPORT', 'HEALTH', 'FOOD', 'DRINK', 'TIME', 'WORK'
-//     ],
-//   };
-//
-//   List<Offset> currentDragPath = [];
-//   late List<String> currentWords;
-//   late List<List<String>> grid;
-//   Offset? start;
-//   Offset? end;
-//   final Map<String, List<Offset>> foundWordPaths = {};
-//   final List<Color> highlightColors = [
-//     Colors.orange.shade300,
-//     Colors.teal.shade300,
-//     Colors.purple.shade300,
-//     Colors.blue.shade300,
-//     Colors.pink.shade300,
-//     Colors.green.shade300,
-//     Colors.red.shade300,
-//     Colors.amber.shade300,
-//     Colors.cyan.shade300,
-//     Colors.indigo.shade300,
-//   ];
-//   final Random random = Random();
-//   List<String> usedWords = [];
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     level = widget.initialLevel;
-//     gridSize = widget.gridSize;
-//     startLevel();
-//   }
-//
-//   void startLevel() {
-//     try {
-//       currentWords = _generateDynamicWords();
-//       grid = generateGridWithWords(currentWords);
-//       timeLeft = 90;
-//       foundWordPaths.clear();
-//       currentDragPath.clear();
-//       start = end = null;
-//       startTimer();
-//     } catch (e) {
-//       showGameOverDialog();
-//     }
-//   }
-//
-//   List<String> _generateDynamicWords() {
-//     List<String> availableWords = wordBank.values.expand((words) => words).toList();
-//     availableWords.removeWhere((word) => usedWords.contains(word));
-//
-//     if (availableWords.length < 5 + level) {
-//       usedWords.clear();
-//       availableWords = wordBank.values.expand((words) => words).toList();
-//     }
-//
-//     availableWords.shuffle(random);
-//     List<String> selectedWords = availableWords.take(5 + level).toList();
-//     usedWords.addAll(selectedWords);
-//
-//     return selectedWords
-//         .where((word) => word.length <= gridSize)
-//         .map((word) => word.toUpperCase())
-//         .toList();
-//   }
-//
-//   void startTimer() {
-//     timer?.cancel();
-//     timer = Timer.periodic(const Duration(seconds: 1), (t) {
-//       setState(() {
-//         timeLeft--;
-//         if (timeLeft <= 0) {
-//           t.cancel();
-//           showGameOverDialog();
-//         }
-//       });
-//     });
-//   }
-//
-//   List<List<String>> generateGridWithWords(List<String> words) {
-//     List<List<String>> grid;
-//     bool success;
-//     int attempts = 0;
-//
-//     do {
-//       success = true;
-//       grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
-//       final directions = [
-//         [0, 1], [1, 0], [1, 1], [-1, 1],
-//         [0, -1], [-1, 0], [-1, -1], [1, -1]
-//       ];
-//
-//       for (String word in words) {
-//         if (!_placeWord(word, grid, directions, random)) {
-//           success = false;
-//           break;
-//         }
-//       }
-//       attempts++;
-//     } while (!success && attempts < 200);
-//
-//     if (!success) throw Exception("Failed to generate grid");
-//
-//     for (int r = 0; r < gridSize; r++) {
-//       for (int c = 0; c < gridSize; c++) {
-//         if (grid[r][c] == '') {
-//           grid[r][c] = String.fromCharCode(65 + random.nextInt(26));
-//         }
-//       }
-//     }
-//
-//     return grid;
-//   }
-//
-//   bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
-//     for (int attempt = 0; attempt < 200; attempt++) {
-//       final dir = directions[random.nextInt(directions.length)];
-//       final dx = dir[0], dy = dir[1];
-//
-//       int maxRow = gridSize - (dx.abs() * (word.length - 1));
-//       int maxCol = gridSize - (dy.abs() * (word.length - 1));
-//       if (maxRow <= 0 || maxCol <= 0) continue;
-//
-//       int row = dx < 0 ? random.nextInt(maxRow) + (gridSize - maxRow) : random.nextInt(maxRow);
-//       int col = dy < 0 ? random.nextInt(maxCol) + (gridSize - maxCol) : random.nextInt(maxCol);
-//
-//       bool fits = true;
-//       for (int i = 0; i < word.length; i++) {
-//         int r = row + dx * i;
-//         int c = col + dy * i;
-//         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
-//             (grid[r][c] != '' && grid[r][c] != word[i])) {
-//           fits = false;
-//           break;
-//         }
-//       }
-//
-//       if (fits) {
-//         for (int i = 0; i < word.length; i++) {
-//           int r = row + dx * i;
-//           int c = col + dy * i;
-//           grid[r][c] = word[i];
-//         }
-//         return true;
-//       }
-//     }
-//     return false;
-//   }
-//
-//   bool _isValidDirection(Offset a, Offset b) {
-//     int dx = (b.dx - a.dx).round().abs();
-//     int dy = (b.dy - a.dy).round().abs();
-//     return dx == 0 || dy == 0 || dx == dy;
-//   }
-//
-//   void handleDragStart(DragStartDetails details, double cellSize) {
-//     final position = details.localPosition;
-//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-//     start = Offset(row.toDouble(), col.toDouble());
-//     setState(() {
-//       currentDragPath = [start!];
-//     });
-//   }
-//
-//   void handleDragUpdate(DragUpdateDetails details, double cellSize) {
-//     final position = details.localPosition;
-//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-//     end = Offset(row.toDouble(), col.toDouble());
-//
-//     if (start != null && _isValidDirection(start!, end!)) {
-//       setState(() {
-//         currentDragPath = _getHighlightedCells(start!, end!);
-//       });
-//     }
-//   }
-//
-//   // Future<void> handleDragEnd() async {
-//   //   if (start != null && end != null && _isValidDirection(start!, end!)) {
-//   //     String selectedWord = _getSelectedWord(start!, end!);
-//   //     if (selectedWord.length < 3) {
-//   //       setState(() {
-//   //         currentDragPath.clear();
-//   //       });
-//   //       start = end = null;
-//   //       return;
-//   //     }
-//   //
-//   //     String reversedWord = selectedWord.split('').reversed.join();
-//   //     String? matchedWord;
-//   //
-//   //     if (currentWords.contains(selectedWord)) {
-//   //       matchedWord = selectedWord;
-//   //     } else if (currentWords.contains(reversedWord)) {
-//   //       matchedWord = reversedWord;
-//   //     }
-//   //
-//   //     if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
-//   //       final path = _getHighlightedCells(start!, end!);
-//   //       setState(() {
-//   //         foundWordPaths[matchedWord!] = path;
-//   //         currentDragPath.clear();
-//   //       });
-//   //
-//   //       if (foundWordPaths.length == currentWords.length) {
-//   //         timer?.cancel();
-//   //         final newMaxLevel = level + 1;
-//   //         await Prefs.saveMaxLevel(gridSize, newMaxLevel);
-//   //         showSuccessDialog();
-//   //       }
-//   //     } else {
-//   //       setState(() {
-//   //         currentDragPath.clear();
-//   //       });
-//   //     }
-//   //   } else {
-//   //     setState(() {
-//   //       currentDragPath.clear();
-//   //     });
-//   //   }
-//   //   start = end = null;
-//   // }
-//   Future<void> handleDragEnd() async {
-//     if (start != null && end != null && _isValidDirection(start!, end!)) {
-//       String selectedWord = _getSelectedWord(start!, end!);
-//       debugPrint('Selected word: $selectedWord');
-//       if (selectedWord.length < 3) {
-//         setState(() {
-//           currentDragPath.clear();
-//         });
-//         start = end = null;
-//         return;
-//       }
-//
-//       String reversedWord = selectedWord.split('').reversed.join();
-//       String? matchedWord;
-//
-//       if (currentWords.contains(selectedWord)) {
-//         matchedWord = selectedWord;
-//       } else if (currentWords.contains(reversedWord)) {
-//         matchedWord = reversedWord;
-//       }
-//
-//       debugPrint('Matched word: $matchedWord');
-//       if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
-//         final path = _getHighlightedCells(start!, end!);
-//         setState(() {
-//           foundWordPaths[matchedWord!] = path;
-//           currentDragPath.clear();
-//         });
-//         debugPrint('Found words: ${foundWordPaths.keys}');
-//         debugPrint('Current words: $currentWords');
-//         debugPrint('Found: ${foundWordPaths.length}, Expected: ${currentWords.length}');
-//
-//         if (foundWordPaths.length == currentWords.length) {
-//           debugPrint('All words found! Showing success dialog.');
-//           timer?.cancel();
-//           final newMaxLevel = level + 1;
-//           await Prefs.saveMaxLevel(gridSize, newMaxLevel);
-//           showSuccessDialog();
-//         }
-//       } else {
-//         setState(() {
-//           currentDragPath.clear();
-//         });
-//       }
-//     } else {
-//       setState(() {
-//         currentDragPath.clear();
-//       });
-//     }
-//     start = end = null;
-//   }
-//
-//   String _getSelectedWord(Offset a, Offset b) {
-//     final dx = (b.dx - a.dx).round();
-//     final dy = (b.dy - a.dy).round();
-//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-//     int x = a.dx.round(), y = a.dy.round();
-//     String word = '';
-//
-//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-//       word += grid[x][y];
-//       if (x == b.dx.round() && y == b.dy.round()) break;
-//       x += stepX;
-//       y += stepY;
-//     }
-//     return word;
-//   }
-//
-//   List<Offset> _getHighlightedCells(Offset a, Offset b) {
-//     final List<Offset> cells = [];
-//     final dx = (b.dx - a.dx).round();
-//     final dy = (b.dy - a.dy).round();
-//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-//     int x = a.dx.round(), y = a.dy.round();
-//
-//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-//       cells.add(Offset(x.toDouble(), y.toDouble()));
-//       if (x == b.dx.round() && y == b.dy.round()) break;
-//       x += stepX;
-//       y += stepY;
-//     }
-//     return cells;
-//   }
-//
-//   Color? getCellColor(int row, int col) {
-//     final current = Offset(row.toDouble(), col.toDouble());
-//
-//     if (currentDragPath.contains(current)) {
-//       return Colors.yellow.withValues(alpha: 0.5);
-//     }
-//
-//     int index = 0;
-//     for (var entry in foundWordPaths.entries) {
-//       if (entry.value.contains(current)) {
-//         return highlightColors[index % highlightColors.length];
-//       }
-//       index++;
-//     }
-//     return null;
-//   }
-//   // void showSuccessDialog() {
-//   //   WidgetsBinding.instance.addPostFrameCallback((_) {
-//   //     showDialog(
-//   //       context: context,
-//   //       barrierDismissible: false,
-//   //       builder: (context) => AlertDialog(
-//   //         title: const Text('Level Complete!'),
-//   //         content: Text('You’ve completed Level $level!'),
-//   //         actions: [
-//   //           TextButton(
-//   //             onPressed: () {
-//   //               Navigator.pop(context);
-//   //               Navigator.pop(context, level + 1);
-//   //             },
-//   //             child: const Text('Back to Levels'),
-//   //           ),
-//   //           TextButton(
-//   //             onPressed: () {
-//   //               Navigator.pop(context);
-//   //               setState(() {
-//   //                 level++;
-//   //                 startLevel();
-//   //               });
-//   //             },
-//   //             child: const Text('Next Level'),
-//   //           ),
-//   //         ],
-//   //       ),
-//   //     );
-//   //   });
-//   // }
-//
-//
-//   void showSuccessDialog() {
-//     WidgetsBinding.instance.addPostFrameCallback((_) {
-//       showDialog(
-//         context: context,
-//         barrierDismissible: false,
-//         builder: (context) => AlertDialog(
-//           backgroundColor: const Color(0xFFDAAB5C), // Golden background
-//           shape: RoundedRectangleBorder(
-//             borderRadius: BorderRadius.circular(16.0),
-//           ),
-//           title: const Text(
-//             'Level Complete!',
-//             style: TextStyle(
-//               color: Colors.white,
-//               fontWeight: FontWeight.bold,
-//             ),
-//           ),
-//           content: Text(
-//             'You’ve completed Level $level!',
-//             style: TextStyle(
-//               color: Colors.white,
-//             ),
-//           ),
-//           actions: [
-//             TextButton(
-//               style: TextButton.styleFrom(
-//                 foregroundColor: Colors.white,
-//                 backgroundColor: Colors.black.withValues(alpha: 0.15),
-//                 shape: RoundedRectangleBorder(
-//                   borderRadius: BorderRadius.circular(8.0),
-//                 ),
-//               ),
-//               onPressed: () {
-//                 Navigator.pop(context);
-//                 Navigator.pop(context, level + 1);
-//               },
-//               child: const Text('Back to Levels'),
-//             ),
-//             TextButton(
-//               style: TextButton.styleFrom(
-//                 foregroundColor: Colors.white,
-//                 backgroundColor: Colors.black.withValues(alpha: 0.15),
-//                 shape: RoundedRectangleBorder(
-//                   borderRadius: BorderRadius.circular(8.0),
-//                 ),
-//               ),
-//               onPressed: () {
-//                 Navigator.pop(context);
-//                 setState(() {
-//                   level++;
-//                   startLevel();
-//                 });
-//               },
-//               child: const Text('Next Level'),
-//             ),
-//           ],
-//         ),
-//       );
-//     });
-//   }
-//
-//
-//
-//   // void showSuccessDialog() {
-//   //   showDialog(
-//   //     context: context,
-//   //     barrierDismissible: false,
-//   //     builder: (context) => AlertDialog(
-//   //       title: const Text('Level Complete!'),
-//   //       content: Text('You’ve completed Level $level!'),
-//   //       actions: [
-//   //         TextButton(
-//   //           onPressed: () {
-//   //             Navigator.pop(context);
-//   //             Navigator.pop(context, level + 1);
-//   //           },
-//   //           child: const Text('Back to Levels'),
-//   //         ),
-//   //         TextButton(
-//   //           onPressed: () {
-//   //             Navigator.pop(context);
-//   //             setState(() {
-//   //               level++;
-//   //               startLevel();
-//   //             });
-//   //           },
-//   //           child: const Text('Next Level'),
-//   //         ),
-//   //       ],
-//   //     ),
-//   //   );
-//   // }
-//
-//
-//   void showGameOverDialog() {
-//     showDialog(
-//       context: context,
-//       barrierDismissible: false,
-//       builder: (context) => AlertDialog(
-//         backgroundColor: const Color(0xFFDAAB5C), // Set background to #DAAB5C
-//         shape: RoundedRectangleBorder(
-//           borderRadius: BorderRadius.circular(16.0), // Rounded corners
-//         ),
-//         title: const Text(
-//           'Time Up!',
-//           style: TextStyle(
-//             color: Colors.white, // White title text
-//             fontWeight: FontWeight.bold,
-//           ),
-//         ),
-//         content: Text(
-//           'You reached level $level.',
-//           style: TextStyle(
-//             color: Colors.white.withValues(alpha: 0.9), // Slightly transparent white
-//           ),
-//         ),
-//         actions: [
-//           TextButton(
-//             style: TextButton.styleFrom(
-//               foregroundColor: Colors.white, // White text
-//               backgroundColor: Colors.black.withValues(alpha: 0.15), // Semi-transparent black background
-//               shape: RoundedRectangleBorder(
-//                 borderRadius: BorderRadius.circular(8.0),
-//               ),
-//             ),
-//             onPressed: () {
-//               Navigator.pop(context);
-//               Navigator.pop(context);
-//             },
-//             child: const Text('Back to Levels'),
-//           ),
-//           TextButton(
-//             style: TextButton.styleFrom(
-//               foregroundColor: Colors.white, // White text
-//               backgroundColor: Colors.black.withValues(alpha: 0.15), // Semi-transparent black background
-//               shape: RoundedRectangleBorder(
-//                 borderRadius: BorderRadius.circular(8.0),
-//               ),
-//             ),
-//             onPressed: () {
-//               Navigator.pop(context);
-//               setState(() {
-//                 startLevel();
-//               });
-//             },
-//             child: const Text('Retry'),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // void showGameOverDialog() {
-//   //   showDialog(
-//   //     context: context,
-//   //     barrierDismissible: false,
-//   //     builder: (context) => AlertDialog(
-//   //       title: const Text('Time Up!'),
-//   //       content: Text('You reached level $level.'),
-//   //       actions: [
-//   //         TextButton(
-//   //           onPressed: () {
-//   //             Navigator.pop(context);
-//   //             Navigator.pop(context);
-//   //           },
-//   //           child: const Text('Back to Levels'),
-//   //         ),
-//   //         TextButton(
-//   //           onPressed: () {
-//   //             Navigator.pop(context);
-//   //             setState(() {
-//   //               startLevel();
-//   //             });
-//   //           },
-//   //           child: const Text('Retry'),
-//   //         ),
-//   //       ],
-//   //     ),
-//   //   );
-//   // }
-//
-//   @override
-//   void dispose() {
-//     timer?.cancel();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final containerWidth = 384;
-//     final gridPadding = 16;
-//     final availableGridWidth = containerWidth - gridPadding;
-//     final cellSize = availableGridWidth / gridSize;
-//     final fontSizeFactor = 1.0;
-//
-//     return Scaffold(
-//       backgroundColor: const Color(0xFFDAAB5C),
-//       appBar: AppBar(
-//         backgroundColor: const Color(0xFF7A5821),
-//         title: Text(
-//           "Level $level — ⏱ $timeLeft",
-//           style: TextStyle(
-//             color: Colors.white,
-//             fontWeight: FontWeight.bold,
-//             fontSize: 18,
-//           ),
-//         ),
-//         centerTitle: true,
-//         leading: IconButton(
-//           icon: Icon(Icons.arrow_back, color: Colors.white, size: 24),
-//           onPressed: () => Navigator.pop(context),
-//         ),
-//       ),
-//       body: Center(
-//         child: Container(
-//           width: 360,
-//           height: double.infinity,
-//           color: const Color(0xFFDAAB5C),
-//           child: SafeArea(
-//             child: SingleChildScrollView(
-//               child: Column(
-//                 // crossAxisAlignment: CrossAxisAlignment.end,
-//                 // mainAxisAlignment: MainAxisAlignment.center,
-//                 children: [
-//                   SizedBox(height: 70),
-//                   Center(
-//                     child: GestureDetector(
-//                       onPanStart: (details) => handleDragStart(details, cellSize),
-//                       onPanUpdate: (details) => handleDragUpdate(details, cellSize),
-//                       onPanEnd: (_) => handleDragEnd(),
-//                       child: Container(
-//                         width: cellSize * gridSize,
-//                         height: cellSize * gridSize,
-//                         padding: EdgeInsets.all(8),
-//                         child: GridView.builder(
-//                           physics: const NeverScrollableScrollPhysics(),
-//                           itemCount: gridSize * gridSize,
-//                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-//                             crossAxisCount: gridSize,
-//                             mainAxisSpacing: 4,
-//                             crossAxisSpacing: 4,
-//                           ),
-//                           itemBuilder: (context, index) {
-//                             final row = index ~/ gridSize;
-//                             final col = index % gridSize;
-//                             final color = getCellColor(row, col);
-//
-//                             return Container(
-//                               decoration: BoxDecoration(
-//                                 color: color ?? const Color(0xFFFFF8E1),
-//                                 borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-//                                 border: Border.all(color: const Color(0xFF7A5821), width: 1),
-//                                 boxShadow: [
-//                                   BoxShadow(
-//                                     color: Colors.black12,
-//                                     blurRadius: 2 * fontSizeFactor,
-//                                     offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-//                                   ),
-//                                 ],
-//                               ),
-//                               alignment: Alignment.center,
-//                               child: Text(
-//                                 grid[row][col],
-//                                 style: TextStyle(
-//                                   fontSize: 20,
-//                                   fontWeight: FontWeight.bold,
-//                                   fontFamily: 'Courier',
-//                                   color: color != null ? Colors.white : const Color(0xFF7A5821),
-//                                 ),
-//                               ),
-//                             );
-//                           },
-//                         ),
-//                       ),
-//                     ),
-//                   ),
-//                   SizedBox(height: 40),
-//                   Text(
-//                     'Find the Words:',
-//                     style: TextStyle(
-//                       fontSize: 20 * fontSizeFactor,
-//                       fontWeight: FontWeight.bold,
-//                       color: const Color(0xFF7A5821),
-//                     ),
-//                   ),
-//                   SizedBox(height: 10 * fontSizeFactor),
-//                   Padding(
-//                     padding: EdgeInsets.symmetric(horizontal: 16 * fontSizeFactor),
-//                     child: Wrap(
-//                       spacing: 8 * fontSizeFactor,
-//                       runSpacing: 8 * fontSizeFactor,
-//                       children: currentWords.map((word) {
-//                         final found = foundWordPaths.containsKey(word);
-//                         return Container(
-//                           padding: EdgeInsets.symmetric(
-//                             horizontal: 10 * fontSizeFactor,
-//                             vertical: 5 * fontSizeFactor,
-//                           ),
-//                           decoration: BoxDecoration(
-//                             color: found ? Colors.green.shade300 : Colors.white,
-//                             borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-//                             border: Border.all(
-//                               color: const Color(0xFF7A5821),
-//                               width: 1 * fontSizeFactor,
-//                             ),
-//                             boxShadow: [
-//                               if (found)
-//                                 BoxShadow(
-//                                   color: Colors.green.shade900.withValues(alpha: 0.3),
-//                                   offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-//                                   blurRadius: 2 * fontSizeFactor,
-//                                 ),
-//                             ],
-//                           ),
-//                           child: Text(
-//                             word,
-//                             style: TextStyle(
-//                               fontSize: 16 * fontSizeFactor,
-//                               fontWeight: FontWeight.w600,
-//                               color: found ? Colors.white : const Color(0xFF7A5821),
-//                               decoration: found ? TextDecoration.lineThrough : null,
-//                             ),
-//                           ),
-//                         );
-//                       }).toList(),
-//                     ),
-//                   ),
-//                   SizedBox(height: 20 * fontSizeFactor),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-
-
-
-
-// import 'dart:async';
-// import 'dart:math';
-// import 'package:flutter/material.dart';
-//
-// void main() {
-//   runApp(const MaterialApp(
-//     home: WordSearchPage(initialLevel: 1, gridSize: 6,),
-//   ));
-// }
-//
-// class WordSearchPage extends StatefulWidget {
-//   final int initialLevel;
-//   final int gridSize;
-//   const WordSearchPage({Key? key, required this.initialLevel, required this.gridSize}) : super(key: key);
-//
-//   @override
-//   _WordSearchPageState createState() => _WordSearchPageState();
-// }
-//
-// class _WordSearchPageState extends State<WordSearchPage> {
-//   late int level;
-//   int timeLeft = 90;
-//   Timer? timer;
-//   // final int gridSize = 10;
-//   late int gridSize;
-//   // Dynamic word bank with categorized words
-//   final Map<String, List<String>> wordBank = {
-//     'tech': [
-//       'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE', 'GAME', 'LEVEL', 'TIMER',
-//       'BONUS', 'SOFTWARE', 'MOBILE', 'WIDGET', 'MATERIAL', 'ALGORITHM', 'DEBUG',
-//       'TEST', 'DATABASE', 'SERVER', 'CLOUD', 'API', 'FRAMEWORK', 'REACT', 'VUE',
-//       'ANGULAR', 'NODE', 'PYTHON', 'JAVA', 'KOTLIN', 'SWIFT', 'RUBY'
-//     ],
-//     'nature': [
-//       'FOREST', 'RIVER', 'MOUNTAIN', 'OCEAN', 'DESERT', 'VALLEY', 'CANYON',
-//       'LAKE', 'TREE', 'FLOWER', 'GRASS', 'SKY', 'CLOUD', 'SUNSET', 'MOON',
-//       'STAR', 'WIND', 'RAIN', 'SNOW', 'FOG', 'BEACH', 'ISLAND', 'REEF', 'CAVE',
-//       'GLACIER', 'MEADOW', 'HILL', 'STREAM', 'POND', 'BAY'
-//     ],
-//     'general': [
-//       'CHALLENGE', 'LOGIC', 'SOLVE', 'FUN', 'ADVENTURE', 'MYSTERY', 'QUEST',
-//       'JOURNEY', 'TRAVEL', 'DREAM', 'HOPE', 'PEACE', 'LOVE', 'JOY', 'SMILE',
-//       'FRIEND', 'FAMILY', 'HOME', 'CITY', 'VILLAGE', 'SCHOOL', 'BOOK', 'MUSIC',
-//       'ART', 'SPORT', 'HEALTH', 'FOOD', 'DRINK', 'TIME', 'WORK'
-//     ],
-//   };
-//
-//   List<Offset> currentDragPath = [];
-//   late List<String> currentWords;
-//   late List<List<String>> grid;
-//   Offset? start;
-//   Offset? end;
-//   final Map<String, List<Offset>> foundWordPaths = {};
-//   final List<Color> highlightColors = [
-//     Colors.orange.shade300,
-//     Colors.teal.shade300,
-//     Colors.purple.shade300,
-//     Colors.blue.shade300,
-//     Colors.pink.shade300,
-//     Colors.green.shade300,
-//     Colors.red.shade300,
-//     Colors.amber.shade300,
-//     Colors.cyan.shade300,
-//     Colors.indigo.shade300,
-//   ];
-//   final Random random = Random();
-//   List<String> usedWords = []; // Track used words to avoid repetition
-//
-//   // @override
-//   // void initState() {
-//   //   super.initState();
-//   //   level = widget.initialLevel;
-//   //   startLevel();
-//   // }
-//   @override
-//   void initState() {
-//     super.initState();
-//     level = widget.initialLevel;
-//     gridSize = widget.gridSize;
-//     startLevel();
-//   }
-//
-//   void startLevel() {
-//     try {
-//       currentWords = _generateDynamicWords();
-//       grid = generateGridWithWords(currentWords);
-//       timeLeft = 90;
-//       foundWordPaths.clear();
-//       currentDragPath.clear();
-//       start = end = null;
-//       startTimer();
-//     } catch (e) {
-//       showGameOverDialog();
-//     }
-//   }
-//
-//   List<String> _generateDynamicWords() {
-//     List<String> availableWords = wordBank.values.expand((words) => words).toList();
-//     availableWords.removeWhere((word) => usedWords.contains(word));
-//
-//     if (availableWords.length < 5 + level) {
-//       usedWords.clear();
-//       availableWords = wordBank.values.expand((words) => words).toList();
-//     }
-//
-//     availableWords.shuffle(random);
-//     List<String> selectedWords = availableWords.take(5 + level).toList();
-//     usedWords.addAll(selectedWords);
-//
-//     return selectedWords
-//         .where((word) => word.length <= gridSize)
-//         .map((word) => word.toUpperCase())
-//         .toList();
-//   }
-//
-//   void startTimer() {
-//     timer?.cancel();
-//     timer = Timer.periodic(const Duration(seconds: 1), (t) {
-//       setState(() {
-//         timeLeft--;
-//         if (timeLeft <= 0) {
-//           t.cancel();
-//           showGameOverDialog();
-//         }
-//       });
-//     });
-//   }
-//
-//   List<List<String>> generateGridWithWords(List<String> words) {
-//     List<List<String>> grid;
-//     bool success;
-//     int attempts = 0;
-//
-//     do {
-//       success = true;
-//       grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
-//       final directions = [
-//         [0, 1], [1, 0], [1, 1], [-1, 1],
-//         [0, -1], [-1, 0], [-1, -1], [1, -1]
-//       ];
-//
-//       for (String word in words) {
-//         if (!_placeWord(word, grid, directions, random)) {
-//           success = false;
-//           break;
-//         }
-//       }
-//       attempts++;
-//     } while (!success && attempts < 200);
-//
-//     if (!success) throw Exception("Failed to generate grid");
-//
-//     for (int r = 0; r < gridSize; r++) {
-//       for (int c = 0; c < gridSize; c++) {
-//         if (grid[r][c] == '') {
-//           grid[r][c] = String.fromCharCode(65 + random.nextInt(26));
-//         }
-//       }
-//     }
-//
-//     return grid;
-//   }
-//
-//   bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
-//     for (int attempt = 0; attempt < 200; attempt++) {
-//       final dir = directions[random.nextInt(directions.length)];
-//       final dx = dir[0], dy = dir[1];
-//
-//       int maxRow = gridSize - (dx.abs() * (word.length - 1));
-//       int maxCol = gridSize - (dy.abs() * (word.length - 1));
-//       if (maxRow <= 0 || maxCol <= 0) continue;
-//
-//       int row = dx < 0 ? random.nextInt(maxRow) + (gridSize - maxRow) : random.nextInt(maxRow);
-//       int col = dy < 0 ? random.nextInt(maxCol) + (gridSize - maxCol) : random.nextInt(maxCol);
-//
-//       bool fits = true;
-//       for (int i = 0; i < word.length; i++) {
-//         int r = row + dx * i;
-//         int c = col + dy * i;
-//         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
-//             (grid[r][c] != '' && grid[r][c] != word[i])) {
-//           fits = false;
-//           break;
-//         }
-//       }
-//
-//       if (fits) {
-//         for (int i = 0; i < word.length; i++) {
-//           int r = row + dx * i;
-//           int c = col + dy * i;
-//           grid[r][c] = word[i];
-//         }
-//         return true;
-//       }
-//     }
-//     return false;
-//   }
-//
-//   bool _isValidDirection(Offset a, Offset b) {
-//     int dx = (b.dx - a.dx).round().abs();
-//     int dy = (b.dy - a.dy).round().abs();
-//     return dx == 0 || dy == 0 || dx == dy;
-//   }
-//
-//   void handleDragStart(DragStartDetails details, double cellSize) {
-//     final position = details.localPosition;
-//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-//     start = Offset(row.toDouble(), col.toDouble());
-//     setState(() {
-//       currentDragPath = [start!];
-//     });
-//   }
-//
-//   void handleDragUpdate(DragUpdateDetails details, double cellSize) {
-//     final position = details.localPosition;
-//     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-//     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-//     end = Offset(row.toDouble(), col.toDouble());
-//
-//     if (start != null && _isValidDirection(start!, end!)) {
-//       setState(() {
-//         currentDragPath = _getHighlightedCells(start!, end!);
-//       });
-//     }
-//   }
-//
-//   void handleDragEnd() {
-//     if (start != null && end != null && _isValidDirection(start!, end!)) {
-//       String selectedWord = _getSelectedWord(start!, end!);
-//       if (selectedWord.length < 3) {
-//         setState(() {
-//           currentDragPath.clear();
-//         });
-//         start = end = null;
-//         return;
-//       }
-//
-//       String reversedWord = selectedWord.split('').reversed.join();
-//       String? matchedWord;
-//
-//       if (currentWords.contains(selectedWord)) {
-//         matchedWord = selectedWord;
-//       } else if (currentWords.contains(reversedWord)) {
-//         matchedWord = reversedWord;
-//       }
-//
-//       if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
-//         final path = _getHighlightedCells(start!, end!);
-//         setState(() {
-//           foundWordPaths[matchedWord!] = path;
-//           currentDragPath.clear();
-//         });
-//
-//         if (foundWordPaths.length == currentWords.length) {
-//           timer?.cancel();
-//           showSuccessDialog();
-//         }
-//       } else {
-//         setState(() {
-//           currentDragPath.clear();
-//         });
-//       }
-//     } else {
-//       setState(() {
-//         currentDragPath.clear();
-//       });
-//     }
-//     start = end = null;
-//   }
-//
-//   String _getSelectedWord(Offset a, Offset b) {
-//     final dx = (b.dx - a.dx).round();
-//     final dy = (b.dy - a.dy).round();
-//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-//     int x = a.dx.round(), y = a.dy.round();
-//     String word = '';
-//
-//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-//       word += grid[x][y];
-//       if (x == b.dx.round() && y == b.dy.round()) break;
-//       x += stepX;
-//       y += stepY;
-//     }
-//     return word;
-//   }
-//
-//   List<Offset> _getHighlightedCells(Offset a, Offset b) {
-//     final List<Offset> cells = [];
-//     final dx = (b.dx - a.dx).round();
-//     final dy = (b.dy - a.dy).round();
-//     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-//     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-//     int x = a.dx.round(), y = a.dy.round();
-//
-//     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-//       cells.add(Offset(x.toDouble(), y.toDouble()));
-//       if (x == b.dx.round() && y == b.dy.round()) break;
-//       x += stepX;
-//       y += stepY;
-//     }
-//     return cells;
-//   }
-//
-//   Color? getCellColor(int row, int col) {
-//     final current = Offset(row.toDouble(), col.toDouble());
-//
-//     if (currentDragPath.contains(current)) {
-//       return Colors.yellow.withOpacity(0.5);
-//     }
-//
-//     int index = 0;
-//     for (var entry in foundWordPaths.entries) {
-//       if (entry.value.contains(current)) {
-//         return highlightColors[index % highlightColors.length];
-//       }
-//       index++;
-//     }
-//     return null;
-//   }
-//   void showSuccessDialog() {
-//     showDialog(
-//       context: context,
-//       barrierDismissible: false,
-//       builder: (context) => AlertDialog(
-//         title: const Text('Level Complete!'),
-//         content: Text('You’ve completed Level $level!'),
-//         actions: [
-//           TextButton(
-//             onPressed: () {
-//               Navigator.pop(context); // Close dialog
-//               Navigator.pop(context, level + 1); // Return to LevelSelectPage with updated max level
-//             },
-//             child: const Text('Back to Levels'),
-//           ),
-//           TextButton(
-//             onPressed: () {
-//               Navigator.pop(context); // Close dialog
-//               setState(() {
-//                 level++;
-//                 startLevel();
-//               });
-//             },
-//             child: const Text('Next Level'),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // void showSuccessDialog() {
-//   //   showDialog(
-//   //     context: context,
-//   //     barrierDismissible: false,
-//   //     builder: (context) => AlertDialog(
-//   //       title: const Text('Level Complete!'),
-//   //       content: Text('Proceeding to level ${level + 1}'),
-//   //       actions: [
-//   //         TextButton(
-//   //           onPressed: () {
-//   //             Navigator.pop(context);
-//   //             setState(() {
-//   //               level++;
-//   //               startLevel();
-//   //             });
-//   //           },
-//   //           child: const Text('Continue'),
-//   //         ),
-//   //       ],
-//   //     ),
-//   //   );
-//   // }
-//
-//   void showGameOverDialog() {
-//     showDialog(
-//       context: context,
-//       barrierDismissible: false,
-//       builder: (context) => AlertDialog(
-//         title: const Text('Time Up!'),
-//         content: Text('You reached level $level.'),
-//         actions: [
-//           TextButton(
-//             onPressed: () {
-//               Navigator.pop(context);
-//               Navigator.pop(context);
-//             },
-//             child: const Text('Back to Levels'),
-//           ),
-//           TextButton(
-//             onPressed: () {
-//               Navigator.pop(context);
-//               setState(() {
-//                 startLevel();
-//               });
-//             },
-//             child: const Text('Retry'),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   @override
-//   void dispose() {
-//     timer?.cancel();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     // Responsive sizing based on the smaller dimension (width or height)
-//     final screenSize = MediaQuery.of(context).size;
-//     final isLandscape = screenSize.width > screenSize.height;
-//     final maxGridWidth = isLandscape
-//         ? screenSize.height * 0.5
-//         : screenSize.width * 0.9;
-//     final cellSize = maxGridWidth / gridSize;
-//     final fontSizeFactor = screenSize.width / 360; // Base font size for 360px width
-//
-//     return Scaffold(
-//       backgroundColor: const Color(0xFFDAAB5C),
-//       appBar: AppBar(
-//         backgroundColor: const Color(0xFF7A5821),
-//         title: Text(
-//           "Level $level — ⏱ $timeLeft",
-//           style: TextStyle(
-//             color: Colors.white,
-//             fontWeight: FontWeight.bold,
-//             fontSize: 18,
-//           ),
-//         ),
-//         centerTitle: true,
-//         leading: IconButton(
-//           icon: Icon(Icons.arrow_back, color: Colors.white, size: 24 ),
-//           onPressed: () =>
-//               Navigator.pop(context),
-//         ),
-//       ),
-//       body: SafeArea(
-//         child: SingleChildScrollView(
-//           child: Column(
-//             children: [
-//               SizedBox(height: 20),
-//               Center(
-//                 child: GestureDetector(
-//                   onPanStart: (details) => handleDragStart(details, cellSize),
-//                   onPanUpdate: (details) => handleDragUpdate(details, cellSize),
-//                   onPanEnd: (_) => handleDragEnd(),
-//                   child: Container(
-//                     width: cellSize * gridSize,
-//                     height: cellSize * gridSize,
-//                     padding: EdgeInsets.all(8),
-//                     child: GridView.builder(
-//                       physics: const NeverScrollableScrollPhysics(),
-//                       itemCount: gridSize * gridSize,
-//                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-//                         crossAxisCount: gridSize,
-//                         mainAxisSpacing: 4,
-//                         crossAxisSpacing: 4,
-//                       ),
-//                       itemBuilder: (context, index) {
-//                         final row = index ~/ gridSize;
-//                         final col = index % gridSize;
-//                         final color = getCellColor(row, col);
-//
-//                         return Container(
-//                           decoration: BoxDecoration(
-//                             color: color ?? const Color(0xFFFFF8E1),
-//                             borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-//                             border: Border.all(color: const Color(0xFF7A5821), width: 1),
-//                             boxShadow: [
-//                               BoxShadow(
-//                                 color: Colors.black12,
-//                                 blurRadius: 2 * fontSizeFactor,
-//                                 offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-//                               ),
-//                             ],
-//                           ),
-//                           alignment: Alignment.center,
-//                           child: Text(
-//                             grid[row][col],
-//                             style: TextStyle(
-//                               fontSize: 20,
-//                               fontWeight: FontWeight.bold,
-//                               fontFamily: 'Courier',
-//                               color: color != null ? Colors.white : const Color(0xFF7A5821),
-//                             ),
-//                           ),
-//                         );
-//                       },
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//               SizedBox(height: 20 * fontSizeFactor),
-//               Text(
-//                 'Find the Words:',
-//                 style: TextStyle(
-//                   fontSize: 20 * fontSizeFactor,
-//                   fontWeight: FontWeight.bold,
-//                   color: const Color(0xFF7A5821),
-//                 ),
-//               ),
-//               SizedBox(height: 10 * fontSizeFactor),
-//               Padding(
-//                 padding: EdgeInsets.symmetric(horizontal: 16 * fontSizeFactor),
-//                 child: Wrap(
-//                   spacing: 8 * fontSizeFactor,
-//                   runSpacing: 8 * fontSizeFactor,
-//                   children: currentWords.map((word) {
-//                     final found = foundWordPaths.containsKey(word);
-//                     return Container(
-//                       padding: EdgeInsets.symmetric(
-//                         horizontal: 10 * fontSizeFactor,
-//                         vertical: 5 * fontSizeFactor,
-//                       ),
-//                       decoration: BoxDecoration(
-//                         color: found ? Colors.green.shade300 : Colors.white,
-//                         borderRadius: BorderRadius.circular(8 * fontSizeFactor),
-//                         border: Border.all(
-//                           color: const Color(0xFF7A5821),
-//                           width: 1 * fontSizeFactor,
-//                         ),
-//                         boxShadow: [
-//                           if (found)
-//                             BoxShadow(
-//                               color: Colors.green.shade900.withOpacity(0.3),
-//                               offset: Offset(1 * fontSizeFactor, 1 * fontSizeFactor),
-//                               blurRadius: 2 * fontSizeFactor,
-//                             ),
-//                         ],
-//                       ),
-//                       child: Text(
-//                         word,
-//                         style: TextStyle(
-//                           fontSize: 16 * fontSizeFactor,
-//                           fontWeight: FontWeight.w600,
-//                           color: found ? Colors.white : const Color(0xFF7A5821),
-//                           decoration: found ? TextDecoration.lineThrough : null,
-//                         ),
-//                       ),
-//                     );
-//                   }).toList(),
-//                 ),
-//               ),
-//               SizedBox(height: 20 * fontSizeFactor),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-//
-// // import 'dart:async';
-// // import 'dart:math';
-// // import 'package:flutter/material.dart';
-// //
-// // void main() {
-// //   runApp(const MaterialApp(
-// //     home: WordSearchPage(initialLevel: 1),
-// //   ));
-// // }
-// //
-// // class WordSearchPage extends StatefulWidget {
-// //   final int initialLevel;
-// //   const WordSearchPage({Key? key, required this.initialLevel}) : super(key: key);
-// //
-// //   @override
-// //   _WordSearchPageState createState() => _WordSearchPageState();
-// // }
-// //
-// // class _WordSearchPageState extends State<WordSearchPage> {
-// //   late int level;
-// //   int timeLeft = 90;
-// //   Timer? timer;
-// //   final int gridSize = 10;
-// //
-// //   final List<String> allWords = [
-// //     'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE',
-// //     'GAME', 'LEVEL', 'TIMER', 'BONUS', 'SOFTWARE',
-// //     'MOBILE', 'FUN', 'CHALLENGE', 'LOGIC', 'SOLVE',
-// //     'ALGORITHM', 'DEBUG', 'TEST', 'WIDGET', 'MATERIAL'
-// //   ];
-// //   List<Offset> currentDragPath = [];
-// //
-// //   late List<String> currentWords;
-// //   late List<List<String>> grid;
-// //   Offset? start;
-// //   Offset? end;
-// //   final Map<String, List<Offset>> foundWordPaths = {};
-// //   final List<Color> highlightColors = [
-// //     Colors.orange.shade300,
-// //     Colors.teal.shade300,
-// //     Colors.purple.shade300,
-// //     Colors.blue.shade300,
-// //     Colors.pink.shade300,
-// //     Colors.green.shade300,
-// //     Colors.red.shade300,
-// //     Colors.amber.shade300,
-// //     Colors.cyan.shade300,
-// //     Colors.indigo.shade300,
-// //   ];
-// //
-// //   @override
-// //   void initState() {
-// //     super.initState();
-// //     level = widget.initialLevel;
-// //     startLevel();
-// //   }
-// //
-// //   void startLevel() {
-// //     try {
-// //       List<String> shuffledWords = List.from(allWords)..shuffle();
-// //       currentWords = shuffledWords.take(5 + level).toList();
-// //       grid = generateGridWithWords(currentWords);
-// //       timeLeft = 90;
-// //       foundWordPaths.clear();
-// //       currentDragPath.clear();
-// //       start = end = null;
-// //       startTimer();
-// //     } catch (e) {
-// //       showGameOverDialog();
-// //     }
-// //   }
-// //
-// //   void startTimer() {
-// //     timer?.cancel();
-// //     timer = Timer.periodic(const Duration(seconds: 1), (t) {
-// //       setState(() {
-// //         timeLeft--;
-// //         if (timeLeft <= 0) {
-// //           t.cancel();
-// //           showGameOverDialog();
-// //         }
-// //       });
-// //     });
-// //   }
-// //
-// //   List<List<String>> generateGridWithWords(List<String> words) {
-// //     final random = Random();
-// //     List<List<String>> grid;
-// //     bool success;
-// //     int attempts = 0;
-// //
-// //     do {
-// //       success = true;
-// //       grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
-// //       final directions = [
-// //         [0, 1], [1, 0], [1, 1], [-1, 1],
-// //         [0, -1], [-1, 0], [-1, -1], [1, -1]
-// //       ];
-// //
-// //       for (String word in words) {
-// //         if (!_placeWord(word, grid, directions, random)) {
-// //           success = false;
-// //           break;
-// //         }
-// //       }
-// //       attempts++;
-// //     } while (!success && attempts < 200);
-// //
-// //     if (!success) throw Exception("Failed to generate grid");
-// //
-// //     for (int r = 0; r < gridSize; r++) {
-// //       for (int c = 0; c < gridSize; c++) {
-// //         if (grid[r][c] == '') {
-// //           grid[r][c] = String.fromCharCode(65 + random.nextInt(26));
-// //         }
-// //       }
-// //     }
-// //
-// //     return grid;
-// //   }
-// //
-// //   bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
-// //     for (int attempt = 0; attempt < 200; attempt++) {
-// //       final dir = directions[random.nextInt(directions.length)];
-// //       final dx = dir[0], dy = dir[1];
-// //
-// //       int maxRow = gridSize - (dx.abs() * (word.length - 1));
-// //       int maxCol = gridSize - (dy.abs() * (word.length - 1));
-// //       if (maxRow <= 0 || maxCol <= 0) continue;
-// //
-// //       int row = dx < 0 ? random.nextInt(maxRow) + (gridSize - maxRow) : random.nextInt(maxRow);
-// //       int col = dy < 0 ? random.nextInt(maxCol) + (gridSize - maxCol) : random.nextInt(maxCol);
-// //
-// //       bool fits = true;
-// //       for (int i = 0; i < word.length; i++) {
-// //         int r = row + dx * i;
-// //         int c = col + dy * i;
-// //         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
-// //             (grid[r][c] != '' && grid[r][c] != word[i])) {
-// //           fits = false;
-// //           break;
-// //         }
-// //       }
-// //
-// //       if (fits) {
-// //         for (int i = 0; i < word.length; i++) {
-// //           int r = row + dx * i;
-// //           int c = col + dy * i;
-// //           grid[r][c] = word[i];
-// //         }
-// //         return true;
-// //       }
-// //     }
-// //     return false;
-// //   }
-// //
-// //   bool _isValidDirection(Offset a, Offset b) {
-// //     int dx = (b.dx - a.dx).round().abs();
-// //     int dy = (b.dy - a.dy).round().abs();
-// //     return dx == 0 || dy == 0 || dx == dy;
-// //   }
-// //
-// //   void handleDragStart(DragStartDetails details, double cellSize) {
-// //     final position = details.localPosition;
-// //     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-// //     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-// //     start = Offset(row.toDouble(), col.toDouble());
-// //     setState(() {
-// //       currentDragPath = [start!];
-// //     });
-// //   }
-// //
-// //   void handleDragUpdate(DragUpdateDetails details, double cellSize) {
-// //     final position = details.localPosition;
-// //     final row = (position.dy / cellSize).floor().clamp(0, gridSize - 1);
-// //     final col = (position.dx / cellSize).floor().clamp(0, gridSize - 1);
-// //     end = Offset(row.toDouble(), col.toDouble());
-// //
-// //     if (start != null && _isValidDirection(start!, end!)) {
-// //       setState(() {
-// //         currentDragPath = _getHighlightedCells(start!, end!);
-// //       });
-// //     }
-// //   }
-// //
-// //   void handleDragEnd() {
-// //     if (start != null && end != null && _isValidDirection(start!, end!)) {
-// //       String selectedWord = _getSelectedWord(start!, end!);
-// //       if (selectedWord.length < 3) {
-// //         setState(() {
-// //           currentDragPath.clear();
-// //         });
-// //         start = end = null;
-// //         return;
-// //       }
-// //
-// //       String reversedWord = selectedWord.split('').reversed.join();
-// //       String? matchedWord;
-// //
-// //       if (currentWords.contains(selectedWord)) {
-// //         matchedWord = selectedWord;
-// //       } else if (currentWords.contains(reversedWord)) {
-// //         matchedWord = reversedWord;
-// //       }
-// //
-// //       if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
-// //         final path = _getHighlightedCells(start!, end!);
-// //         setState(() {
-// //           foundWordPaths[matchedWord!] = path;
-// //           currentDragPath.clear();
-// //         });
-// //
-// //         if (foundWordPaths.length == currentWords.length) {
-// //           timer?.cancel();
-// //           showSuccessDialog();
-// //         }
-// //       } else {
-// //         setState(() {
-// //           currentDragPath.clear();
-// //         });
-// //       }
-// //     } else {
-// //       setState(() {
-// //         currentDragPath.clear();
-// //       });
-// //     }
-// //     start = end = null;
-// //   }
-// //
-// //   String _getSelectedWord(Offset a, Offset b) {
-// //     final dx = (b.dx - a.dx).round();
-// //     final dy = (b.dy - a.dy).round();
-// //     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-// //     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-// //     int x = a.dx.round(), y = a.dy.round();
-// //     String word = '';
-// //
-// //     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-// //       word += grid[x][y];
-// //       if (x == b.dx.round() && y == b.dy.round()) break;
-// //       x += stepX;
-// //       y += stepY;
-// //     }
-// //     return word;
-// //   }
-// //
-// //   List<Offset> _getHighlightedCells(Offset a, Offset b) {
-// //     final List<Offset> cells = [];
-// //     final dx = (b.dx - a.dx).round();
-// //     final dy = (b.dy - a.dy).round();
-// //     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-// //     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-// //     int x = a.dx.round(), y = a.dy.round();
-// //
-// //     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-// //       cells.add(Offset(x.toDouble(), y.toDouble()));
-// //       if (x == b.dx.round() && y == b.dy.round()) break;
-// //       x += stepX;
-// //       y += stepY;
-// //     }
-// //     return cells;
-// //   }
-// //
-// //   Color? getCellColor(int row, int col) {
-// //     final current = Offset(row.toDouble(), col.toDouble());
-// //
-// //     if (currentDragPath.contains(current)) {
-// //       return Colors.yellow.withOpacity(0.5);
-// //     }
-// //
-// //     int index = 0;
-// //     for (var entry in foundWordPaths.entries) {
-// //       if (entry.value.contains(current)) {
-// //         return highlightColors[index % highlightColors.length];
-// //       }
-// //       index++;
-// //     }
-// //     return null;
-// //   }
-// //
-// //   void showSuccessDialog() {
-// //     showDialog(
-// //       context: context,
-// //       barrierDismissible: false,
-// //       builder: (context) => AlertDialog(
-// //         title: const Text('Level Complete!'),
-// //         content: Text('Proceeding to level ${level + 1}'),
-// //         actions: [
-// //           TextButton(
-// //             onPressed: () {
-// //               Navigator.pop(context);
-// //               setState(() {
-// //                 level++;
-// //                 startLevel();
-// //               });
-// //             },
-// //             child: const Text('Continue'),
-// //           ),
-// //         ],
-// //       ),
-// //     );
-// //   }
-// //
-// //   void showGameOverDialog() {
-// //     showDialog(
-// //       context: context,
-// //       barrierDismissible: false,
-// //       builder: (context) => AlertDialog(
-// //         title: const Text('Time Up!'),
-// //         content: Text('You reached level $level.'),
-// //         actions: [
-// //           TextButton(
-// //             onPressed: () {
-// //               Navigator.pop(context);
-// //               Navigator.pop(context);
-// //             },
-// //             child: const Text('Back to Levels'),
-// //           ),
-// //           TextButton(
-// //             onPressed: () {
-// //               Navigator.pop(context);
-// //               setState(() {
-// //                 startLevel();
-// //               });
-// //             },
-// //             child: const Text('Retry'),
-// //           ),
-// //         ],
-// //       ),
-// //     );
-// //   }
-// //
-// //   @override
-// //   void dispose() {
-// //     timer?.cancel();
-// //     super.dispose();
-// //   }
-// //
-// //   @override
-// //   Widget build(BuildContext context) {
-// //     final cellSize = (MediaQuery.of(context).size.width * 0.9) / gridSize;
-// //
-// //     return Scaffold(
-// //       backgroundColor: const Color(0xFFDAAB5C),
-// //       appBar: AppBar(
-// //         backgroundColor: const Color(0xFF7A5821),
-// //         title: Text(
-// //           "Level $level — ⏱ $timeLeft",
-// //           style: const TextStyle(
-// //             color: Colors.white,
-// //             fontWeight: FontWeight.bold,
-// //           ),
-// //         ),
-// //         centerTitle: true,
-// //         leading: IconButton(
-// //           icon: const Icon(Icons.arrow_back, color: Colors.white),
-// //           onPressed: () => Navigator.pop(context),
-// //         ),
-// //       ),
-// //       body: SingleChildScrollView(
-// //         child: Column(
-// //           children: [
-// //             const SizedBox(height: 20),
-// //             Center(
-// //               child: GestureDetector(
-// //                 onPanStart: (details) => handleDragStart(details, cellSize),
-// //                 onPanUpdate: (details) => handleDragUpdate(details, cellSize),
-// //                 onPanEnd: (_) => handleDragEnd(),
-// //                 child: Container(
-// //                   width: cellSize * gridSize,
-// //                   height: cellSize * gridSize,
-// //                   padding: const EdgeInsets.all(8),
-// //                   child: GridView.builder(
-// //                     physics: const NeverScrollableScrollPhysics(),
-// //                     itemCount: gridSize * gridSize,
-// //                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-// //                       crossAxisCount: gridSize,
-// //                       mainAxisSpacing: 4,
-// //                       crossAxisSpacing: 4,
-// //                     ),
-// //                     itemBuilder: (context, index) {
-// //                       final row = index ~/ gridSize;
-// //                       final col = index % gridSize;
-// //                       final color = getCellColor(row, col);
-// //
-// //                       return Container(
-// //                         decoration: BoxDecoration(
-// //                           color: color ?? const Color(0xFFFFF8E1),
-// //                           borderRadius: BorderRadius.circular(8),
-// //                           border: Border.all(color: const Color(0xFF7A5821), width: 1),
-// //                           boxShadow: const [
-// //                             BoxShadow(
-// //                               color: Colors.black12,
-// //                               blurRadius: 2,
-// //                               offset: Offset(1, 1),
-// //                             ),
-// //                           ],
-// //                         ),
-// //                         alignment: Alignment.center,
-// //                         child: Text(
-// //                           grid[row][col],
-// //                           style: TextStyle(
-// //                             fontSize: 20,
-// //                             fontWeight: FontWeight.bold,
-// //                             fontFamily: 'Courier',
-// //                             color: color != null ? Colors.white : const Color(0xFF7A5821),
-// //                           ),
-// //                         ),
-// //                       );
-// //                     },
-// //                   ),
-// //                 ),
-// //               ),
-// //             ),
-// //             const SizedBox(height: 40),
-// //             const Text(
-// //               'Find the Words:',
-// //               style: TextStyle(
-// //                 fontSize: 20,
-// //                 fontWeight: FontWeight.bold,
-// //                 color: Color(0xFF7A5821),
-// //               ),
-// //             ),
-// //             const SizedBox(height: 10),
-// //             Padding(
-// //               padding: const EdgeInsets.symmetric(horizontal: 16),
-// //               child: Wrap(
-// //                 spacing: 8,
-// //                 runSpacing: 8,
-// //                 children: currentWords.map((word) {
-// //                   final found = foundWordPaths.containsKey(word);
-// //                   return Container(
-// //                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-// //                     decoration: BoxDecoration(
-// //                       color: found ? Colors.green.shade300 : Colors.white,
-// //                       borderRadius: BorderRadius.circular(8),
-// //                       border: Border.all(color: const Color(0xFF7A5821)),
-// //                       boxShadow: [
-// //                         if (found)
-// //                           BoxShadow(
-// //                             color: Colors.green.shade900.withOpacity(0.3),
-// //                             offset: const Offset(1, 1),
-// //                             blurRadius: 2,
-// //                           ),
-// //                       ],
-// //                     ),
-// //                     child: Text(
-// //                       word,
-// //                       style: TextStyle(
-// //                         fontSize: 16,
-// //                         fontWeight: FontWeight.w600,
-// //                         color: found ? Colors.white : const Color(0xFF7A5821),
-// //                         decoration: found ? TextDecoration.lineThrough : null,
-// //                       ),
-// //                     ),
-// //                   );
-// //                 }).toList(),
-// //               ),
-// //             ),
-// //             const SizedBox(height: 20),
-// //           ],
-// //         ),
-// //       ),
-// //     );
-// //   }
-// // }
-// //
-// // // import 'dart:async';
-// // // import 'dart:math';
-// // // import 'package:flutter/material.dart';
-// // //
-// // // class WordSearchPage extends StatefulWidget {
-// // //   final int initialLevel;
-// // //   const WordSearchPage({Key? key, required this.initialLevel}) : super(key: key);
-// // //
-// // //   @override
-// // //   _WordSearchPageState createState() => _WordSearchPageState();
-// // // }
-// // //
-// // // class _WordSearchPageState extends State<WordSearchPage> {
-// // //   late int level;
-// // //   int timeLeft = 90;
-// // //   Timer? timer;
-// // //   final int gridSize = 10;
-// // //
-// // //   final List<String> allWords = [
-// // //     'FLUTTER', 'DART', 'CODE', 'GRID', 'PUZZLE',
-// // //     'GAME', 'LEVEL', 'TIMER', 'BONUS', 'SOFTWARE',
-// // //     'MOBILE', 'FUN', 'CHALLENGE', 'LOGIC', 'SOLVE',
-// // //     'ALGORITHM', 'DEBUG', 'TEST', 'WIDGET', 'MATERIAL'
-// // //   ];
-// // //   List<Offset> currentDragPath = [];
-// // //
-// // //   late List<String> currentWords;
-// // //   late List<List<String>> grid;
-// // //
-// // //   Offset? start;
-// // //   Offset? end;
-// // //   final Map<String, List<Offset>> foundWordPaths = {};
-// // //   final List<Color> highlightColors = [
-// // //     Colors.orange.shade300,
-// // //     Colors.teal.shade300,
-// // //     Colors.purple.shade300,
-// // //     Colors.blue.shade300,
-// // //     Colors.pink.shade300,
-// // //     Colors.green.shade300,
-// // //     Colors.red.shade300,
-// // //     Colors.amber.shade300,
-// // //     Colors.cyan.shade300,
-// // //     Colors.indigo.shade300,
-// // //   ];
-// // //
-// // //   @override
-// // //   void initState() {
-// // //     super.initState();
-// // //     level = widget.initialLevel;
-// // //     startLevel();
-// // //   }
-// // //
-// // //   void startLevel() {
-// // //     try {
-// // //       List<String> shuffledWords = List.from(allWords)..shuffle();
-// // //       currentWords = shuffledWords.take(5 + level).toList();
-// // //       grid = generateGridWithWords(currentWords);
-// // //       timeLeft = 90;
-// // //       foundWordPaths.clear();
-// // //       startTimer();
-// // //     } catch (e) {
-// // //       // Handle grid generation failure
-// // //       showGameOverDialog();
-// // //     }
-// // //   }
-// // //
-// // //   void startTimer() {
-// // //     timer?.cancel();
-// // //     timer = Timer.periodic(const Duration(seconds: 1), (t) {
-// // //       setState(() {
-// // //         timeLeft--;
-// // //         if (timeLeft <= 0) {
-// // //           t.cancel();
-// // //           showGameOverDialog();
-// // //         }
-// // //       });
-// // //     });
-// // //   }
-// // //
-// // //   List<List<String>> generateGridWithWords(List<String> words) {
-// // //     final random = Random();
-// // //     List<List<String>> grid;
-// // //     bool success;
-// // //     int attempts = 0;
-// // //
-// // //     do {
-// // //       success = true;
-// // //       grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
-// // //       final directions = [
-// // //         [0, 1], [1, 0], [1, 1], [-1, 1],
-// // //         [0, -1], [-1, 0], [-1, -1], [1, -1]
-// // //       ];
-// // //
-// // //       for (String word in words) {
-// // //         if (!_placeWord(word, grid, directions, random)) {
-// // //           success = false;
-// // //           break;
-// // //         }
-// // //       }
-// // //       attempts++;
-// // //     } while (!success && attempts < 100);
-// // //
-// // //     if (!success) throw Exception("Failed to generate grid");
-// // //
-// // //     for (int r = 0; r < gridSize; r++) {
-// // //       for (int c = 0; c < gridSize; c++) {
-// // //         if (grid[r][c] == '') {
-// // //           grid[r][c] = String.fromCharCode(65 + random.nextInt(26));
-// // //         }
-// // //       }
-// // //     }
-// // //
-// // //     return grid;
-// // //   }
-// // //
-// // //   // bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
-// // //   //   for (int attempt = 0; attempt < 100; attempt++) {
-// // //   //     final dir = directions[random.nextInt(directions.length)];
-// // //   //     final dx = dir[0], dy = dir[1];
-// // //   //
-// // //   //     int maxRow = gridSize - (dx.abs() * (word.length - 1));
-// // //   //     int maxCol = gridSize - (dy.abs() * (word.length - 1));
-// // //   //     if (maxRow <= 0 || maxCol <= 0) continue;
-// // //   //
-// // //   //     int row = random.nextInt(maxRow);
-// // //   //     int col = random.nextInt(maxCol);
-// // //   //     if (dx < 0) row = gridSize - 1 - row;
-// // //   //     if (dy < 0) col = gridSize - 1 - col;
-// // //   //
-// // //   //     bool fits = true;
-// // //   //     for (int i = 0; i < word.length; i++) {
-// // //   //       int r = row + dx * i;
-// // //   //       int c = col + dy * i;
-// // //   //       if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
-// // //   //           (grid[r][c] != '' && grid[r][c] != word[i])) {
-// // //   //         fits = false;
-// // //   //         break;
-// // //   //       }
-// // //   //     }
-// // //   //
-// // //   //     if (fits) {
-// // //   //       for (int i = 0; i < word.length; i++) {
-// // //   //         int r = row + dx * i;
-// // //   //         int c = col + dy * i;
-// // //   //         grid[r][c] = word[i];
-// // //   //       }
-// // //   //       return true;
-// // //   //     }
-// // //   //   }
-// // //   //   return false;
-// // //   // }
-// // //   bool _placeWord(String word, List<List<String>> grid, List<List<int>> directions, Random random) {
-// // //     for (int attempt = 0; attempt < 200; attempt++) { // Increased attempts
-// // //       final dir = directions[random.nextInt(directions.length)];
-// // //       final dx = dir[0], dy = dir[1];
-// // //
-// // //       int maxRow = gridSize - (dx.abs() * (word.length - 1));
-// // //       int maxCol = gridSize - (dy.abs() * (word.length - 1));
-// // //       if (maxRow <= 0 || maxCol <= 0) continue;
-// // //
-// // //       // Ensure starting position is within valid range
-// // //       int row = dx < 0 ? random.nextInt(maxRow) + (gridSize - maxRow) : random.nextInt(maxRow);
-// // //       int col = dy < 0 ? random.nextInt(maxCol) + (gridSize - maxCol) : random.nextInt(maxCol);
-// // //
-// // //       bool fits = true;
-// // //       for (int i = 0; i < word.length; i++) {
-// // //         int r = row + dx * i;
-// // //         int c = col + dy * i;
-// // //         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize ||
-// // //             (grid[r][c] != '' && grid[r][c] != word[i])) {
-// // //           fits = false;
-// // //           break;
-// // //         }
-// // //       }
-// // //
-// // //       if (fits) {
-// // //         for (int i = 0; i < word.length; i++) {
-// // //           int r = row + dx * i;
-// // //           int c = col + dy * i;
-// // //           grid[r][c] = word[i];
-// // //         }
-// // //         return true;
-// // //       }
-// // //     }
-// // //     return false;
-// // //   }
-// // //
-// // //   bool _isValidDirection(Offset a, Offset b) {
-// // //     int dx = (b.dx - a.dx).toInt().abs();
-// // //     int dy = (b.dy - a.dy).toInt().abs();
-// // //     return dx == 0 || dy == 0 || dx == dy;
-// // //   }
-// // //
-// // //   void handleDragStart(DragStartDetails details, double cellSize) {
-// // //     final position = details.localPosition;
-// // //     final row = (position.dy ~/ cellSize).clamp(0, gridSize - 1);
-// // //     final col = (position.dx ~/ cellSize).clamp(0, gridSize - 1);
-// // //     start = Offset(row.toDouble(), col.toDouble());
-// // //     setState(() {
-// // //       currentDragPath = [start!];
-// // //     });
-// // //   }
-// // //
-// // //   void handleDragUpdate(DragUpdateDetails details, double cellSize) {
-// // //     final position = details.localPosition;
-// // //     final row = (position.dy ~/ cellSize).clamp(0, gridSize - 1);
-// // //     final col = (position.dx ~/ cellSize).clamp(0, gridSize - 1);
-// // //     end = Offset(row.toDouble(), col.toDouble());
-// // //     setState(() {
-// // //       currentDragPath = _getHighlightedCells(start!, end!);
-// // //     });
-// // //   }
-// // //
-// // //   void handleDragEnd() {
-// // //     if (start != null && end != null) {
-// // //       if (!_isValidDirection(start!, end!)) {
-// // //         setState(() {
-// // //           currentDragPath.clear();
-// // //         });
-// // //         start = end = null;
-// // //         return;
-// // //       }
-// // //
-// // //       String selectedWord = _getSelectedWord(start!, end!);
-// // //       if (selectedWord.length < 3) {
-// // //         setState(() {
-// // //           currentDragPath.clear();
-// // //         });
-// // //         start = end = null;
-// // //         return;
-// // //       }
-// // //
-// // //       String reversedWord = selectedWord.split('').reversed.join();
-// // //       String? matchedWord;
-// // //
-// // //       if (currentWords.contains(selectedWord)) {
-// // //         matchedWord = selectedWord;
-// // //       } else if (currentWords.contains(reversedWord)) {
-// // //         matchedWord = reversedWord;
-// // //       }
-// // //
-// // //       if (matchedWord != null && !foundWordPaths.containsKey(matchedWord)) {
-// // //         final path = _getHighlightedCells(start!, end!);
-// // //         setState(() {
-// // //           foundWordPaths[matchedWord!] = path;
-// // //           currentDragPath.clear();
-// // //         });
-// // //
-// // //         if (foundWordPaths.length == currentWords.length) {
-// // //           timer?.cancel();
-// // //           showSuccessDialog();
-// // //         }
-// // //       } else {
-// // //         setState(() {
-// // //           currentDragPath.clear();
-// // //         });
-// // //       }
-// // //     }
-// // //     start = end = null;
-// // //   }
-// // //
-// // //   String _getSelectedWord(Offset a, Offset b) {
-// // //     final dx = b.dx.toInt() - a.dx.toInt();
-// // //     final dy = b.dy.toInt() - a.dy.toInt();
-// // //     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-// // //     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-// // //     int x = a.dx.toInt(), y = a.dy.toInt();
-// // //     String word = '';
-// // //
-// // //     while (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
-// // //       word += grid[x][y];
-// // //       if (x == b.dx.toInt() && y == b.dy.toInt()) break;
-// // //       x += stepX;
-// // //       y += stepY;
-// // //     }
-// // //     return word;
-// // //   }
-// // //
-// // //   List<Offset> _getHighlightedCells(Offset a, Offset b) {
-// // //     final List<Offset> cells = [];
-// // //     final dx = b.dx.toInt() - a.dx.toInt();
-// // //     final dy = b.dy.toInt() - a.dy.toInt();
-// // //     final stepX = dx == 0 ? 0 : dx ~/ dx.abs();
-// // //     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
-// // //     int x = a.dx.toInt(), y = a.dy.toInt();
-// // //
-// // //     while (true) {
-// // //       cells.add(Offset(x.toDouble(), y.toDouble()));
-// // //       if (x == b.dx.toInt() && y == b.dy.toInt()) break;
-// // //       x += stepX;
-// // //       y += stepY;
-// // //     }
-// // //     return cells;
-// // //   }
-// // //
-// // //   Color? getCellColor(int row, int col) {
-// // //     final current = Offset(row.toDouble(), col.toDouble());
-// // //
-// // //     if (currentDragPath.contains(current)) {
-// // //       return Colors.yellow.withOpacity(0.5);
-// // //     }
-// // //
-// // //     int index = 0;
-// // //     for (var entry in foundWordPaths.entries) {
-// // //       if (entry.value.contains(current)) {
-// // //         return highlightColors[index % highlightColors.length];
-// // //       }
-// // //       index++;
-// // //     }
-// // //     return null;
-// // //   }
-// // //
-// // //   void showSuccessDialog() {
-// // //     showDialog(
-// // //       context: context,
-// // //       barrierDismissible: false,
-// // //       builder: (context) => AlertDialog(
-// // //         title: const Text('Level Complete!'),
-// // //         content: Text('Proceeding to level ${level + 1}'),
-// // //         actions: [
-// // //           TextButton(
-// // //             onPressed: () {
-// // //               Navigator.pop(context);
-// // //               setState(() {
-// // //                 level++;
-// // //                 startLevel();
-// // //               });
-// // //             },
-// // //             child: const Text('Continue'),
-// // //           ),
-// // //         ],
-// // //       ),
-// // //     );
-// // //   }
-// // //
-// // //   void showGameOverDialog() {
-// // //     showDialog(
-// // //       context: context,
-// // //       barrierDismissible: false,
-// // //       builder: (context) => AlertDialog(
-// // //         title: const Text('Time Up!'),
-// // //         content: Text('You reached level $level.'),
-// // //         actions: [
-// // //           TextButton(
-// // //             onPressed: () {
-// // //               Navigator.pop(context);
-// // //               Navigator.pop(context);
-// // //             },
-// // //             child: const Text('Back to Levels'),
-// // //           ),
-// // //         ],
-// // //       ),
-// // //     );
-// // //   }
-// // //
-// // //   @override
-// // //   void dispose() {
-// // //     timer?.cancel();
-// // //     super.dispose();
-// // //   }
-// // //
-// // //   @override
-// // //   Widget build(BuildContext context) {
-// // //     final cellSize = (MediaQuery.of(context).size.height * 0.55 - (gridSize - 1) * 4) / gridSize;
-// // //
-// // //     return Scaffold(
-// // //       backgroundColor: const Color(0xFFDAAB5C),
-// // //       appBar: AppBar(
-// // //         backgroundColor: const Color(0xFF7A5821),
-// // //         title: Text(
-// // //           "Level $level — ⏱ $timeLeft",
-// // //           style: const TextStyle(
-// // //             color: Colors.white,
-// // //             fontWeight: FontWeight.bold,
-// // //           ),
-// // //         ),
-// // //         centerTitle: true,
-// // //         leading: BackButton(color: Colors.white),
-// // //       ),
-// // //       body: Column(
-// // //         children: [
-// // //           const SizedBox(height: 10),
-// // //           GestureDetector(
-// // //             onPanStart: (details) => handleDragStart(details, cellSize),
-// // //             onPanUpdate: (details) => handleDragUpdate(details, cellSize),
-// // //             onPanEnd: (_) => handleDragEnd(),
-// // //             child: Container(
-// // //               height: cellSize * gridSize + (gridSize - 1) * 4,
-// // //               padding: const EdgeInsets.symmetric(horizontal: 12),
-// // //               child: GridView.builder(
-// // //                 physics: const NeverScrollableScrollPhysics(),
-// // //                 itemCount: gridSize * gridSize,
-// // //                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-// // //                   crossAxisCount: gridSize,
-// // //                   mainAxisSpacing: 4,
-// // //                   crossAxisSpacing: 4,
-// // //                 ),
-// // //                 itemBuilder: (context, index) {
-// // //                   final row = index ~/ gridSize;
-// // //                   final col = index % gridSize;
-// // //                   final color = getCellColor(row, col);
-// // //
-// // //                   return Container(
-// // //                     decoration: BoxDecoration(
-// // //                       color: color ?? const Color(0xFFFFF8E1),
-// // //                       borderRadius: BorderRadius.circular(10),
-// // //                       border: Border.all(color: const Color(0xFF7A5821), width: 1.2),
-// // //                       boxShadow: [
-// // //                         BoxShadow(
-// // //                           color: Colors.black26,
-// // //                           blurRadius: 2,
-// // //                           offset: Offset(2, 2),
-// // //                         ),
-// // //                       ],
-// // //                     ),
-// // //                     alignment: Alignment.center,
-// // //                     child: Text(
-// // //                       grid[row][col],
-// // //                       style: TextStyle(
-// // //                         fontSize: 22,
-// // //                         fontWeight: FontWeight.bold,
-// // //                         fontFamily: 'Courier',
-// // //                         color: color != null ? Colors.white : const Color(0xFF7A5821),
-// // //                       ),
-// // //                     ),
-// // //                   );
-// // //                 },
-// // //               ),
-// // //             ),
-// // //           ),
-// // //           const SizedBox(height: 20),
-// // //           const Text(
-// // //             'Find the Words:',
-// // //             style: TextStyle(
-// // //               fontSize: 20,
-// // //               fontWeight: FontWeight.bold,
-// // //               color: Color(0xFF7A5821),
-// // //               letterSpacing: 1.2,
-// // //             ),
-// // //           ),
-// // //           const SizedBox(height: 10),
-// // //           Padding(
-// // //             padding: const EdgeInsets.symmetric(horizontal: 12),
-// // //             child: Wrap(
-// // //               spacing: 10,
-// // //               runSpacing: 10,
-// // //               children: currentWords.map((word) {
-// // //                 final found = foundWordPaths.containsKey(word);
-// // //                 return Container(
-// // //                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-// // //                   decoration: BoxDecoration(
-// // //                     color: found ? Colors.green.shade300 : Colors.white,
-// // //                     borderRadius: BorderRadius.circular(6),
-// // //                     border: Border.all(color: const Color(0xFF7A5821), width: 1.5),
-// // //                     boxShadow: [
-// // //                       if (found)
-// // //                         BoxShadow(
-// // //                           color: Colors.green.shade900.withOpacity(0.4),
-// // //                           offset: Offset(1, 1),
-// // //                           blurRadius: 3,
-// // //                         ),
-// // //                     ],
-// // //                   ),
-// // //                   child: Text(
-// // //                     word,
-// // //                     style: TextStyle(
-// // //                       fontSize: 16,
-// // //                       fontWeight: FontWeight.w700,
-// // //                       color: found ? Colors.white : const Color(0xFF7A5821),
-// // //                       decoration: found ? TextDecoration.lineThrough : null,
-// // //                       letterSpacing: 1,
-// // //                     ),
-// // //                   ),
-// // //                 );
-// // //               }).toList(),
-// // //             ),
-// // //           ),
-// // //         ],
-// // //       ),
-// // //     );
-// // //   }
-// // // }
