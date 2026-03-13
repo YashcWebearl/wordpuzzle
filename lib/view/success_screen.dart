@@ -600,16 +600,16 @@ class _SuccessScreenState extends State<SuccessScreen>
               AudioHelper().playButtonSound();
               final coinProvider =
               Provider.of<CoinProvider>(context, listen: false);
-              if (coinProvider.coins < 2) {
+              if (coinProvider.coins < 4) {
                 _showInsufficientCoinsDialog();
                 return;
               }
-              await coinProvider.undoCoins(2);
+              await coinProvider.undoCoins(4);
               AudioHelper().playMoneySound();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('2 coins deducted to start the game'),
+                    content: Text('4 coins deducted to start the game'),
                     backgroundColor: deepGreen,
                   ),
                 );
@@ -688,16 +688,16 @@ class _SuccessScreenState extends State<SuccessScreen>
               AudioHelper().playButtonSound();
               final coinProvider =
               Provider.of<CoinProvider>(context, listen: false);
-              if (coinProvider.coins < 2) {
+              if (coinProvider.coins < 4) {
                 _showInsufficientCoinsDialog();
                 return;
               }
-              await coinProvider.undoCoins(2);
+              await coinProvider.undoCoins(4);
               AudioHelper().playMoneySound();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('2 coins deducted to start the game'),
+                    content: Text('4 coins deducted to start the game'),
                     backgroundColor: deepGreen,
                   ),
                 );

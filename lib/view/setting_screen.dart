@@ -227,18 +227,18 @@ class _SettingsPageState extends State<SettingsPage> {
                             value: isSoundOn,
                             onChanged: _toggleSound,
                           ),
-                          const SizedBox(height: 25),
-                          AppButton(
-                            label: 'Language',
-                            onTap: () {
-                              AudioHelper().playButtonSound();
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const LanguagePage()),
-                              );
-                            },
-                          ),
+                          // const SizedBox(height: 25),
+                          // AppButton(
+                          //   label: 'Language',
+                          //   onTap: () {
+                          //     AudioHelper().playButtonSound();
+                          //     Navigator.push(
+                          //       context,
+                          //       MaterialPageRoute(
+                          //           builder: (_) => const LanguagePage()),
+                          //     );
+                          //   },
+                          // ),
                           const SizedBox(height: 15),
                           AppButton(
                             label: 'Log Out',

@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:word_puzzle/view/success_screen.dart';
 import 'package:word_puzzle/db/prefs.dart';
@@ -15,29 +17,23 @@ import 'package:word_puzzle/widget/hint_button.dart';
 import 'package:word_puzzle/widget/sound.dart';
 import 'package:word_puzzle/widget/word_highliter.dart';
 import 'package:word_puzzle/view/ad_show.dart';
-
 class WordSearchPage extends StatefulWidget {
   final int initialLevel;
   final int gridSize;
-
   const WordSearchPage({
     super.key,
     required this.initialLevel,
     required this.gridSize,
   });
-
   @override
   WordSearchPageState createState() => WordSearchPageState();
 }
-
-class WordSearchPageState extends State<WordSearchPage>
-    with TickerProviderStateMixin {
+class WordSearchPageState extends State<WordSearchPage> with TickerProviderStateMixin {
   late int level;
   late int timeLeft;
   late int gridSize;
   late int moveCount;
   bool _lastSecondSoundPlayed = false;
-
   int? maxMoves;
   late AnimationController _animationController;
   late AnimationController _blinkController;
@@ -54,46 +50,168 @@ class WordSearchPageState extends State<WordSearchPage>
   final Map<String, List<Offset>> _foundWordPaths = {};
   final Random _random = Random();
   final List<String> _usedWords = [];
-
-  static const _wordBank = {
+  //
+  // static const _wordBank = {
+  //   'tech': [
+  //     'flutter',
+  //     'dart',
+  //     'code',
+  //     'grid',
+  //     'puzzle',
+  //     'game',
+  //     'level',
+  //     'timer',
+  //     'bonus',
+  //     'software'
+  //   ],
+  //   'nature': [
+  //     'forest',
+  //     'river',
+  //     'mountain',
+  //     'ocean',
+  //     'desert',
+  //     'valley',
+  //     'canyon',
+  //     'lake',
+  //     'tree',
+  //     'flower'
+  //   ],
+  //   'general': [
+  //     'challenge',
+  //     'logic',
+  //     'solve',
+  //     'fun',
+  //     'adventure',
+  //     'mystery',
+  //     'quest',
+  //     'journey',
+  //     'travel',
+  //     'dream'
+  //   ],
+  // };
+  static const Map<String, List<String>> _wordBank = {
     'tech': [
-      'flutter',
-      'dart',
-      'code',
-      'grid',
-      'puzzle',
-      'game',
-      'level',
-      'timer',
-      'bonus',
-      'software'
+      'flutter','dart','code','debug','widget','state','async','future',
+      'stream','build','context','material','scaffold','container','column',
+      'row','stack','button','gesture','animation','provider','firebase',
+      'api','json','database','server','client','network','http','url',
+      'error','class','object','method','function','variable','constant',
+      'constructor','inheritance','polymorphism','encapsulation'
     ],
-    'nature': [
-      'forest',
-      'river',
-      'mountain',
-      'ocean',
-      'desert',
-      'valley',
-      'canyon',
-      'lake',
-      'tree',
-      'flower'
-    ],
-    'general': [
-      'challenge',
-      'logic',
-      'solve',
-      'fun',
-      'adventure',
-      'mystery',
-      'quest',
-      'journey',
-      'travel',
-      'dream'
-    ],
-  };
 
+    'nature': [
+      'forest','river','mountain','ocean','desert','valley','canyon','lake',
+      'tree','flower','rainforest','waterfall','volcano','glacier','meadow',
+      'prairie','savanna','tundra','wetland','coral','reef','island','delta',
+      'estuary','fjord','geyser','lagoon','marsh','oasis','jungle','beach',
+      'coast','cliff','dune','field','garden','grass','hill','leaf','moon',
+      'planet','rain','rock','sand','sky','snow','star','stone','sun',
+      'thunder','wind','wood','cloud','storm','breeze','mist','fog','dew',
+      'ice','branch','root','seed','petal','bloom','vine','bush','herb',
+      'moss','fern','shore','bay','creek','pond','spring','summit','ridge',
+      'plateau','basin','cave','grove','orchard','rainfall','sunrise',
+      'sunset','twilight','horizon','galaxy','comet','asteroid','meteor',
+      'nebula'
+    ],
+
+    'animals': [
+      'lion','tiger','leopard','cheetah','panther','wolf','fox','bear',
+      'panda','elephant','rhino','hippo','giraffe','zebra','camel','horse',
+      'donkey','monkey','gorilla','chimp','kangaroo','koala','otter','deer',
+      'moose','buffalo','bison','antelope','yak','goat','sheep','dog','cat',
+      'rabbit','squirrel','rat','mouse','hamster','hedgehog','bat','whale',
+      'dolphin','shark','seal','walrus','octopus','squid','crab','lobster',
+      'turtle','crocodile','alligator','snake','lizard','frog','toad',
+      'eagle','falcon','hawk','owl','parrot','sparrow','crow','pigeon',
+      'peacock','flamingo','penguin','ostrich'
+    ],
+
+    'food': [
+      'apple','banana','orange','mango','grape','pineapple','papaya','pear',
+      'peach','plum','kiwi','melon','watermelon','strawberry','blueberry',
+      'raspberry','cherry','coconut','lemon','lime','tomato','potato',
+      'onion','garlic','carrot','cabbage','broccoli','spinach','lettuce',
+      'pepper','chili','corn','peas','beans','rice','wheat','bread','pasta',
+      'noodle','pizza','burger','sandwich','cheese','butter','cream','milk',
+      'yogurt','egg','chicken','beef','fish','shrimp','soup','salad',
+      'cake','cookie','chocolate','candy','honey','sugar'
+    ],
+
+    'travel': [
+      'travel','journey','trip','voyage','tour','explore','adventure',
+      'destination','map','compass','guide','ticket','passport','visa',
+      'airport','station','platform','luggage','baggage','hotel','resort',
+      'hostel','camp','tent','mountain','beach','island','forest','city',
+      'village','street','bridge','tunnel','road','highway','train','metro',
+      'bus','taxi','car','bicycle','motorbike','airplane','helicopter',
+      'ship','boat','cruise'
+    ],
+
+    'science': [
+      'science','physics','chemistry','biology','atom','molecule','cell',
+      'energy','force','motion','gravity','mass','volume','density',
+      'temperature','pressure','reaction','element','compound','electron',
+      'proton','neutron','nucleus','magnet','electric','circuit','battery',
+      'voltage','current','resistance','wave','light','sound','heat',
+      'radiation','laser','microscope','telescope','experiment','theory'
+    ],
+
+    'space': [
+      'space','planet','mercury','venus','earth','mars','jupiter','saturn',
+      'uranus','neptune','pluto','sun','moon','star','galaxy','nebula',
+      'asteroid','meteor','comet','orbit','rocket','satellite','spaceship',
+      'astronaut','cosmos','universe','gravity','eclipse','crater','telescope'
+    ],
+
+    'sports': [
+      'sport','football','cricket','tennis','basketball','baseball',
+      'volleyball','badminton','hockey','golf','rugby','boxing','wrestling',
+      'swimming','running','cycling','skating','skiing','archery','karate',
+      'judo','taekwondo','gymnastics','marathon','stadium','coach','player',
+      'team','match','score','goal','winner','trophy','medal','league'
+    ],
+
+    'general': [
+      'challenge','logic','solve','fun','dream','strategy','victory',
+      'treasure','castle','kingdom','dragon','wizard','knight','puzzle',
+      'riddle','secret','ancient','magical','legend','epic','heroic',
+      'bravery','courage','wisdom','power','spell','sword','shield',
+      'battle','peace','hope','faith','love','joy','smile','laugh',
+      'friend','family','world','life','time','space','light','dark',
+      'fire','shadow','echo','story','memory','moment','future','past'
+    ]
+  };
+  // static const _wordBank = {
+  //   'tech': [
+  //     'flutter', 'dart', 'code', 'grid', 'puzzle', 'game', 'level', 'timer',
+  //     'bonus', 'software', 'widget', 'state', 'async', 'future', 'stream',
+  //     'build', 'context', 'material', 'scaffold', 'appbar', 'container',
+  //     'column', 'row', 'stack', 'listview', 'textfield', 'button', 'gesture',
+  //     'animation', 'provider', 'bloc', 'redux', 'firebase', 'api', 'json',
+  //     'database', 'server', 'client', 'network', 'http', 'url', 'debug',
+  //     'error', 'exception', 'class', 'object', 'function', 'method', 'variable',
+  //     'constant', 'constructor', 'inheritance', 'polymorphism', 'encapsulation'
+  //   ],
+  //   'nature': [
+  //     'forest', 'river', 'mountain', 'ocean', 'desert', 'valley', 'canyon',
+  //     'lake', 'tree', 'flower', 'rainforest', 'waterfall', 'volcano', 'glacier',
+  //     'meadow', 'prairie', 'savanna', 'tundra', 'wetland', 'coral', 'reef',
+  //     'island', 'peninsula', 'delta', 'estuary', 'fjord', 'geyser', 'lagoon',
+  //     'marsh', 'oasis', 'jungle', 'beach', 'coast', 'cliff', 'dune', 'field',
+  //     'garden', 'grass', 'hill', 'leaf', 'moon', 'planet', 'rain', 'rock',
+  //     'sand', 'sky', 'snow', 'star', 'stone', 'sun', 'thunder', 'wind', 'wood'
+  //   ],
+  //   'general': [
+  //     'challenge', 'logic', 'solve', 'fun', 'adventure', 'mystery', 'quest',
+  //     'journey', 'travel', 'dream', 'strategy', 'victory', 'defeat', 'treasure',
+  //     'dungeon', 'castle', 'kingdom', 'dragon', 'wizard', 'knight', 'puzzle',
+  //     'riddle', 'secret', 'hidden', 'ancient', 'magical', 'legend', 'mythical',
+  //     'epic', 'heroic', 'bravery', 'courage', 'wisdom', 'power', 'magic',
+  //     'spell', 'sword', 'shield', 'armor', 'battle', 'war', 'peace', 'hope',
+  //     'faith', 'love', 'joy', 'happy', 'smile', 'laugh', 'friend', 'family',
+  //     'world', 'earth', 'life', 'time', 'space', 'light', 'dark', 'fire'
+  //   ],
+  // };
   static const _directions = [
     [0, 1],
     [1, 0],
@@ -104,7 +222,6 @@ class WordSearchPageState extends State<WordSearchPage>
     [-1, -1],
     [1, -1]
   ];
-
   static const _highlightColors = [
     Color(0xFFFFB300),
     Color(0xFF4DB6AC),
@@ -112,12 +229,10 @@ class WordSearchPageState extends State<WordSearchPage>
     Color(0xFF64B5F6),
     Color(0xFFF06292),
   ];
-
   @override
   void initState() {
     super.initState();
     AudioHelper().playScreenOpenSound();
-
     level = widget.initialLevel;
     gridSize = widget.gridSize;
     timeLeft = 90;
@@ -137,27 +252,22 @@ class WordSearchPageState extends State<WordSearchPage>
       _animationController.forward();
     });
   }
-
   Future<void> _startLevel() async {
     try {
       final potentialWords = _generateDynamicWords();
       _grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
       _currentWords = [];
-
       for (final word in potentialWords) {
         if (_placeWord(word, _grid)) {
           _currentWords.add(word);
         }
       }
-
-      // Fill remaining empty cells with random letters
       for (var r = 0; r < gridSize; r++) {
         for (var c = 0; c < gridSize; c++) {
           if (_grid[r][c].isEmpty)
             _grid[r][c] = String.fromCharCode(65 + _random.nextInt(26));
         }
       }
-
       moveCount = 0;
       maxMoves = _currentWords.length + 2;
       _foundWordPaths.clear();
@@ -169,7 +279,6 @@ class WordSearchPageState extends State<WordSearchPage>
       timeLeft = 90;
       _lastSecondSoundPlayed = false;
       _startTimer();
-
       Prefs.incrementPlayCount().then((count) {
         if (count % 4 == 0 && count != 0) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -187,17 +296,35 @@ class WordSearchPageState extends State<WordSearchPage>
       print('Error starting level: $e');
     }
   }
-
+  // List<String> _generateDynamicWords() {
+  //   final availableWords = _wordBank.values
+  //       .expand((words) => words)
+  //       .where((word) => word.length <= gridSize && !_usedWords.contains(word))
+  //       .toList();
+  //   if (availableWords.length < 5 + level) {
+  //     _usedWords.clear();
+  //     availableWords.addAll(_wordBank.values
+  //         .expand((words) => words)
+  //         .where((word) => word.length <= gridSize));
+  //   }
+  //   availableWords.shuffle(_random);
+  //   final selectedWords = availableWords
+  //       .take(min(availableWords.length, 4 + gridSize ~/ 2))
+  //       .map((word) => word.toUpperCase())
+  //       .toList();
+  //   _usedWords.addAll(selectedWords);
+  //   return selectedWords;
+  // }
   List<String> _generateDynamicWords() {
     final availableWords = _wordBank.values
         .expand((words) => words)
         .where((word) => word.length <= gridSize && !_usedWords.contains(word))
         .toList();
     if (availableWords.length < 5 + level) {
-      _usedWords.clear();
+      _usedWords.clear(); // Clear kariye
       availableWords.addAll(_wordBank.values
           .expand((words) => words)
-          .where((word) => word.length <= gridSize));
+          .where((word) => word.length <= gridSize && !_usedWords.contains(word)));
     }
     availableWords.shuffle(_random);
     final selectedWords = availableWords
@@ -207,7 +334,6 @@ class WordSearchPageState extends State<WordSearchPage>
     _usedWords.addAll(selectedWords);
     return selectedWords;
   }
-
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -229,7 +355,6 @@ class WordSearchPageState extends State<WordSearchPage>
       });
     });
   }
-
   void _showConfirmationDialog(String actionType, VoidCallback onConfirm) {
     showDialog(
       context: context,
@@ -243,10 +368,10 @@ class WordSearchPageState extends State<WordSearchPage>
             child: Container(
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                    color: Colors.white.withOpacity(0.2), width: 1.5),
+                    color: Colors.white.withValues(alpha: 0.2), width: 1.5),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -265,7 +390,7 @@ class WordSearchPageState extends State<WordSearchPage>
                         : 'Use 10 coins or watch an ad to reveal a word.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        fontSize: 16, color: Colors.white.withOpacity(0.9)),
+                        fontSize: 16, color: Colors.white.withValues(alpha: 0.9)),
                   ),
                   const SizedBox(height: 30),
                   Row(
@@ -304,7 +429,6 @@ class WordSearchPageState extends State<WordSearchPage>
       ),
     );
   }
-
   bool _placeWord(String word, List<List<String>> grid) {
     for (var attempt = 0; attempt < 100; attempt++) {
       final dir = _directions[_random.nextInt(_directions.length)];
@@ -314,7 +438,6 @@ class WordSearchPageState extends State<WordSearchPage>
           r + dir[0] * (word.length - 1) >= gridSize ||
           c + dir[1] * (word.length - 1) < 0 ||
           c + dir[1] * (word.length - 1) >= gridSize) continue;
-
       var fits = true;
       for (var i = 0; i < word.length; i++) {
         final nr = r + dir[0] * i, nc = c + dir[1] * i;
@@ -331,22 +454,16 @@ class WordSearchPageState extends State<WordSearchPage>
     }
     return false;
   }
-
   void _handleDragStart(DragStartDetails details, double cellSize) {
-    final col =
-        (details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
-    final row =
-        (details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
+    final col =(details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
+    final row =(details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
     _start = Offset(col.toDouble(), row.toDouble());
     setState(() => _currentDragPath = [_start!]);
     AudioHelper().playDragWordSound();
   }
-
   void _handleDragUpdate(DragUpdateDetails details, double cellSize) {
-    final col =
-        (details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
-    final row =
-        (details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
+    final col =(details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
+    final row =(details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
     final newEnd = Offset(col.toDouble(), row.toDouble());
     if (_start != null && _isValidDirection(_start!, newEnd)) {
       setState(() {
@@ -355,12 +472,10 @@ class WordSearchPageState extends State<WordSearchPage>
       });
     }
   }
-
   bool _isValidDirection(Offset a, Offset b) {
     final dx = (b.dx - a.dx).abs(), dy = (b.dy - a.dy).abs();
     return dx == 0 || dy == 0 || dx == dy;
   }
-
   List<Offset> _getPointsOnPath(Offset a, Offset b) {
     final points = <Offset>[];
     final dx = (b.dx - a.dx), dy = (b.dy - a.dy);
@@ -371,7 +486,6 @@ class WordSearchPageState extends State<WordSearchPage>
       points.add(Offset(a.dx + i * stepX, a.dy + i * stepY));
     return points;
   }
-
   Future<void> _handleDragEnd() async {
     if (_start != null && _end != null) {
       final selectedWord = _getSelectedWord(_start!, _end!);
@@ -388,8 +502,7 @@ class WordSearchPageState extends State<WordSearchPage>
         AudioHelper().playNotFoundSound();
       }
       moveCount++;
-      if (moveCount >= (maxMoves ?? 0) &&
-          _foundWordPaths.length < _currentWords.length)
+      if (moveCount >= (maxMoves ?? 0) && _foundWordPaths.length < _currentWords.length)
         _showGameOverDialog(reason: 'moves');
     }
     setState(() {
@@ -397,12 +510,10 @@ class WordSearchPageState extends State<WordSearchPage>
       _currentDragPath = [];
     });
   }
-
   String _getSelectedWord(Offset a, Offset b) {
     final path = _getPointsOnPath(a, b);
     return path.map((p) => _grid[p.dy.round()][p.dx.round()]).join();
   }
-
   void _showHint({bool useCoins = true}) {
     final coinProvider = Provider.of<CoinProvider>(context, listen: false);
     if (useCoins && coinProvider.coins < 10) {
@@ -410,9 +521,7 @@ class WordSearchPageState extends State<WordSearchPage>
       return;
     }
     if (useCoins) coinProvider.undoCoins(10);
-
-    final unfinished =
-        _currentWords.where((w) => !_foundWordPaths.containsKey(w)).toList();
+    final unfinished =_currentWords.where((w) => !_foundWordPaths.containsKey(w)).toList();
     if (unfinished.isEmpty) return;
     final hintWord = unfinished[_random.nextInt(unfinished.length)];
     _hintedPath = _findWordPathInGrid(hintWord);
@@ -420,7 +529,6 @@ class WordSearchPageState extends State<WordSearchPage>
     _hintTimer = Timer(
         const Duration(seconds: 4), () => setState(() => _hintedPath = null));
   }
-
   List<Offset>? _findWordPathInGrid(String word) {
     for (var r = 0; r < gridSize; r++) {
       for (var c = 0; c < gridSize; c++) {
@@ -447,7 +555,6 @@ class WordSearchPageState extends State<WordSearchPage>
     }
     return null;
   }
-
   void _addExtraMove({bool useCoins = true}) {
     final coinProvider = Provider.of<CoinProvider>(context, listen: false);
     if (useCoins && coinProvider.coins < 10) {
@@ -457,14 +564,13 @@ class WordSearchPageState extends State<WordSearchPage>
     if (useCoins) coinProvider.undoCoins(10);
     setState(() => maxMoves = (maxMoves ?? 0) + 5);
   }
-
   void _showSuccessDialog() {
     Navigator.push(
         context,
         MaterialPageRoute(
             builder: (context) => SuccessScreen(
                   level: level,
-                  coin: 20,
+                  coin: 3,
                   gridSize: gridSize,
                   onNextLevel: () => Navigator.pushReplacement(
                       context,
@@ -476,7 +582,68 @@ class WordSearchPageState extends State<WordSearchPage>
                   onBackToLevels: () => Navigator.pop(context),
                 )));
   }
-
+  // void _showGameOverDialog({required String reason}) {
+  //   if (_isDialogShowing) return;
+  //   _isDialogShowing = true;
+  //   showDialog(
+  //     context: context,
+  //     barrierDismissible: false,
+  //     builder: (context) => Dialog(
+  //       backgroundColor: Colors.transparent,
+  //       child: ClipRRect(
+  //         borderRadius: BorderRadius.circular(30),
+  //         child: BackdropFilter(
+  //           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+  //           child: Container(
+  //             padding: const EdgeInsets.all(30),
+  //             decoration: BoxDecoration(
+  //               color: Colors.black.withValues(alpha: 0.5),
+  //               borderRadius: BorderRadius.circular(30),
+  //               border: Border.all(
+  //                   color: Colors.white.withValues(alpha: 0.2), width: 1.5),
+  //             ),
+  //             child: Column(
+  //               mainAxisSize: MainAxisSize.min,
+  //               children: [
+  //                 Text(reason == 'time' ? "TIME'S UP!" : "OUT OF MOVES!",
+  //                     style: const TextStyle(
+  //                         fontSize: 24,
+  //                         fontWeight: FontWeight.w900,
+  //                         color: Colors.white)),
+  //                 const SizedBox(height: 15),
+  //                 reason == 'time' ? Image.asset('assets/time_out.png', width: 200, height: 200) : Image.asset('assets/out_of_moves.png', width: 200, height: 200) ,
+  //                 SizedBox(height: 10),
+  //                 const Text("Would you like to try again?",
+  //                     style: TextStyle(color: Colors.white70),
+  //                     textAlign: TextAlign.center),
+  //                 const SizedBox(height: 30),
+  //                 Row(
+  //                   children: [
+  //                     Expanded(
+  //                         child: AppButton(
+  //                             label: 'EXIT',
+  //                             onTap: () {
+  //                               Navigator.pop(context);
+  //                               Navigator.pop(context);
+  //                             })),
+  //                     const SizedBox(width: 10),
+  //                     Expanded(
+  //                         child: AppButton(
+  //                             label: 'RETRY',
+  //                             onTap: () {
+  //                               Navigator.pop(context);
+  //                               _startLevel();
+  //                             })),
+  //                   ],
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   ).then((_) => _isDialogShowing = false);
+  // }
   void _showGameOverDialog({required String reason}) {
     if (_isDialogShowing) return;
     _isDialogShowing = true;
@@ -488,14 +655,19 @@ class WordSearchPageState extends State<WordSearchPage>
         child: ClipRRect(
           borderRadius: BorderRadius.circular(30),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
             child: Container(
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                    color: Colors.white.withOpacity(0.2), width: 1.5),
+                    color: Colors.white.withValues(alpha: 0.2), width: 1.5),
+                  boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 10),
+                          ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -506,8 +678,10 @@ class WordSearchPageState extends State<WordSearchPage>
                           fontWeight: FontWeight.w900,
                           color: Colors.white)),
                   const SizedBox(height: 15),
-                  reason == 'time' ? Image.asset('assets/time_out.png', width: 200, height: 200) : Image.asset('assets/out_of_moves.png', width: 200, height: 200) ,
-                  SizedBox(height: 10),
+                  reason == 'time'
+                      ? Image.asset('assets/time_out.png', width: 200, height: 200)
+                      : Image.asset('assets/out_of_moves.png', width: 200, height: 200),
+                  const SizedBox(height: 10),
                   const Text("Would you like to try again?",
                       style: TextStyle(color: Colors.white70),
                       textAlign: TextAlign.center),
@@ -522,12 +696,70 @@ class WordSearchPageState extends State<WordSearchPage>
                                 Navigator.pop(context);
                               })),
                       const SizedBox(width: 10),
+                      // Expanded(
+                      //     child: AppButton(
+                      //         label: 'RETRY',
+                      //         onTap: () async {
+                      //           // Pehla connectivity check karo
+                      //           final connectivity = await Connectivity().checkConnectivity();
+                      //           if (connectivity.contains(ConnectivityResult.none)) {
+                      //             Fluttertoast.showToast(msg: "You're offline");
+                      //           } else {
+                      //             // Internet che toh 2 coins deduct karo
+                      //             final coinProvider = Provider.of<CoinProvider>(context, listen: false);
+                      //             await coinProvider.undoCoins(2);
+                      //             AudioHelper().playMoneySound();
+                      //             Fluttertoast.showToast(msg: "2 coins deducted to start the game");
+                      //
+                      //             // Pachi dialog bandh karo ane level restart karo
+                      //             Navigator.pop(context);
+                      //             _startLevel();
+                      //           }
+                      //         })),
                       Expanded(
                           child: AppButton(
                               label: 'RETRY',
-                              onTap: () {
-                                Navigator.pop(context);
-                                _startLevel();
+                              onTap: () async {
+                                // Loading shuru karo
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (context) => const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 3,
+                                    ),
+                                  ),
+                                );
+
+                                try {
+                                  // Pehla connectivity check karo
+                                  final connectivity = await Connectivity().checkConnectivity();
+                                  if (connectivity.contains(ConnectivityResult.none)) {
+                                    // Loading bandh karo
+                                    Navigator.pop(context);
+                                    Fluttertoast.showToast(msg: "You're offline");
+                                  } else {
+                                    // Internet che toh 2 coins deduct karo
+                                    final coinProvider = Provider.of<CoinProvider>(context, listen: false);
+                                    if (coinProvider.coins < 4) {
+                                      _showInsufficientCoinsDialog();
+                                      return;
+                                    }
+                                    await coinProvider.undoCoins(4);
+                                    AudioHelper().playMoneySound();
+                                    Fluttertoast.showToast(msg: "4 coins deducted to start the game");
+
+                                    // Pachi dialog bandh karo ane level restart karo
+                                    Navigator.pop(context); // Loading dialog bandh
+                                    Navigator.pop(context); // Game over dialog bandh
+                                    _startLevel();
+                                  }
+                                } catch (e) {
+                                  // Error aave toh loading bandh karo
+                                  Navigator.pop(context);
+                                  Fluttertoast.showToast(msg: "Something went wrong. Try again.");
+                                }
                               })),
                     ],
                   ),
@@ -539,7 +771,6 @@ class WordSearchPageState extends State<WordSearchPage>
       ),
     ).then((_) => _isDialogShowing = false);
   }
-
   void _showInsufficientCoinsDialog() {
     showDialog(
       context: context,
@@ -552,7 +783,7 @@ class WordSearchPageState extends State<WordSearchPage>
             child: Container(
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Column(
@@ -573,7 +804,6 @@ class WordSearchPageState extends State<WordSearchPage>
       ),
     );
   }
-
   void _showExitConfirmationDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -586,7 +816,7 @@ class WordSearchPageState extends State<WordSearchPage>
             child: Container(
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Column(
@@ -626,7 +856,6 @@ class WordSearchPageState extends State<WordSearchPage>
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     if (_currentWords.isEmpty ||
@@ -667,7 +896,7 @@ class WordSearchPageState extends State<WordSearchPage>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.4),
+                              color: Colors.black.withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(20)),
                           child: Row(children: [
                             const Icon(Icons.arrow_back, color: Colors.white),
@@ -699,54 +928,7 @@ class WordSearchPageState extends State<WordSearchPage>
                     ],
                   ),
                 ),
-          // Padding(
-          //     padding:
-          //     const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          //     child: Row(
-          //       mainAxisAlignment: MainAxisAlignment.end,
-          //       children: [
-          //
-          //       ],
-          //     ),
-          //   ),
-                // Premium Glass Header for Word Category
-                // Container(
-                //   margin: const EdgeInsets.symmetric(horizontal: 20),
-                //   padding:
-                //       const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                //   decoration: BoxDecoration(
-                //     gradient: const LinearGradient(
-                //         colors: [Color(0xFF8BC34A), Color(0xFF388E3C)],
-                //         begin: Alignment.topLeft,
-                //         end: Alignment.bottomRight),
-                //     borderRadius: BorderRadius.circular(20),
-                //     boxShadow: [
-                //       BoxShadow(
-                //           color: Colors.black.withOpacity(0.3),
-                //           blurRadius: 10,
-                //           offset: const Offset(0, 4))
-                //     ],
-                //   ),
-                //   child: const Text('SEARCH WORDS',
-                //       style: TextStyle(
-                //           color: Colors.white,
-                //           fontSize: 22,
-                //           fontWeight: FontWeight.w900,
-                //           letterSpacing: 2)),
-                // ),
-                // const SizedBox(height: 15),
-                // Moves Left Indicator
-                // Text(
-                //   'MOVES LEFT: ${(maxMoves ?? 0) - moveCount}',
-                //   style: const TextStyle(
-                //     color: Colors.white,
-                //     fontSize: 18,
-                //     fontWeight: FontWeight.w900,
-                //     letterSpacing: 1.2,
-                //   ),
-                // ),
                 const SizedBox(height: 30),
-                // Found words indicator (Grouped in one dark glass container)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: ClipRRect(
@@ -756,10 +938,10 @@ class WordSearchPageState extends State<WordSearchPage>
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
+                          color: Colors.black.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             width: 1,
                           ),
                         ),
@@ -773,7 +955,7 @@ class WordSearchPageState extends State<WordSearchPage>
                               word,
                               style: TextStyle(
                                 color: found
-                                    ? Colors.white.withOpacity(0.3)
+                                    ? Colors.white.withValues(alpha: 0.3)
                                     : Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
@@ -788,8 +970,6 @@ class WordSearchPageState extends State<WordSearchPage>
                   ),
                 ),
                 SizedBox(height: 40),
-                // const Spacer(),
-                // Game Board
                 Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: GestureDetector(
@@ -801,10 +981,10 @@ class WordSearchPageState extends State<WordSearchPage>
                       height: cellSize * gridSize,
                       decoration: BoxDecoration(
                           color: Colors.black
-                              .withOpacity(0.4), // Darker background
+                              .withValues(alpha: 0.4), // Darker background
                           borderRadius: BorderRadius.circular(20),
                           border:
-                              Border.all(color: Colors.white.withOpacity(0.2))),
+                              Border.all(color: Colors.white.withValues(alpha: 0.2))),
                       child: Stack(
                         children: [
                           CustomPaint(
@@ -839,46 +1019,16 @@ class WordSearchPageState extends State<WordSearchPage>
                   ),
                 ),
                 const Spacer(),
-
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.4),
-                              borderRadius: BorderRadius.circular(15)),
-                          child: Text('Time: $timeLeft',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900))),
-                      //
-                      // Container(
-                      //     padding: const EdgeInsets.all(12),
-                      //     decoration: BoxDecoration(
-                      //         color: Colors.black.withOpacity(0.4),
-                      //         borderRadius: BorderRadius.circular(15)),
-                      //     child: Text('Moves: ${(maxMoves ?? 0) - moveCount}',
-                      //         style: const TextStyle(
-                      //             color: Colors.white,
-                      //             fontWeight: FontWeight.w900))),
+                      timeCircle(timeLeft, 90),
                       movesCircle((maxMoves ?? 0) - moveCount,maxMoves!)
                     ],
                   ),
                 ),
-                // Padding(
-                //   padding:
-                //   const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                //   child: Row(
-                //     mainAxisAlignment: MainAxisAlignment.end,
-                //     children: [
-                //       const CoinBalanceWidget(),
-                //     ],
-                //   ),
-                // ),
                 SizedBox(height: 40),
               ],
             ),
@@ -887,28 +1037,22 @@ class WordSearchPageState extends State<WordSearchPage>
       ),
     );
   }
-  Widget movesCircle(int remainingMoves, int totalMoves, {double size = 70}) {
-
-    double progress = remainingMoves / totalMoves;
-
+  Widget timeCircle(int timeLeft, int totalTime, {double size = 70}) {
+    double progress = timeLeft / totalTime;
     Color ringColor;
     if (progress > 0.6) {
-      // ringColor = Colors.cyanAccent;
       ringColor = Colors.yellowAccent;
     } else if (progress > 0.3) {
       ringColor = Colors.orangeAccent;
     } else {
       ringColor = Colors.red;
     }
-
     return SizedBox(
       width: size,
       height: size,
       child: Stack(
         alignment: Alignment.center,
         children: [
-
-          /// Outer glow
           Container(
             width: size,
             height: size,
@@ -916,15 +1060,13 @@ class WordSearchPageState extends State<WordSearchPage>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: ringColor.withOpacity(0.5),
+                  color: ringColor.withValues(alpha: 0.5),
                   blurRadius: 40,
                   spreadRadius: 5,
                 )
               ],
             ),
           ),
-
-          /// Progress ring
           SizedBox(
             width: size,
             height: size,
@@ -935,8 +1077,6 @@ class WordSearchPageState extends State<WordSearchPage>
               valueColor: AlwaysStoppedAnimation(ringColor),
             ),
           ),
-
-          /// Inner glass circle
           Container(
             width: size * 0.80,
             height: size * 0.80,
@@ -946,8 +1086,8 @@ class WordSearchPageState extends State<WordSearchPage>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.black.withOpacity(0.4),
-                  Colors.black.withOpacity(0.4),
+                  Colors.black.withValues(alpha: 0.4),
+                  Colors.black.withValues(alpha: 0.4),
                 ],
               ),
               border: Border.all(
@@ -955,11 +1095,99 @@ class WordSearchPageState extends State<WordSearchPage>
                 width: 1.5,
               ),
             ),
-
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-
+                const Text(
+                  "TIME",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "$timeLeft",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: ringColor,
+                    shadows: [
+                      Shadow(
+                        color: ringColor,
+                        blurRadius: 20,
+                      )
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget movesCircle(int remainingMoves, int totalMoves, {double size = 70}) {
+    double progress = remainingMoves / totalMoves;
+    Color ringColor;
+    if (progress > 0.6) {
+      ringColor = Colors.yellowAccent;
+    } else if (progress > 0.3) {
+      ringColor = Colors.orangeAccent;
+    } else {
+      ringColor = Colors.red;
+    }
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: ringColor.withValues(alpha: 0.5),
+                  blurRadius: 40,
+                  spreadRadius: 5,
+                )
+              ],
+            ),
+          ),
+          SizedBox(
+            width: size,
+            height: size,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 8,
+              backgroundColor: Colors.white12,
+              valueColor: AlwaysStoppedAnimation(ringColor),
+            ),
+          ),
+          Container(
+            width: size * 0.80,
+            height: size * 0.80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.black.withValues(alpha: 0.4),
+                  Colors.black.withValues(alpha: 0.4),
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white24,
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
                 const Text(
                   "MOVES",
                   style: TextStyle(
@@ -969,9 +1197,6 @@ class WordSearchPageState extends State<WordSearchPage>
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
-                // const SizedBox(height: 4),
-
                 Text(
                   "$remainingMoves",
                   style: TextStyle(

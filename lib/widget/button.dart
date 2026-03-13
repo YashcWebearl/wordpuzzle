@@ -87,7 +87,8 @@ class AppButton extends StatelessWidget {
   // }
   @override
 Widget build(BuildContext context) {
-  return GestureDetector(
+  return
+    GestureDetector(
     onTap: () {
       AudioHelper().playButtonSound();
       onTap?.call();

@@ -260,7 +260,6 @@
 import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -268,29 +267,22 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:word_puzzle/view/welcome_screen.dart';
 import '../widget/base_url.dart';
 import '../widget/bg_container.dart';
-import 'difficultyselect.dart';
 import 'home_screen.dart';
-
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
-
   @override
   State<SplashPage> createState() => _SplashPageState();
 }
-
 class _SplashPageState extends State<SplashPage> {
   double _progress = 0.0;
-
   @override
   void initState() {
     super.initState();
     _startLoading();
   }
-
   void _startLoading() {
     Future.delayed(const Duration(milliseconds: 100), _updateProgress);
   }
-
   void _updateProgress() {
     if (_progress >= 1.0) {
       _checkAppVersionAndNavigate();
@@ -301,24 +293,20 @@ class _SplashPageState extends State<SplashPage> {
       Future.delayed(const Duration(milliseconds: 100), _updateProgress);
     }
   }
-
   Future<String> getAppCode() async {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     return packageInfo.buildNumber;
   }
-
   Future<void> _checkAppVersionAndNavigate() async {
     try {
       String currentAppCode = await getAppCode();
       print('Current app code: $currentAppCode');
       final response = await http.get(Uri.parse('$LURL/api/user/slash'));
       print('API called for version check');
-
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         final String serverAppCode = jsonData['data']['app_code'] ?? "0";
         print('Server app code: $serverAppCode');
-
         if (serverAppCode == currentAppCode) {
           _checkAuthAndNavigate();
         } else {
@@ -332,14 +320,11 @@ class _SplashPageState extends State<SplashPage> {
       _checkAuthAndNavigate();
     }
   }
-
   Future<void> _checkAuthAndNavigate() async {
     if (!mounted) return;
-
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     print('Token is: $token');
-
     if (token != null && token.isNotEmpty) {
       Navigator.pushReplacement(
         context,
@@ -352,7 +337,6 @@ class _SplashPageState extends State<SplashPage> {
       );
     }
   }
-
   void _showUpdateDialog() {
     showDialog(
       context: context,
@@ -418,7 +402,6 @@ class _SplashPageState extends State<SplashPage> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -431,21 +414,18 @@ class _SplashPageState extends State<SplashPage> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // App icon
                   Image.asset(
                     'assets/icon/icon.png',
-                    width: 300.w,
-                    height: 300.h,
+                    width: 300,
+                    height: 300,
                   ),
                   const SizedBox(height: 40),
-
-                  // Glassmorphism container for loading bar
                   ClipRRect(
                     borderRadius: BorderRadius.circular(30),
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
                       child: Container(
-                        width: 280.w,
+                        width: 280,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 15,
@@ -473,8 +453,8 @@ class _SplashPageState extends State<SplashPage> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(20),
                               child: Container(
-                                width: 200.w,
-                                height: 10.h,
+                                width: 200,
+                                height: 10,
                                 color: Colors.white.withOpacity(0.3),
                                 child: FractionallySizedBox(
                                   widthFactor: _progress,
@@ -491,41 +471,86 @@ class _SplashPageState extends State<SplashPage> {
                   ),
                 ],
               ),
-
-              // Glassmorphism container for bottom text
+              // Padding(
+              //   padding: EdgeInsets.only(bottom: 20),
+              //   child: ClipRRect(
+              //     borderRadius: BorderRadius.circular(20),
+              //     child: BackdropFilter(
+              //       filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+              //       child: Container(
+              //         padding: const EdgeInsets.symmetric(
+              //           horizontal: 16,
+              //           vertical: 8,
+              //         ),
+              //         decoration: BoxDecoration(
+              //           color: Colors.black.withOpacity(0.2),
+              //           borderRadius: BorderRadius.circular(20),
+              //           border: Border.all(
+              //             color: Colors.black.withOpacity(0.2),
+              //             width: 1,
+              //           ),
+              //           boxShadow: [
+              //             BoxShadow(
+              //                 color: Colors.black.withOpacity(0.1),
+              //                 blurRadius: 10),
+              //           ],
+              //         ),
+              //         child: const Text(
+              //           "WebEarl Technologies Pvt Ltd",
+              //           textAlign: TextAlign.center,
+              //           style: TextStyle(
+              //             fontSize: 18,
+              //             color: Colors.black,
+              //             fontWeight: FontWeight.w800,
+              //             shadows: [
+              //               Shadow(
+              //                 offset: Offset(1, 1),
+              //                 blurRadius: 3.0,
+              //                 color: Colors.black45,
+              //               ),
+              //             ],
+              //           ),
+              //         ),
+              //       ),
+              //     ),
+              //   ),
+              // ),
               Padding(
-                padding: EdgeInsets.only(bottom: 20.h),
+                padding: const EdgeInsets.only(bottom: 20), // ਥੋੜ੍ਹੀ ਸਪੇਸ ਵਧਾਈ ਹੈ
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(15),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0), // Blur ਇਫੈਕਟ ਵਧਾਇਆ
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                        horizontal: 12,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
+                        // ਡਾਰਕ ਬੈਕਗ੍ਰਾਊਂਡ ਜੋ ਥੋੜ੍ਹਾ ਪਾਰਦਰਸ਼ੀ ਹੈ
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(15),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withOpacity(0.1), // ਬਾਰਡਰ ਨੂੰ ਹਲਕਾ ਰੱਖਿਆ
                           width: 1,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                       ),
                       child: const Text(
                         "WebEarl Technologies Pvt Ltd",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                          shadows: [
-                            Shadow(
-                              offset: Offset(1, 1),
-                              blurRadius: 3.0,
-                              color: Colors.black45,
-                            ),
-                          ],
+                          fontSize: 16,
+                          // ਟੈਕਸਟ ਦਾ ਰੰਗ ਚਿੱਟਾ ਜਾਂ ਗੋਲਡਨ ਰੱਖੋ ਤਾਂ ਜੋ ਡਾਰਕ ਤੇ ਉੱਭਰ ਕੇ ਆਵੇ
+                          color: Color(0xFFFFD700), // Golden color for highlighting
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
                         ),
                       ),
                     ),
