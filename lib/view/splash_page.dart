@@ -303,6 +303,8 @@ class _SplashPageState extends State<SplashPage> {
       print('Current app code: $currentAppCode');
       final response = await http.get(Uri.parse('$LURL/api/user/slash'));
       print('API called for version check');
+      print('status code:- ${response.statusCode}');
+      print('body code:- ${response.body}');
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         final String serverAppCode = jsonData['data']['app_code'] ?? "0";
