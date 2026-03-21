@@ -86,6 +86,7 @@ class _WordSearchAppState extends State<WordSearchApp> {
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
+        // ToastService.init(context);
         return MaterialApp(
           title: 'Word Search Puzzle',
           debugShowCheckedModeBanner: false,

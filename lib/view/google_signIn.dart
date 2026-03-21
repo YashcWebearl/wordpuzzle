@@ -141,6 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
         body: jsonEncode({
           'email': email,
           'password': password,
+          "gameName": "Word Puzzle"
         }),
       );
 

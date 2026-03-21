@@ -29,7 +29,8 @@ class CoinProvider extends ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse('$LURL/api/coin/display'),
+        // Uri.parse('$LURL/api/coin/display'),
+        Uri.parse('$LURL/api/coin/display?gameName=Word Puzzle'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token ?? '',
@@ -98,7 +99,7 @@ class CoinProvider extends ChangeNotifier {
           'Authorization': token,
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({'coin': amount}),
+        body: jsonEncode({'coin': amount,"gameName": "Word Puzzle",}),
       );
 
       if (response.statusCode != 200) {
@@ -129,7 +130,7 @@ class CoinProvider extends ChangeNotifier {
           'Authorization': token,
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({'coin': amount}),
+        body: jsonEncode({'coin': amount,"gameName": "Word Puzzle",}),
       );
       print('done undo 4444 response is:- ${response.statusCode}');
       print('done undo 5555555 response body is:- ${response.body}');

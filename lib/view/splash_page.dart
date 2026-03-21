@@ -301,7 +301,8 @@ class _SplashPageState extends State<SplashPage> {
     try {
       String currentAppCode = await getAppCode();
       print('Current app code: $currentAppCode');
-      final response = await http.get(Uri.parse('$LURL/api/user/slash'));
+      // final response = await http.get(Uri.parse('$LURL/api/user/slash'));
+      final response = await http.get(Uri.parse('$LURL/api/user/slash/?gameName=Word Puzzle'));
       print('API called for version check');
       print('status code:- ${response.statusCode}');
       print('body code:- ${response.body}');
