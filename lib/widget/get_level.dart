@@ -51,7 +51,7 @@ class GameLevelProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
       final response = await http.get(
-        Uri.parse('$LURL/api/gameLevel/data?gameName=Word Puzzle'),
+        Uri.parse('$LURL/api/gameLevel/data?gameName=Wordix'),
         headers: {'Authorization': token ?? ''},
       );
 
@@ -89,7 +89,7 @@ class GameLevelProvider with ChangeNotifier {
           'Authorization': token ?? '',
         },
         body: jsonEncode({
-          "gameName": "Word Puzzle",
+          "gameName": "Wordix",
           "gameLevel": newLevel,
           "gridSize": "$gridSize",
         }),
@@ -239,7 +239,7 @@ class GameLevelProvider with ChangeNotifier {
 //     try {
 //       print('Fetching game token:- $_authToken');
 //       final response = await http.get(
-//         Uri.parse('$LURL/api/gameLevel/data?gameName=Word Puzzle'),
+//         Uri.parse('$LURL/api/gameLevel/data?gameName=Wordix'),
 //         headers: {
 //           'Content-Type': 'application/json',
 //           'Authorization': token ?? '',

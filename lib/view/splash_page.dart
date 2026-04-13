@@ -302,7 +302,7 @@ class _SplashPageState extends State<SplashPage> {
       String currentAppCode = await getAppCode();
       print('Current app code: $currentAppCode');
       // final response = await http.get(Uri.parse('$LURL/api/user/slash'));
-      final response = await http.get(Uri.parse('$LURL/api/user/slash/?gameName=Word Puzzle'));
+      final response = await http.get(Uri.parse('$LURL/api/user/slash/?gameName=Wordix'));
       print('API called for version check');
       print('status code:- ${response.statusCode}');
       print('body code:- ${response.body}');
@@ -341,68 +341,156 @@ class _SplashPageState extends State<SplashPage> {
     }
   }
   void _showUpdateDialog() {
+    // showDialog(
+    //   context: context,
+    //   barrierDismissible: false,
+    //   builder: (context) => AlertDialog(
+    //     backgroundColor: Colors.transparent,
+    //     elevation: 0,
+    //     contentPadding: EdgeInsets.zero,
+    //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    //     content: Container(
+    //       decoration: BoxDecoration(
+    //         gradient: const LinearGradient(
+    //           colors: [Color(0xFF6B5BFF), Color(0xFF2E1A8E)],
+    //           begin: Alignment.topCenter,
+    //           end: Alignment.bottomCenter,
+    //         ),
+    //         borderRadius: BorderRadius.circular(20),
+    //       ),
+    //       padding: const EdgeInsets.all(20),
+    //       child: Column(
+    //         mainAxisSize: MainAxisSize.min,
+    //         children: [
+    //           const Text(
+    //             'UPDATE REQUIRED',
+    //             style: TextStyle(
+    //               fontSize: 24,
+    //               fontWeight: FontWeight.bold,
+    //               color: Colors.white,
+    //             ),
+    //           ),
+    //           const SizedBox(height: 10),
+    //           const Text(
+    //             'Please update the app to continue.',
+    //             textAlign: TextAlign.center,
+    //             style: TextStyle(fontSize: 16, color: Colors.white),
+    //           ),
+    //           const SizedBox(height: 20),
+    //           Row(
+    //             mainAxisAlignment: MainAxisAlignment.center,
+    //             children: [
+    //               ElevatedButton(
+    //                 style: ElevatedButton.styleFrom(
+    //                   backgroundColor: const Color(0xFF2E1A8E),
+    //                   shape: RoundedRectangleBorder(
+    //                     borderRadius: BorderRadius.circular(12),
+    //                   ),
+    //                 ),
+    //                 onPressed: () async {
+    //                   final Uri url = Uri.parse('');
+    //                   if (await canLaunchUrl(url)) {
+    //                     await launchUrl(url);
+    //                   } else {
+    //                     print('Could not launch $url');
+    //                   }
+    //                 },
+    //                 child: const Text('Update', style: TextStyle(color: Colors.white)),
+    //               ),
+    //             ],
+    //           ),
+    //         ],
+    //       ),
+    //     ),
+    //   ),
+    // );
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        contentPadding: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Container(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF6B5BFF), Color(0xFF2E1A8E)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'UPDATE REQUIRED',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 1.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Please update the app to continue.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E1A8E),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'UPDATE REQUIRED',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black45,
+                            offset: Offset(0, 2),
+                            blurRadius: 4,
+                          ),
+                        ],
                       ),
                     ),
-                    onPressed: () async {
-                      final Uri url = Uri.parse('');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url);
-                      } else {
-                        print('Could not launch $url');
-                      }
-                    },
-                    child: const Text('Update', style: TextStyle(color: Colors.white)),
-                  ),
-                ],
+                    const SizedBox(height: 15),
+                    Text(
+                      'Please update the app to continue.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white.withOpacity(0.9),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    /// 🔘 Update Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () async {
+                          final Uri url = Uri.parse('https://play.google.com/store/apps/details?id=com.wordix&hl=en');
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url);
+                          } else {
+                            print('Could not launch $url');
+                          }
+                        },
+                        child: const Text(
+                          'UPDATE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
   @override

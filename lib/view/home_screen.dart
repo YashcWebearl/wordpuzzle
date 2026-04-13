@@ -66,7 +66,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _getGameLevel() async {
-    String apiUrl = '$LURL/api/gameLevel/data?gameName=Word Puzzle';
+    String apiUrl = '$LURL/api/gameLevel/data?gameName=Wordix';
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 

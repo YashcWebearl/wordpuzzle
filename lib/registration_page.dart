@@ -77,7 +77,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           body: jsonEncode({
             'registeredID': account.id,
             'email': email,
-            'gameName': "Word Puzzle",
+            'gameName': "Wordix",
             'userName': account.displayName ?? 'User',
             'photo': account.photoUrl ?? '',
           }),

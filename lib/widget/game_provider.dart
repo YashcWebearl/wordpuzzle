@@ -32,7 +32,7 @@ class GameProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
       final response = await http.get(
-        Uri.parse('$LURL/api/gameLevel/data?gameName=Word Puzzle'),
+        Uri.parse('$LURL/api/gameLevel/data?gameName=Wordix'),
         headers: {'Authorization': '$token'},
       );
       if (response.statusCode == 200) {
@@ -63,7 +63,7 @@ class GameProvider extends ChangeNotifier {
           'Authorization': '$token',
         },
         body: jsonEncode({
-          "gameName": "Word Puzzle",
+          "gameName": "Wordix",
           "gameLevel": level,
           "gridSize": "$gridSize",
         }),

@@ -141,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
         body: jsonEncode({
           'email': email,
           'password': password,
-          "gameName": "Word Puzzle"
+          "gameName": "Wordix"
         }),
       );
 
@@ -208,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
           body: jsonEncode({
             'registeredID': googleId,
             'email': email,
-            'gameName': "Word Puzzle",
+            'gameName': "Wordix",
             'userName': name,
             'photo': photo,
           }),

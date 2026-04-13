@@ -1075,7 +1075,7 @@ class _PillButton3DState extends State<PillButton3D> {
 //   //   final token = prefs.getString('auth_token');
 //   //
 //   //   final body = {
-//   //     "gameName": "Word Puzzle",
+//   //     "gameName": "Wordix",
 //   //     "gameLevel": level,
 //   //     "gridSize": "$gridSize",
 //   //   };
