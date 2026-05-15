@@ -47,8 +47,8 @@ android {
         targetSdk = flutter.targetSdkVersion
 //        versionCode = flutter.versionCode
 //        versionName = flutter.versionName
-        versionCode = 8
-        versionName = "1.8"
+        versionCode = 9
+        versionName = "1.9"
         multiDexEnabled = true
     }
 

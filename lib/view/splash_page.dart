@@ -265,6 +265,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:word_puzzle/view/welcome_screen.dart';
+import 'personal_ad_screen.dart';
 import '../widget/base_url.dart';
 import '../widget/bg_container.dart';
 import 'home_screen.dart';
@@ -328,17 +329,20 @@ class _SplashPageState extends State<SplashPage> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     print('Token is: $token');
+
+    Widget nextScreen;
     if (token != null && token.isNotEmpty) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
+      nextScreen = const HomePage();
     } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-      );
+      nextScreen = const WelcomeScreen();
     }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PersonalAdScreen(nextScreen: nextScreen),
+      ),
+    );
   }
   void _showUpdateDialog() {
     // showDialog(
