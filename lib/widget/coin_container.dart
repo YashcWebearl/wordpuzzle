@@ -75,13 +75,21 @@ class CoinBalanceWidget extends StatelessWidget {
   // }
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isNarrow = screenWidth < 360;
+
+    final double paddingH = isNarrow ? 8.0 : 12.0;
+    final double paddingV = isNarrow ? 4.0 : 6.0;
+    final double imageSize = isNarrow ? 18.0 : 22.0;
+    final double fontSize = isNarrow ? 14.0 : 18.0;
+    final double spacing = isNarrow ? 4.0 : 8.0;
+
     return Consumer<CoinProvider>(
       builder: (context, coinProvider, child) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: EdgeInsets.symmetric(horizontal: paddingH, vertical: paddingV),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              // colors: [Color(0xFFFFD700), Color(0xFFFFA000)],
               colors: [Color(0xFFAEEA00), Color(0xFF64DD17)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -99,15 +107,15 @@ class CoinBalanceWidget extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('assets/coin.png', width: 22, height: 22),
-              const SizedBox(width: 8),
+              Image.asset('assets/coin.png', width: imageSize, height: imageSize),
+              SizedBox(width: spacing),
               Text(
                 '${coinProvider.coins}',
-                style: const TextStyle(
-                  fontSize: 18,
+                style: TextStyle(
+                  fontSize: fontSize,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF5D4037),
-                  shadows: [
+                  color: const Color(0xFF5D4037),
+                  shadows: const [
                     Shadow(
                       color: Colors.white70,
                       offset: Offset(0, 1),

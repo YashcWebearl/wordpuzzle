@@ -18,8 +18,6 @@
         <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3212732022684570~8090434193"/>
         <meta-data android:name="flutterEmbedding" android:value="2"/>
         <meta-data android:name="com.google.android.gms.client_id" android:value="@string/default_web_client_id"/>
-<!--        <meta-data android:name="com.google.android.gms.client_id" android:value="803414846464-2nijfoukc_1vksj7jcivdsvouq3pa5.apps.googleusercontent.com"/>-->
-<!--            android:value="803414846464-sijlg5itgmim88muomedihda50gftmru.apps.googleusercontent.com"/>-->
 
     </application>
     <!-- Required to query activities that can process text, see:

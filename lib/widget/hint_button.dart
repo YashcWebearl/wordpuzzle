@@ -16,17 +16,19 @@ class CustomHintButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isNarrow = screenWidth < 360;
+
+    final double btnSize = isNarrow ? 40.0 : 50.0;
+    final double iconSize = isNarrow ? 18.0 : 24.0;
+    final double fontSize = isNarrow ? 10.0 : 12.0;
+
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        width: 50,
-        height: 50,
-        // decoration: const BoxDecoration(
-        //   shape: BoxShape.circle,
-        //   color: Color(0xFF3200FF), // Vibrant blue
-        // ),
+        width: btnSize,
+        height: btnSize,
         decoration: BoxDecoration(
-          // shape: BoxShape.circle,
           gradient: const LinearGradient(
             colors: [Color(0xFFAEEA00), Color(0xFF64DD17)],
             begin: Alignment.topCenter,
@@ -34,7 +36,7 @@ class CustomHintButton extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(30),
           border: Border(
-            bottom: BorderSide(color: const Color(0xFF33691E), width: 4),
+            bottom: BorderSide(color: const Color(0xFF33691E), width: isNarrow ? 3 : 4),
           ),
           boxShadow: [
             BoxShadow(
@@ -47,34 +49,31 @@ class CustomHintButton extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Color(0xFF5D4037), size: 24),
-            // const SizedBox(height: 2),
+            Icon(icon, color: const Color(0xFF5D4037), size: iconSize),
             Row(
               mainAxisSize: MainAxisSize.min,
-              // crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (showCoin == false) ...[
                   SizedBox(
-                    width: 5,
+                    width: isNarrow ? 3 : 5,
                   )
                 ],
                 Text(
                   '$value',
-                  style: const TextStyle(
-                    // color: Colors.black,
-                    fontSize: 12,
+                  style: TextStyle(
+                    fontSize: fontSize,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF5D4037),
-                    fontFamily: 'Inder', // Optional: matches your style
+                    color: const Color(0xFF5D4037),
+                    fontFamily: 'Inder',
                   ),
                 ),
                 if (showCoin) ...[
-                  const SizedBox(width: 4),
-                  const Icon(Icons.monetization_on,
-                      size: 14, color: Colors.amber),
+                  SizedBox(width: isNarrow ? 2 : 4),
+                  Icon(Icons.monetization_on,
+                      size: isNarrow ? 10 : 14, color: Colors.amber),
                 ] else ...[
                   SizedBox(
-                    width: 5,
+                    width: isNarrow ? 3 : 5,
                   )
                 ]
               ],

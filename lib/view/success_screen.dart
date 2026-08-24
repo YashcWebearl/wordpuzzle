@@ -592,7 +592,7 @@ class _SuccessScreenState extends State<SuccessScreen>
             ),
           ),
 
-          const SizedBox(height: 140),
+          const SizedBox(height: 100),
           AppButton(
             // label: 'LEVEL ${widget.level + 1}',
             label: 'NEXT LEVEL',

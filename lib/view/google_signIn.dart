@@ -17,6 +17,7 @@ import '../Widget/bg_container.dart';
 import '../widget/coin_service.dart';
 
 final GoogleSignIn _googleSignIn = GoogleSignIn(
+  // serverClientId: '585777112264-aafpp7hr2meq48kjlrk0ao7l08eedhue.apps.googleusercontent.com',
   scopes: [
     'email',
     'https://www.googleapis.com/auth/userinfo.profile',
@@ -138,14 +139,12 @@ class _LoginScreenState extends State<LoginScreen> {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-          "gameName": "Wordix"
-        }),
+        body: jsonEncode(
+            {'email': email, 'password': password, "gameName": "Wordix"}),
       );
 
-      print('Email Login Status: ${response.statusCode} | Body: ${response.body}');
+      print(
+          'Email Login Status: ${response.statusCode} | Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
@@ -158,15 +157,16 @@ class _LoginScreenState extends State<LoginScreen> {
         // final coinProvider = CoinProvider();
         // await coinProvider.initialize();
         if (mounted) {
-          final coinProvider = Provider.of<CoinProvider>(context, listen: false);
+          final coinProvider =
+              Provider.of<CoinProvider>(context, listen: false);
           await coinProvider.initialize();
-          await coinProvider.getCoin();   // Fetches updated coins from server
+          await coinProvider.getCoin(); // Fetches updated coins from server
         }
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const HomePage()),
-                (route) => false,
+            (route) => false,
           );
         }
       } else {
@@ -181,6 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => isLoading = false);
     }
   }
+
   Future<void> _handleGoogleSignIn() async {
     setState(() => googleLoading = true);
 
@@ -235,9 +236,10 @@ class _LoginScreenState extends State<LoginScreen> {
         // final coinProvider = CoinProvider();
         // await coinProvider.initialize();
         if (mounted) {
-          final coinProvider = Provider.of<CoinProvider>(context, listen: false);
+          final coinProvider =
+              Provider.of<CoinProvider>(context, listen: false);
           await coinProvider.initialize();
-          await coinProvider.getCoin();   // Fetches updated coins from server
+          await coinProvider.getCoin(); // Fetches updated coins from server
         }
         if (mounted) {
           Navigator.pushAndRemoveUntil(
@@ -269,170 +271,183 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     ScreenUtil.init(context);
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isNarrow = screenWidth < 360;
+    
+    final double horizontalPadding = isNarrow ? 12.0 : 24.0;
+    final double cardPadding = isNarrow ? 16.0 : 30.0;
 
     return Scaffold(
       body: BackgroundContainer(
         child: Center(
           child: SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-                  child: Container(
-                    padding: const EdgeInsets.all(30),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2), width: 1.5),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 10),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.isRegistration
-                                  ? "Create Account"
-                                  : "Welcome Back",
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black45,
-                                    offset: Offset(0, 2),
-                                    blurRadius: 4,
-                                  ),
-                                ],
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(30),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+                    child: Container(
+                      padding: EdgeInsets.all(cardPadding),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 10),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.isRegistration
+                                    ? "Create Account"
+                                    : "Welcome Back",
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black45,
+                                      offset: Offset(0, 2),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              widget.isRegistration
-                                  ? "Sign up to start playing!"
-                                  : "Login with your email or Google to continue.",
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontWeight: FontWeight.w500,
+                              const SizedBox(height: 10),
+                              Text(
+                                widget.isRegistration
+                                    ? "Sign up to start playing!"
+                                    : "Login with your email or Google to continue.",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 40),
-                        TextField(
-                          controller: emailController,
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w600),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.black.withValues(alpha: 0.2),
-                            hintText: 'Email Address',
-                            hintStyle:
-                                TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-                            prefixIcon:
-                                const Icon(Icons.email, color: Colors.white),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.5)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(
-                                  color: Colors.white, width: 2),
+                            ],
+                          ),
+                          const SizedBox(height: 40),
+                          TextField(
+                            controller: emailController,
+                            style: const TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.w600),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Colors.black.withValues(alpha: 0.2),
+                              hintText: 'Email Address',
+                              hintStyle: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7)),
+                              prefixIcon:
+                                  const Icon(Icons.email, color: Colors.white),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.5)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: const BorderSide(
+                                    color: Colors.white, width: 2),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 15),
-                        TextField(
-                          controller: passwordController,
-                          obscureText: _obscurePassword,
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w600),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.black.withValues(alpha: 0.2),
-                            hintText: 'Password',
-                            hintStyle:
-                                TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-                            prefixIcon:
-                                const Icon(Icons.lock, color: Colors.white),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                color: Colors.white,
+                          const SizedBox(height: 15),
+                          TextField(
+                            controller: passwordController,
+                            obscureText: _obscurePassword,
+                            style: const TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.w600),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Colors.black.withValues(alpha: 0.2),
+                              hintText: 'Password',
+                              hintStyle: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7)),
+                              prefixIcon:
+                                  const Icon(Icons.lock, color: Colors.white),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
                               ),
-                              onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.5)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(
-                                  color: Colors.white, width: 2),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.5)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: const BorderSide(
+                                    color: Colors.white, width: 2),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 30),
-                        isLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white)
-                            : AppButton(
-                                label:
-                                    widget.isRegistration ? 'Sign Up' : 'Login',
-                                prefixIcon: Icons.login,
-                                onTap: _handleEmailSignIn,
+                          const SizedBox(height: 30),
+                          isLoading
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white)
+                              : AppButton(
+                                  width: double.infinity,
+                                  label:
+                                      widget.isRegistration ? 'Sign Up' : 'Login',
+                                  prefixIcon: Icons.login,
+                                  onTap: _handleEmailSignIn,
+                                ),
+                          const SizedBox(height: 25),
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: Divider(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.5))),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text('OR',
+                                    style: TextStyle(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.8),
+                                        fontSize: 16)),
                               ),
-                        const SizedBox(height: 25),
-                        Row(
-                          children: [
-                            Expanded(
-                                child: Divider(
-                                    color: Colors.white.withValues(alpha: 0.5))),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text('OR',
-                                  style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.8),
-                                      fontSize: 16)),
-                            ),
-                            Expanded(
-                                child: Divider(
-                                    color: Colors.white.withValues(alpha: 0.5))),
-                          ],
-                        ),
-                        const SizedBox(height: 25),
-                        googleLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white)
-                            : AppButton(
-                                label: 'Login with Google',
-                                prefixImage: Image.asset(
-                                    'assets/google_logo.png',
-                                    width: 24,
-                                    height: 24),
-                                onTap: _handleGoogleSignIn,
-                              ),
-                        const SizedBox(height: 35),
-                        Row(
+                              Expanded(
+                                  child: Divider(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.5))),
+                            ],
+                          ),
+                          const SizedBox(height: 25),
+                          googleLoading
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white)
+                              : AppButton(
+                                  width: double.infinity,
+                                  label: 'Login with Google',
+                                  prefixImage: Image.asset(
+                                      'assets/google_logo.png',
+                                      width: 24,
+                                      height: 24),
+                                  onTap: _handleGoogleSignIn,
+                                ),
+                          const SizedBox(height: 35),
+                          Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
@@ -480,8 +495,9 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   void dispose() {

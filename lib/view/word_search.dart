@@ -17,6 +17,7 @@ import 'package:word_puzzle/widget/hint_button.dart';
 import 'package:word_puzzle/widget/sound.dart';
 import 'package:word_puzzle/widget/word_highliter.dart';
 import 'package:word_puzzle/view/ad_show.dart';
+
 class WordSearchPage extends StatefulWidget {
   final int initialLevel;
   final int gridSize;
@@ -28,7 +29,9 @@ class WordSearchPage extends StatefulWidget {
   @override
   WordSearchPageState createState() => WordSearchPageState();
 }
-class WordSearchPageState extends State<WordSearchPage> with TickerProviderStateMixin {
+
+class WordSearchPageState extends State<WordSearchPage>
+    with TickerProviderStateMixin {
   late int level;
   late int timeLeft;
   late int gridSize;
@@ -91,94 +94,486 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
   // };
   static const Map<String, List<String>> _wordBank = {
     'tech': [
-      'flutter','dart','code','debug','widget','state','async','future',
-      'stream','build','context','material','scaffold','container','column',
-      'row','stack','button','gesture','animation','provider','firebase',
-      'api','json','database','server','client','network','http','url',
-      'error','class','object','method','function','variable','constant',
-      'constructor','inheritance','polymorphism','encapsulation'
+      'flutter',
+      'dart',
+      'code',
+      'debug',
+      'widget',
+      'state',
+      'async',
+      'future',
+      'stream',
+      'build',
+      'context',
+      'material',
+      'scaffold',
+      'container',
+      'column',
+      'row',
+      'stack',
+      'button',
+      'gesture',
+      'animation',
+      'provider',
+      'firebase',
+      'api',
+      'json',
+      'database',
+      'server',
+      'client',
+      'network',
+      'http',
+      'url',
+      'error',
+      'class',
+      'object',
+      'method',
+      'function',
+      'variable',
+      'constant',
+      'constructor',
+      'inheritance',
+      'polymorphism',
+      'encapsulation'
     ],
-
     'nature': [
-      'forest','river','mountain','ocean','desert','valley','canyon','lake',
-      'tree','flower','rainforest','waterfall','volcano','glacier','meadow',
-      'prairie','savanna','tundra','wetland','coral','reef','island','delta',
-      'estuary','fjord','geyser','lagoon','marsh','oasis','jungle','beach',
-      'coast','cliff','dune','field','garden','grass','hill','leaf','moon',
-      'planet','rain','rock','sand','sky','snow','star','stone','sun',
-      'thunder','wind','wood','cloud','storm','breeze','mist','fog','dew',
-      'ice','branch','root','seed','petal','bloom','vine','bush','herb',
-      'moss','fern','shore','bay','creek','pond','spring','summit','ridge',
-      'plateau','basin','cave','grove','orchard','rainfall','sunrise',
-      'sunset','twilight','horizon','galaxy','comet','asteroid','meteor',
+      'forest',
+      'river',
+      'mountain',
+      'ocean',
+      'desert',
+      'valley',
+      'canyon',
+      'lake',
+      'tree',
+      'flower',
+      'rainforest',
+      'waterfall',
+      'volcano',
+      'glacier',
+      'meadow',
+      'prairie',
+      'savanna',
+      'tundra',
+      'wetland',
+      'coral',
+      'reef',
+      'island',
+      'delta',
+      'estuary',
+      'fjord',
+      'geyser',
+      'lagoon',
+      'marsh',
+      'oasis',
+      'jungle',
+      'beach',
+      'coast',
+      'cliff',
+      'dune',
+      'field',
+      'garden',
+      'grass',
+      'hill',
+      'leaf',
+      'moon',
+      'planet',
+      'rain',
+      'rock',
+      'sand',
+      'sky',
+      'snow',
+      'star',
+      'stone',
+      'sun',
+      'thunder',
+      'wind',
+      'wood',
+      'cloud',
+      'storm',
+      'breeze',
+      'mist',
+      'fog',
+      'dew',
+      'ice',
+      'branch',
+      'root',
+      'seed',
+      'petal',
+      'bloom',
+      'vine',
+      'bush',
+      'herb',
+      'moss',
+      'fern',
+      'shore',
+      'bay',
+      'creek',
+      'pond',
+      'spring',
+      'summit',
+      'ridge',
+      'plateau',
+      'basin',
+      'cave',
+      'grove',
+      'orchard',
+      'rainfall',
+      'sunrise',
+      'sunset',
+      'twilight',
+      'horizon',
+      'galaxy',
+      'comet',
+      'asteroid',
+      'meteor',
       'nebula'
     ],
-
     'animals': [
-      'lion','tiger','leopard','cheetah','panther','wolf','fox','bear',
-      'panda','elephant','rhino','hippo','giraffe','zebra','camel','horse',
-      'donkey','monkey','gorilla','chimp','kangaroo','koala','otter','deer',
-      'moose','buffalo','bison','antelope','yak','goat','sheep','dog','cat',
-      'rabbit','squirrel','rat','mouse','hamster','hedgehog','bat','whale',
-      'dolphin','shark','seal','walrus','octopus','squid','crab','lobster',
-      'turtle','crocodile','alligator','snake','lizard','frog','toad',
-      'eagle','falcon','hawk','owl','parrot','sparrow','crow','pigeon',
-      'peacock','flamingo','penguin','ostrich'
+      'lion',
+      'tiger',
+      'leopard',
+      'cheetah',
+      'panther',
+      'wolf',
+      'fox',
+      'bear',
+      'panda',
+      'elephant',
+      'rhino',
+      'hippo',
+      'giraffe',
+      'zebra',
+      'camel',
+      'horse',
+      'donkey',
+      'monkey',
+      'gorilla',
+      'chimp',
+      'kangaroo',
+      'koala',
+      'otter',
+      'deer',
+      'moose',
+      'buffalo',
+      'bison',
+      'antelope',
+      'yak',
+      'goat',
+      'sheep',
+      'dog',
+      'cat',
+      'rabbit',
+      'squirrel',
+      'rat',
+      'mouse',
+      'hamster',
+      'hedgehog',
+      'bat',
+      'whale',
+      'dolphin',
+      'shark',
+      'seal',
+      'walrus',
+      'octopus',
+      'squid',
+      'crab',
+      'lobster',
+      'turtle',
+      'crocodile',
+      'alligator',
+      'snake',
+      'lizard',
+      'frog',
+      'toad',
+      'eagle',
+      'falcon',
+      'hawk',
+      'owl',
+      'parrot',
+      'sparrow',
+      'crow',
+      'pigeon',
+      'peacock',
+      'flamingo',
+      'penguin',
+      'ostrich'
     ],
-
     'food': [
-      'apple','banana','orange','mango','grape','pineapple','papaya','pear',
-      'peach','plum','kiwi','melon','watermelon','strawberry','blueberry',
-      'raspberry','cherry','coconut','lemon','lime','tomato','potato',
-      'onion','garlic','carrot','cabbage','broccoli','spinach','lettuce',
-      'pepper','chili','corn','peas','beans','rice','wheat','bread','pasta',
-      'noodle','pizza','burger','sandwich','cheese','butter','cream','milk',
-      'yogurt','egg','chicken','beef','fish','shrimp','soup','salad',
-      'cake','cookie','chocolate','candy','honey','sugar'
+      'apple',
+      'banana',
+      'orange',
+      'mango',
+      'grape',
+      'pineapple',
+      'papaya',
+      'pear',
+      'peach',
+      'plum',
+      'kiwi',
+      'melon',
+      'watermelon',
+      'strawberry',
+      'blueberry',
+      'raspberry',
+      'cherry',
+      'coconut',
+      'lemon',
+      'lime',
+      'tomato',
+      'potato',
+      'onion',
+      'garlic',
+      'carrot',
+      'cabbage',
+      'broccoli',
+      'spinach',
+      'lettuce',
+      'pepper',
+      'chili',
+      'corn',
+      'peas',
+      'beans',
+      'rice',
+      'wheat',
+      'bread',
+      'pasta',
+      'noodle',
+      'pizza',
+      'burger',
+      'sandwich',
+      'cheese',
+      'butter',
+      'cream',
+      'milk',
+      'yogurt',
+      'egg',
+      'chicken',
+      'beef',
+      'fish',
+      'shrimp',
+      'soup',
+      'salad',
+      'cake',
+      'cookie',
+      'chocolate',
+      'candy',
+      'honey',
+      'sugar'
     ],
-
     'travel': [
-      'travel','journey','trip','voyage','tour','explore','adventure',
-      'destination','map','compass','guide','ticket','passport','visa',
-      'airport','station','platform','luggage','baggage','hotel','resort',
-      'hostel','camp','tent','mountain','beach','island','forest','city',
-      'village','street','bridge','tunnel','road','highway','train','metro',
-      'bus','taxi','car','bicycle','motorbike','airplane','helicopter',
-      'ship','boat','cruise'
+      'travel',
+      'journey',
+      'trip',
+      'voyage',
+      'tour',
+      'explore',
+      'adventure',
+      'destination',
+      'map',
+      'compass',
+      'guide',
+      'ticket',
+      'passport',
+      'visa',
+      'airport',
+      'station',
+      'platform',
+      'luggage',
+      'baggage',
+      'hotel',
+      'resort',
+      'hostel',
+      'camp',
+      'tent',
+      'mountain',
+      'beach',
+      'island',
+      'forest',
+      'city',
+      'village',
+      'street',
+      'bridge',
+      'tunnel',
+      'road',
+      'highway',
+      'train',
+      'metro',
+      'bus',
+      'taxi',
+      'car',
+      'bicycle',
+      'motorbike',
+      'airplane',
+      'helicopter',
+      'ship',
+      'boat',
+      'cruise'
     ],
-
     'science': [
-      'science','physics','chemistry','biology','atom','molecule','cell',
-      'energy','force','motion','gravity','mass','volume','density',
-      'temperature','pressure','reaction','element','compound','electron',
-      'proton','neutron','nucleus','magnet','electric','circuit','battery',
-      'voltage','current','resistance','wave','light','sound','heat',
-      'radiation','laser','microscope','telescope','experiment','theory'
+      'science',
+      'physics',
+      'chemistry',
+      'biology',
+      'atom',
+      'molecule',
+      'cell',
+      'energy',
+      'force',
+      'motion',
+      'gravity',
+      'mass',
+      'volume',
+      'density',
+      'temperature',
+      'pressure',
+      'reaction',
+      'element',
+      'compound',
+      'electron',
+      'proton',
+      'neutron',
+      'nucleus',
+      'magnet',
+      'electric',
+      'circuit',
+      'battery',
+      'voltage',
+      'current',
+      'resistance',
+      'wave',
+      'light',
+      'sound',
+      'heat',
+      'radiation',
+      'laser',
+      'microscope',
+      'telescope',
+      'experiment',
+      'theory'
     ],
-
     'space': [
-      'space','planet','mercury','venus','earth','mars','jupiter','saturn',
-      'uranus','neptune','pluto','sun','moon','star','galaxy','nebula',
-      'asteroid','meteor','comet','orbit','rocket','satellite','spaceship',
-      'astronaut','cosmos','universe','gravity','eclipse','crater','telescope'
+      'space',
+      'planet',
+      'mercury',
+      'venus',
+      'earth',
+      'mars',
+      'jupiter',
+      'saturn',
+      'uranus',
+      'neptune',
+      'pluto',
+      'sun',
+      'moon',
+      'star',
+      'galaxy',
+      'nebula',
+      'asteroid',
+      'meteor',
+      'comet',
+      'orbit',
+      'rocket',
+      'satellite',
+      'spaceship',
+      'astronaut',
+      'cosmos',
+      'universe',
+      'gravity',
+      'eclipse',
+      'crater',
+      'telescope'
     ],
-
     'sports': [
-      'sport','football','cricket','tennis','basketball','baseball',
-      'volleyball','badminton','hockey','golf','rugby','boxing','wrestling',
-      'swimming','running','cycling','skating','skiing','archery','karate',
-      'judo','taekwondo','gymnastics','marathon','stadium','coach','player',
-      'team','match','score','goal','winner','trophy','medal','league'
+      'sport',
+      'football',
+      'cricket',
+      'tennis',
+      'basketball',
+      'baseball',
+      'volleyball',
+      'badminton',
+      'hockey',
+      'golf',
+      'rugby',
+      'boxing',
+      'wrestling',
+      'swimming',
+      'running',
+      'cycling',
+      'skating',
+      'skiing',
+      'archery',
+      'karate',
+      'judo',
+      'taekwondo',
+      'gymnastics',
+      'marathon',
+      'stadium',
+      'coach',
+      'player',
+      'team',
+      'match',
+      'score',
+      'goal',
+      'winner',
+      'trophy',
+      'medal',
+      'league'
     ],
-
     'general': [
-      'challenge','logic','solve','fun','dream','strategy','victory',
-      'treasure','castle','kingdom','dragon','wizard','knight','puzzle',
-      'riddle','secret','ancient','magical','legend','epic','heroic',
-      'bravery','courage','wisdom','power','spell','sword','shield',
-      'battle','peace','hope','faith','love','joy','smile','laugh',
-      'friend','family','world','life','time','space','light','dark',
-      'fire','shadow','echo','story','memory','moment','future','past'
+      'challenge',
+      'logic',
+      'solve',
+      'fun',
+      'dream',
+      'strategy',
+      'victory',
+      'treasure',
+      'castle',
+      'kingdom',
+      'dragon',
+      'wizard',
+      'knight',
+      'puzzle',
+      'riddle',
+      'secret',
+      'ancient',
+      'magical',
+      'legend',
+      'epic',
+      'heroic',
+      'bravery',
+      'courage',
+      'wisdom',
+      'power',
+      'spell',
+      'sword',
+      'shield',
+      'battle',
+      'peace',
+      'hope',
+      'faith',
+      'love',
+      'joy',
+      'smile',
+      'laugh',
+      'friend',
+      'family',
+      'world',
+      'life',
+      'time',
+      'space',
+      'light',
+      'dark',
+      'fire',
+      'shadow',
+      'echo',
+      'story',
+      'memory',
+      'moment',
+      'future',
+      'past'
     ]
   };
   // static const _wordBank = {
@@ -252,6 +647,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       _animationController.forward();
     });
   }
+
   Future<void> _startLevel() async {
     try {
       final potentialWords = _generateDynamicWords();
@@ -296,6 +692,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       print('Error starting level: $e');
     }
   }
+
   // List<String> _generateDynamicWords() {
   //   final availableWords = _wordBank.values
   //       .expand((words) => words)
@@ -322,9 +719,8 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
         .toList();
     if (availableWords.length < 5 + level) {
       _usedWords.clear(); // Clear kariye
-      availableWords.addAll(_wordBank.values
-          .expand((words) => words)
-          .where((word) => word.length <= gridSize && !_usedWords.contains(word)));
+      availableWords.addAll(_wordBank.values.expand((words) => words).where(
+          (word) => word.length <= gridSize && !_usedWords.contains(word)));
     }
     availableWords.shuffle(_random);
     final selectedWords = availableWords
@@ -334,6 +730,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
     _usedWords.addAll(selectedWords);
     return selectedWords;
   }
+
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -355,6 +752,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       });
     });
   }
+
   void _showConfirmationDialog(String actionType, VoidCallback onConfirm) {
     showDialog(
       context: context,
@@ -390,7 +788,8 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
                         : 'Use 10 coins or watch an ad to reveal a word.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        fontSize: 16, color: Colors.white.withValues(alpha: 0.9)),
+                        fontSize: 16,
+                        color: Colors.white.withValues(alpha: 0.9)),
                   ),
                   const SizedBox(height: 30),
                   Row(
@@ -429,6 +828,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       ),
     );
   }
+
   bool _placeWord(String word, List<List<String>> grid) {
     for (var attempt = 0; attempt < 100; attempt++) {
       final dir = _directions[_random.nextInt(_directions.length)];
@@ -454,16 +854,22 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
     }
     return false;
   }
+
   void _handleDragStart(DragStartDetails details, double cellSize) {
-    final col =(details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
-    final row =(details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
+    final col =
+        (details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
+    final row =
+        (details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
     _start = Offset(col.toDouble(), row.toDouble());
     setState(() => _currentDragPath = [_start!]);
     AudioHelper().playDragWordSound();
   }
+
   void _handleDragUpdate(DragUpdateDetails details, double cellSize) {
-    final col =(details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
-    final row =(details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
+    final col =
+        (details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
+    final row =
+        (details.localPosition.dy / cellSize).floor().clamp(0, gridSize - 1);
     final newEnd = Offset(col.toDouble(), row.toDouble());
     if (_start != null && _isValidDirection(_start!, newEnd)) {
       setState(() {
@@ -472,10 +878,12 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       });
     }
   }
+
   bool _isValidDirection(Offset a, Offset b) {
     final dx = (b.dx - a.dx).abs(), dy = (b.dy - a.dy).abs();
     return dx == 0 || dy == 0 || dx == dy;
   }
+
   List<Offset> _getPointsOnPath(Offset a, Offset b) {
     final points = <Offset>[];
     final dx = (b.dx - a.dx), dy = (b.dy - a.dy);
@@ -486,6 +894,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       points.add(Offset(a.dx + i * stepX, a.dy + i * stepY));
     return points;
   }
+
   Future<void> _handleDragEnd() async {
     if (_start != null && _end != null) {
       final selectedWord = _getSelectedWord(_start!, _end!);
@@ -502,7 +911,8 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
         AudioHelper().playNotFoundSound();
       }
       moveCount++;
-      if (moveCount >= (maxMoves ?? 0) && _foundWordPaths.length < _currentWords.length)
+      if (moveCount >= (maxMoves ?? 0) &&
+          _foundWordPaths.length < _currentWords.length)
         _showGameOverDialog(reason: 'moves');
     }
     setState(() {
@@ -510,10 +920,12 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       _currentDragPath = [];
     });
   }
+
   String _getSelectedWord(Offset a, Offset b) {
     final path = _getPointsOnPath(a, b);
     return path.map((p) => _grid[p.dy.round()][p.dx.round()]).join();
   }
+
   void _showHint({bool useCoins = true}) {
     final coinProvider = Provider.of<CoinProvider>(context, listen: false);
     if (useCoins && coinProvider.coins < 10) {
@@ -521,7 +933,8 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       return;
     }
     if (useCoins) coinProvider.undoCoins(10);
-    final unfinished =_currentWords.where((w) => !_foundWordPaths.containsKey(w)).toList();
+    final unfinished =
+        _currentWords.where((w) => !_foundWordPaths.containsKey(w)).toList();
     if (unfinished.isEmpty) return;
     final hintWord = unfinished[_random.nextInt(unfinished.length)];
     _hintedPath = _findWordPathInGrid(hintWord);
@@ -529,6 +942,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
     _hintTimer = Timer(
         const Duration(seconds: 4), () => setState(() => _hintedPath = null));
   }
+
   List<Offset>? _findWordPathInGrid(String word) {
     for (var r = 0; r < gridSize; r++) {
       for (var c = 0; c < gridSize; c++) {
@@ -555,6 +969,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
     }
     return null;
   }
+
   void _addExtraMove({bool useCoins = true}) {
     final coinProvider = Provider.of<CoinProvider>(context, listen: false);
     if (useCoins && coinProvider.coins < 10) {
@@ -564,6 +979,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
     if (useCoins) coinProvider.undoCoins(10);
     setState(() => maxMoves = (maxMoves ?? 0) + 5);
   }
+
   void _showSuccessDialog() {
     Navigator.push(
         context,
@@ -582,6 +998,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
                   onBackToLevels: () => Navigator.pop(context),
                 )));
   }
+
   // void _showGameOverDialog({required String reason}) {
   //   if (_isDialogShowing) return;
   //   _isDialogShowing = true;
@@ -663,11 +1080,11 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
                     color: Colors.white.withValues(alpha: 0.2), width: 1.5),
-                  boxShadow: [
-                            BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 10),
-                          ],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10),
+                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -679,8 +1096,10 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
                           color: Colors.white)),
                   const SizedBox(height: 15),
                   reason == 'time'
-                      ? Image.asset('assets/time_out.png', width: 200, height: 200)
-                      : Image.asset('assets/out_of_moves.png', width: 200, height: 200),
+                      ? Image.asset('assets/time_out.png',
+                          width: 200, height: 200)
+                      : Image.asset('assets/out_of_moves.png',
+                          width: 200, height: 200),
                   const SizedBox(height: 10),
                   const Text("Would you like to try again?",
                       style: TextStyle(color: Colors.white70),
@@ -734,31 +1153,41 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
 
                                 try {
                                   // Pehla connectivity check karo
-                                  final connectivity = await Connectivity().checkConnectivity();
-                                  if (connectivity.contains(ConnectivityResult.none)) {
+                                  final connectivity =
+                                      await Connectivity().checkConnectivity();
+                                  if (connectivity
+                                      .contains(ConnectivityResult.none)) {
                                     // Loading bandh karo
                                     Navigator.pop(context);
-                                    Fluttertoast.showToast(msg: "You're offline");
+                                    Fluttertoast.showToast(
+                                        msg: "You're offline");
                                   } else {
                                     // Internet che toh 2 coins deduct karo
-                                    final coinProvider = Provider.of<CoinProvider>(context, listen: false);
+                                    final coinProvider =
+                                        Provider.of<CoinProvider>(context,
+                                            listen: false);
                                     if (coinProvider.coins < 4) {
                                       _showInsufficientCoinsDialog();
                                       return;
                                     }
                                     await coinProvider.undoCoins(4);
                                     AudioHelper().playMoneySound();
-                                    Fluttertoast.showToast(msg: "4 coins deducted to start the game");
+                                    Fluttertoast.showToast(
+                                        msg:
+                                            "4 coins deducted to start the game");
 
                                     // Pachi dialog bandh karo ane level restart karo
-                                    Navigator.pop(context); // Loading dialog bandh
-                                    Navigator.pop(context); // Game over dialog bandh
+                                    Navigator.pop(
+                                        context); // Loading dialog bandh
+                                    Navigator.pop(
+                                        context); // Game over dialog bandh
                                     _startLevel();
                                   }
                                 } catch (e) {
                                   // Error aave toh loading bandh karo
                                   Navigator.pop(context);
-                                  Fluttertoast.showToast(msg: "Something went wrong. Try again.");
+                                  Fluttertoast.showToast(
+                                      msg: "Something went wrong. Try again.");
                                 }
                               })),
                     ],
@@ -771,6 +1200,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       ),
     ).then((_) => _isDialogShowing = false);
   }
+
   void _showInsufficientCoinsDialog() {
     showDialog(
       context: context,
@@ -804,6 +1234,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       ),
     );
   }
+
   void _showExitConfirmationDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -856,6 +1287,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     if (_currentWords.isEmpty ||
@@ -874,7 +1306,28 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
         ),
       );
     }
-    final cellSize = (MediaQuery.of(context).size.width - 40) / gridSize;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    final bool isNarrow = screenWidth < 360;
+
+    // Constrain grid size to fit both width, height, and maximum limits
+    double gridDisplaySize = screenWidth - 40;
+    if (gridDisplaySize > screenHeight * 0.45) {
+      gridDisplaySize = screenHeight * 0.45;
+    }
+    if (gridDisplaySize > 450.0) {
+      gridDisplaySize = 450.0;
+    }
+    final cellSize = gridDisplaySize / gridSize;
+
+    final double outerPadding = isNarrow ? 10.0 : 16.0;
+    final double levelPaddingH = isNarrow ? 8.0 : 12.0;
+    final double levelPaddingV = isNarrow ? 6.0 : 8.0;
+    final double backIconSize = isNarrow ? 20.0 : 24.0;
+    final double levelFontSize = isNarrow ? 12.0 : 14.0;
+    final double levelSpacing = isNarrow ? 4.0 : 8.0;
+    final String levelText = isNarrow ? 'Lvl $level' : 'Level $level';
+
     return WillPopScope(
       onWillPop: () async {
         _showExitConfirmationDialog(context);
@@ -883,160 +1336,175 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       child: Scaffold(
         body: BackgroundContainer(
           child: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: () => _showExitConfirmationDialog(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 550),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.all(outerPadding),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            onTap: () => _showExitConfirmationDialog(context),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: levelPaddingH,
+                                  vertical: levelPaddingV),
+                              decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(20)),
+                              child: Row(children: [
+                                Icon(Icons.arrow_back,
+                                    color: Colors.white, size: backIconSize),
+                                SizedBox(width: levelSpacing),
+                                Text(levelText,
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: levelFontSize,
+                                        fontWeight: FontWeight.bold))
+                              ]),
+                            ),
+                          ),
+                          const CoinBalanceWidget(),
+                          Row(
+                            children: [
+                              CustomHintButton(
+                                  icon: Icons.lightbulb_outline,
+                                  value: 10,
+                                  onPressed: () => _showConfirmationDialog(
+                                      'hint', () => _showHint())),
+                              SizedBox(width: isNarrow ? 6.0 : 12.0),
+                              CustomHintButton(
+                                  icon: Icons.auto_fix_high,
+                                  value: (maxMoves ?? 0) - moveCount,
+                                  showCoin: false,
+                                  onPressed: () => _showConfirmationDialog(
+                                      'extra_move', () => _addExtraMove())),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: isNarrow ? 12 : 30),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.4),
-                              borderRadius: BorderRadius.circular(20)),
-                          child: Row(children: [
-                            const Icon(Icons.arrow_back, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Text('Level $level',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold))
-                          ]),
-                        ),
-                      ),
-                      const CoinBalanceWidget(),
-                      Row(
-                        children: [
-                          CustomHintButton(
-                              icon: Icons.lightbulb_outline,
-                              value: 10,
-                              onPressed: () => _showConfirmationDialog(
-                                  'hint', () => _showHint())),
-                          const SizedBox(width: 12),
-                          CustomHintButton(
-                              icon: Icons.auto_fix_high,
-                              value: (maxMoves ?? 0) - moveCount,
-                              showCoin: false,
-                              onPressed: () => _showConfirmationDialog(
-                                  'extra_move', () => _addExtraMove())),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            width: 1,
-                          ),
-                        ),
-                        child: Wrap(
-                          spacing: 16,
-                          runSpacing: 10,
-                          alignment: WrapAlignment.center,
-                          children: _currentWords.map((word) {
-                            final found = _foundWordPaths.containsKey(word);
-                            return Text(
-                              word,
-                              style: TextStyle(
-                                color: found
-                                    ? Colors.white.withValues(alpha: 0.3)
-                                    : Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                decoration:
-                                    found ? TextDecoration.lineThrough : null,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                width: 1,
                               ),
-                            );
-                          }).toList(),
+                            ),
+                            child: Wrap(
+                              spacing: 16,
+                              runSpacing: 10,
+                              alignment: WrapAlignment.center,
+                              children: _currentWords.map((word) {
+                                final found = _foundWordPaths.containsKey(word);
+                                return Text(
+                                  word,
+                                  style: TextStyle(
+                                    color: found
+                                        ? Colors.white.withValues(alpha: 0.3)
+                                        : Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    decoration: found
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                SizedBox(height: 40),
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: GestureDetector(
-                    onPanStart: (d) => _handleDragStart(d, cellSize),
-                    onPanUpdate: (d) => _handleDragUpdate(d, cellSize),
-                    onPanEnd: (_) => _handleDragEnd(),
-                    child: Container(
-                      width: cellSize * gridSize,
-                      height: cellSize * gridSize,
-                      decoration: BoxDecoration(
-                          color: Colors.black
-                              .withValues(alpha: 0.4), // Darker background
-                          borderRadius: BorderRadius.circular(20),
-                          border:
-                              Border.all(color: Colors.white.withValues(alpha: 0.2))),
-                      child: Stack(
-                        children: [
-                          CustomPaint(
-                              painter: WordLinePainter(
-                                  foundWordPaths: _foundWordPaths,
-                                  hintedPath: _hintedPath,
-                                  cellSize: cellSize,
-                                  colors: _highlightColors,
-                                  blinkValue: _blinkAnimation.value)),
-                          CustomPaint(
-                              painter: DragLinePainter(
-                                  start: _start,
-                                  end: _end,
-                                  cellSize: cellSize,
-                                  gridSize: gridSize)),
-                          GridView.builder(
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: gridSize),
-                            itemCount: gridSize * gridSize,
-                            itemBuilder: (c, i) => Center(
-                                child: Text(_grid[i ~/ gridSize][i % gridSize],
-                                    style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.white))),
+                    SizedBox(height: isNarrow ? 15 : 40),
+                    Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Center(
+                        child: GestureDetector(
+                          onPanStart: (d) => _handleDragStart(d, cellSize),
+                          onPanUpdate: (d) => _handleDragUpdate(d, cellSize),
+                          onPanEnd: (_) => _handleDragEnd(),
+                          child: Container(
+                            width: cellSize * gridSize,
+                            height: cellSize * gridSize,
+                            decoration: BoxDecoration(
+                                color: Colors.black.withValues(
+                                    alpha: 0.4), // Darker background
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.2))),
+                            child: Stack(
+                              children: [
+                                CustomPaint(
+                                    painter: WordLinePainter(
+                                        foundWordPaths: _foundWordPaths,
+                                        hintedPath: _hintedPath,
+                                        cellSize: cellSize,
+                                        colors: _highlightColors,
+                                        blinkValue: _blinkAnimation.value)),
+                                CustomPaint(
+                                    painter: DragLinePainter(
+                                        start: _start,
+                                        end: _end,
+                                        cellSize: cellSize,
+                                        gridSize: gridSize)),
+                                GridView.builder(
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: gridSize),
+                                  itemCount: gridSize * gridSize,
+                                  itemBuilder: (c, i) => Center(
+                                      child: Text(
+                                          _grid[i ~/ gridSize][i % gridSize],
+                                          style: const TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w900,
+                                              color: Colors.white))),
+                                ),
+                              ],
+                            ),
                           ),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 20, vertical: isNarrow ? 5 : 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          timeCircle(timeLeft, 90),
+                          movesCircle((maxMoves ?? 0) - moveCount, maxMoves!)
                         ],
                       ),
                     ),
-                  ),
+                    SizedBox(height: isNarrow ? 12 : 40),
+                  ],
                 ),
-                const Spacer(),
-                Padding(
-                  padding:const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      timeCircle(timeLeft, 90),
-                      movesCircle((maxMoves ?? 0) - moveCount,maxMoves!)
-                    ],
-                  ),
-                ),
-                SizedBox(height: 40),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+
   Widget timeCircle(int timeLeft, int totalTime, {double size = 70}) {
     double progress = timeLeft / totalTime;
     Color ringColor;
@@ -1127,6 +1595,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       ),
     );
   }
+
   Widget movesCircle(int remainingMoves, int totalMoves, {double size = 70}) {
     double progress = remainingMoves / totalMoves;
     Color ringColor;
@@ -1218,6 +1687,7 @@ class WordSearchPageState extends State<WordSearchPage> with TickerProviderState
       ),
     );
   }
+
   @override
   void dispose() {
     _timer?.cancel();

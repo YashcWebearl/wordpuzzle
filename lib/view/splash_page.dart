@@ -258,7 +258,9 @@
 
 
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -299,6 +301,10 @@ class _SplashPageState extends State<SplashPage> {
     return packageInfo.buildNumber;
   }
   Future<void> _checkAppVersionAndNavigate() async {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+      _checkAuthAndNavigate();
+      return;
+    }
     try {
       String currentAppCode = await getAppCode();
       print('Current app code: $currentAppCode');

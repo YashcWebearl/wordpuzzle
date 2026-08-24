@@ -30,7 +30,7 @@ class User {
   final String id;
   final String userName;
   final String email;
-  final num registeredID;
+  final String registeredID;
   // final String photo;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -52,7 +52,7 @@ class User {
       id: json['_id'],
       userName: json['userName'].trim(),
       email: json['email'].trim(),
-      registeredID: json['registeredID'],
+      registeredID: json['registeredID'].toString(),
       // photo: json['photo'],
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
