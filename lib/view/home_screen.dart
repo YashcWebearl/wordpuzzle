@@ -37,13 +37,15 @@ class _HomePageState extends State<HomePage> {
   final ConfettiController _confettiController =
       ConfettiController(duration: const Duration(seconds: 2));
   bool _isPlayButtonTapped = false;
-  int? _apiGameLevel;
-  int? _apiGridSize;
 
   @override
   void initState() {
     super.initState();
-    _getGameLevel();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<GameLevelProvider>(context, listen: false).refresh();
+      }
+    });
     _checkAndGiveDailyReward();
   }
 
@@ -62,35 +64,6 @@ class _HomePageState extends State<HomePage> {
     if (lastClaimDate != todayString) {
       await _addCoins(20, "Daily Reward");
       await prefs.setString('last_claim_date', todayString);
-    }
-  }
-
-  Future<void> _getGameLevel() async {
-    String apiUrl = '$LURL/api/gameLevel/data?gameName=Wordix';
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
-    try {
-      final response = await http.get(
-        Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': '$token',
-        },
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body)['data'];
-        setState(() {
-          _apiGameLevel = data['gameLevel'];
-          _apiGridSize = int.tryParse(data['gridSize'] ?? '');
-        });
-
-        if (_apiGameLevel != null) {
-          await prefs.setInt('maxLevel_${_apiGridSize ?? 6}', _apiGameLevel!);
-        }
-      }
-    } catch (e) {
-      print('Error getting game level: $e');
     }
   }
 
@@ -128,8 +101,10 @@ class _HomePageState extends State<HomePage> {
       AudioHelper().playMoneySound();
       Fluttertoast.showToast(msg: "4 coins deducted to start the game");
 
-      final gridSize = _apiGridSize ?? 6;
-      final maxLevel = await Prefs.getMaxLevel(gridSize);
+      final gameLevelProvider =
+          Provider.of<GameLevelProvider>(context, listen: false);
+      final gridSize = gameLevelProvider.currentGridSize;
+      final maxLevel = gameLevelProvider.currentLevel;
 
       if (mounted) {
         Navigator.push(
@@ -139,22 +114,6 @@ class _HomePageState extends State<HomePage> {
                 WordSearchPage(gridSize: gridSize, initialLevel: maxLevel),
           ),
         );
-        // Navigator.push(
-        //   context,
-        //   MaterialPageRoute(
-        //     builder: (context) => AdPlaybackPage(
-        //       onAdComplete: () {
-        //         Navigator.pushReplacement(
-        //           context,
-        //             MaterialPageRoute(
-        //                   builder: (context) =>
-        //                       WordSearchPage(gridSize: gridSize, initialLevel: maxLevel),
-        //                 ),
-        //         );
-        //       },
-        //     ),
-        //   ),
-        // );
       }
     } catch (e) {
       print('Error starting game: $e');

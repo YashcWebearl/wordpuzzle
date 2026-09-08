@@ -19,11 +19,13 @@ class AdService {
             (data['data'] as List).isNotEmpty) {
           final posterData = data['data'][0] as Map<String, dynamic>;
 
-          // Handle localhost in image URL if needed
-          if (posterData['gamePhoto'] != null &&
-              posterData['gamePhoto'].contains('localhost:8000')) {
-            posterData['gamePhoto'] = posterData['gamePhoto']
-                .replaceFirst('http://localhost:8000', LURL);
+          // Handle localhost and http in image URL if needed
+          if (posterData['gamePhoto'] != null) {
+            String photo = posterData['gamePhoto'].toString();
+            if (photo.contains('localhost:8000')) {
+              photo = photo.replaceFirst('https://game-api-q1ir.onrender.com', LURL);
+            }
+            posterData['gamePhoto'] = photo;
           }
 
           print('Ad data fetched successfully: $posterData');

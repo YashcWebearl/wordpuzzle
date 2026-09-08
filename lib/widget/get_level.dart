@@ -21,6 +21,14 @@ class GameLevelProvider with ChangeNotifier {
     _fetchGameLevel(); // optional background refresh
   }
 
+  int _parseInt(dynamic value, int defaultValue) {
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? defaultValue;
+    return defaultValue;
+  }
+
   // Load cached data from SharedPreferences (for the default or last used grid size)
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
@@ -50,25 +58,40 @@ class GameLevelProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
+      if (token == null || token.isEmpty) {
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
       final response = await http.get(
         Uri.parse('$LURL/api/gameLevel/data?gameName=Wordix'),
-        headers: {'Authorization': token ?? ''},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token,
+        },
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body)['data'];
-        final int newLevel = data['gameLevel'] ?? 1;
-        final int newGridSize = int.tryParse(data['gridSize'] ?? '') ?? 6;
+      print('GameLevel API response: ${response.statusCode} | body: ${response.body}');
 
-        // Update state
-        _currentLevel = newLevel;
-        _currentGridSize = newGridSize;
-        await _saveToPrefs();
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        final data = decoded['data'];
+        if (data != null && data is Map) {
+          final int newLevel = _parseInt(data['gameLevel'], 1);
+          final int newGridSize = _parseInt(data['gridSize'], 6);
+
+          // Update state
+          _currentLevel = newLevel;
+          _currentGridSize = newGridSize;
+          await _saveToPrefs();
+        }
       } else {
         _errorMessage = 'Failed to fetch: ${response.body}';
       }
     } catch (e) {
       _errorMessage = 'Error: $e';
+      print('GameLevelProvider fetch error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -110,8 +133,11 @@ class GameLevelProvider with ChangeNotifier {
     }
   }
 
-  // Optional: manually refresh from API
-  Future<void> refresh() => _fetchGameLevel();
+  // Manually refresh from API and SharedPreferences
+  Future<void> refresh() async {
+    await _loadFromPrefs();
+    await _fetchGameLevel();
+  }
 }
 
 

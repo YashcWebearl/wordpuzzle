@@ -4,6 +4,7 @@ class Prefs {
   static Future<void> saveMaxLevel(int gridSize, int level) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('maxLevel_$gridSize', level);
+    await prefs.setInt('lastGridSize', gridSize);
   }
 
   static Future<int> getMaxLevel(int gridSize) async {

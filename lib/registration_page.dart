@@ -7,9 +7,11 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:word_puzzle/view/terms_policy_screen.dart';
 import 'package:word_puzzle/widget/coin_service.dart';
 import 'package:word_puzzle/widget/button.dart';
+import 'package:word_puzzle/widget/get_level.dart';
 
 import 'Widget/base_url.dart';
 import 'Widget/bg_container.dart';
@@ -88,8 +90,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('auth_token', token);
           await prefs.setString('email', email);
-          final coinProvider = CoinProvider();
-          await coinProvider.initialize();
+          if (mounted) {
+            final coinProvider =
+                Provider.of<CoinProvider>(context, listen: false);
+            await coinProvider.initialize();
+            await coinProvider.getCoin();
+
+            final gameLevelProvider =
+                Provider.of<GameLevelProvider>(context, listen: false);
+            await gameLevelProvider.refresh();
+          }
           setState(() {
             _loginResponse = LoginResponse.fromJson(jsonResponse);
           });
@@ -163,8 +173,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         await prefs.setString('auth_token', token!);
         await prefs.setString('email', emailController.text);
 
-        final coinProvider = CoinProvider();
-        await coinProvider.initialize();
+        if (mounted) {
+          final coinProvider =
+              Provider.of<CoinProvider>(context, listen: false);
+          await coinProvider.initialize();
+          await coinProvider.getCoin();
+
+          final gameLevelProvider =
+              Provider.of<GameLevelProvider>(context, listen: false);
+          await gameLevelProvider.refresh();
+        }
 
         if (mounted) {
           Navigator.pushAndRemoveUntil(

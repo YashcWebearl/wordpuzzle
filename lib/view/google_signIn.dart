@@ -15,6 +15,7 @@ import 'package:word_puzzle/widget/button.dart';
 import '../Widget/base_url.dart';
 import '../Widget/bg_container.dart';
 import '../widget/coin_service.dart';
+import '../widget/get_level.dart';
 
 final GoogleSignIn _googleSignIn = GoogleSignIn(
   // serverClientId: '585777112264-aafpp7hr2meq48kjlrk0ao7l08eedhue.apps.googleusercontent.com',
@@ -161,6 +162,10 @@ class _LoginScreenState extends State<LoginScreen> {
               Provider.of<CoinProvider>(context, listen: false);
           await coinProvider.initialize();
           await coinProvider.getCoin(); // Fetches updated coins from server
+
+          final gameLevelProvider =
+              Provider.of<GameLevelProvider>(context, listen: false);
+          await gameLevelProvider.refresh();
         }
         if (mounted) {
           Navigator.pushAndRemoveUntil(
@@ -219,7 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
         response = await http.post(
           uri,
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email}),
+          body: jsonEncode({'email': email,'gameName': "Wordix",}),
         );
       }
 
@@ -240,6 +245,10 @@ class _LoginScreenState extends State<LoginScreen> {
               Provider.of<CoinProvider>(context, listen: false);
           await coinProvider.initialize();
           await coinProvider.getCoin(); // Fetches updated coins from server
+
+          final gameLevelProvider =
+              Provider.of<GameLevelProvider>(context, listen: false);
+          await gameLevelProvider.refresh();
         }
         if (mounted) {
           Navigator.pushAndRemoveUntil(

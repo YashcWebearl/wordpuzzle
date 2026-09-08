@@ -265,11 +265,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:word_puzzle/view/welcome_screen.dart';
 import 'personal_ad_screen.dart';
 import '../widget/base_url.dart';
 import '../widget/bg_container.dart';
+import '../widget/get_level.dart';
 import 'home_screen.dart';
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -338,6 +340,11 @@ class _SplashPageState extends State<SplashPage> {
 
     Widget nextScreen;
     if (token != null && token.isNotEmpty) {
+      if (mounted) {
+        final gameLevelProvider =
+            Provider.of<GameLevelProvider>(context, listen: false);
+        gameLevelProvider.refresh();
+      }
       nextScreen = const HomePage();
     } else {
       nextScreen = const WelcomeScreen();

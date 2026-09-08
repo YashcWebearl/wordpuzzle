@@ -15,48 +15,21 @@ class PersonalAdScreen extends StatefulWidget {
 class _PersonalAdScreenState extends State<PersonalAdScreen> {
   int _remainingSeconds = 15;
   bool _canCancel = false;
-  bool _isLoading = true;
   Timer? _timer;
   Map<String, dynamic>? _adData;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _startTimer();
     _fetchAd();
   }
 
-  Future<void> _fetchAd() async {
-    print('Starting _fetchAd in PersonalAdScreen...');
-    try {
-      final adService = AdService();
-      final data = await adService.getGamePoster("Wordix");
-      if (mounted) {
-        print('Data received in Screen: $data');
-        if (data == null ||
-            data['gamePhoto'] == null ||
-            data['gamePhoto'].toString().isEmpty) {
-          print('No poster found or empty photo, redirecting to home...');
-          _onCancel();
-          return;
-        }
-        setState(() {
-          _adData = data;
-          _isLoading = false;
-        });
-        print('Starting timer after fetch...');
-        _startTimer();
-      }
-    } catch (e) {
-      print('Error in PersonalAdScreen fetch: $e');
-      if (mounted) {
-        _onCancel();
-      }
-    }
-  }
-
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
+      if (_remainingSeconds > 1) {
         if (mounted) {
           setState(() {
             _remainingSeconds--;
@@ -65,12 +38,33 @@ class _PersonalAdScreenState extends State<PersonalAdScreen> {
       } else {
         if (mounted) {
           setState(() {
+            _remainingSeconds = 0;
             _canCancel = true;
           });
         }
         _timer?.cancel();
       }
     });
+  }
+
+  Future<void> _fetchAd() async {
+    try {
+      final adService = AdService();
+      final data = await adService.getGamePoster("Wordix");
+      if (mounted) {
+        setState(() {
+          _adData = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Ad fetch exception: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -80,6 +74,7 @@ class _PersonalAdScreenState extends State<PersonalAdScreen> {
   }
 
   void _onCancel() {
+    if (!_canCancel) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => widget.nextScreen),
@@ -88,139 +83,126 @@ class _PersonalAdScreenState extends State<PersonalAdScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Full Screen Ad Image
-          _isLoading
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        color: Colors.amber,
+    final String? photoUrl = _adData?['gamePhoto'];
+
+    return WillPopScope(
+      onWillPop: () async {
+        if (_canCancel) {
+          _onCancel();
+          return false;
+        }
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. Ad Image Only
+            if (_isLoading)
+              const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 3,
+                ),
+              )
+            else if (photoUrl != null && photoUrl.trim().isNotEmpty)
+              Positioned.fill(
+                child: Image.network(
+                  photoUrl,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
                         strokeWidth: 3,
                       ),
-                      SizedBox(height: 15),
-                      Text(
-                        "Loading Ad...",
-                        style: TextStyle(color: Colors.white, fontSize: 12),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Center(
+                      child: Icon(
+                        Icons.image_not_supported_outlined,
+                        color: Colors.white38,
+                        size: 60,
                       ),
-                    ],
-                  ),
-                )
-              : Positioned.fill(
-                  child: Image.network(
-                    _adData!['gamePhoto'],
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.amber,
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      print("Image load error, redirecting...");
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _onCancel();
-                      });
-                      return const SizedBox.shrink();
-                    },
-                  ),
+                    );
+                  },
                 ),
-
-          // Overlay Gradient (Optional, to make timer/button more readable)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.2, 0.8, 1.0],
-                  colors: [
-                    Colors.black.withOpacity(0.4),
-                    Colors.transparent,
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.4),
-                  ],
+              )
+            else
+              const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 3,
                 ),
               ),
-            ),
-          ),
 
-          // Cancel Button / Timer
-          if (!_isLoading && _adData != null)
+            // 2. Top Right: Timer badge (15s countdown) or Cancel Icon (after 15s)
             Positioned(
-              top: 60,
-              right: 25,
-              child: _canCancel
-                  ? GestureDetector(
-                      onTap: _onCancel,
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
+              top: 50,
+              right: 20,
+              child: SafeArea(
+                child: _canCancel
+                    ? GestureDetector(
+                        onTap: _onCancel,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 7),
                         decoration: BoxDecoration(
-                          color: Colors.white10,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 10,
+                          color: Colors.black.withOpacity(0.65),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.4),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              "Skip in $_remainingSeconds s",
+                              style: GoogleFonts.dynaPuff(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 28,
-                        ),
                       ),
-                    )
-                  : Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(25),
-                        border:
-                            Border.all(color: Colors.amber.withOpacity(0.5)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.amber.withOpacity(0.1),
-                            blurRadius: 10,
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.amber),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            "Skip in $_remainingSeconds",
-                            style: GoogleFonts.dynaPuff(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+              ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
