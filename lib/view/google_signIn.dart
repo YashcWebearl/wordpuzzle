@@ -150,10 +150,20 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final token = json['token'];
+        String? userId;
+        if (json['user'] != null) {
+          userId = json['user']['_id']?.toString() ??
+              json['user']['registeredID']?.toString();
+        } else if (json['userId'] != null) {
+          userId = json['userId'].toString();
+        }
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', token);
-        await prefs.setString('email', email);
+        await prefs.setString('email', email.trim().toLowerCase());
+        if (userId != null && userId.isNotEmpty) {
+          await prefs.setString('user_id', userId);
+        }
 
         // final coinProvider = CoinProvider();
         // await coinProvider.initialize();
@@ -224,7 +234,10 @@ class _LoginScreenState extends State<LoginScreen> {
         response = await http.post(
           uri,
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email,'gameName': "Wordix",}),
+          body: jsonEncode({
+            'email': email,
+            'gameName': "Wordix",
+          }),
         );
       }
 
@@ -233,10 +246,21 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final token = json['token'];
+        String? userId;
+        if (json['user'] != null) {
+          userId = json['user']['_id']?.toString() ??
+              json['user']['registeredID']?.toString();
+        } else if (json['userId'] != null) {
+          userId = json['userId'].toString();
+        }
+        userId ??= googleId;
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', token);
-        await prefs.setString('email', email);
+        await prefs.setString('email', email.trim().toLowerCase());
+        if (userId.isNotEmpty) {
+          await prefs.setString('user_id', userId);
+        }
 
         // final coinProvider = CoinProvider();
         // await coinProvider.initialize();
@@ -282,7 +306,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ScreenUtil.init(context);
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isNarrow = screenWidth < 360;
-    
+
     final double horizontalPadding = isNarrow ? 12.0 : 24.0;
     final double cardPadding = isNarrow ? 16.0 : 30.0;
 
@@ -352,7 +376,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextField(
                             controller: emailController,
                             style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.w600),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600),
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.black.withValues(alpha: 0.2),
@@ -378,7 +403,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: passwordController,
                             obscureText: _obscurePassword,
                             style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.w600),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600),
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.black.withValues(alpha: 0.2),
@@ -415,8 +441,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Colors.white)
                               : AppButton(
                                   width: double.infinity,
-                                  label:
-                                      widget.isRegistration ? 'Sign Up' : 'Login',
+                                  label: widget.isRegistration
+                                      ? 'Sign Up'
+                                      : 'Login',
                                   prefixIcon: Icons.login,
                                   onTap: _handleEmailSignIn,
                                 ),
@@ -457,45 +484,46 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                           const SizedBox(height: 35),
                           Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              widget.isRegistration
-                                  ? "Already have account? "
-                                  : "New player? ",
-                              style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontSize: 16),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                if (widget.isRegistration) {
-                                  Navigator.pop(context);
-                                } else {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const RegistrationScreen(),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: Text(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
                                 widget.isRegistration
-                                    ? 'Login'
-                                    : 'Register now',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 17,
-                                  decoration: TextDecoration.underline,
+                                    ? "Already have account? "
+                                    : "New player? ",
+                                style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    fontSize: 16),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  if (widget.isRegistration) {
+                                    Navigator.pop(context);
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const RegistrationScreen(),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: Text(
+                                  widget.isRegistration
+                                      ? 'Login'
+                                      : 'Register now',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 17,
+                                    decoration: TextDecoration.underline,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -504,9 +532,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   @override
   void dispose() {

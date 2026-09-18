@@ -57,14 +57,24 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _checkAndGiveDailyReward() async {
     final prefs = await SharedPreferences.getInstance();
-    final lastClaimDate = prefs.getString('last_claim_date');
+    final email = prefs.getString('email')?.trim().toLowerCase() ?? '';
+    final userId = prefs.getString('user_id')?.trim() ?? '';
+    final identifier = email.isNotEmpty ? email : (userId.isNotEmpty ? userId : 'guest');
+
     final today = DateTime.now();
     final todayString = "${today.year}-${today.month}-${today.day}";
 
-    if (lastClaimDate != todayString) {
-      await _addCoins(20, "Daily Reward");
-      await prefs.setString('last_claim_date', todayString);
+    final claimKey = 'daily_reward_$identifier';
+    final lastClaimDate = prefs.getString(claimKey);
+
+    // If this account has already claimed the daily reward today, do not give again
+    if (lastClaimDate == todayString) {
+      return;
     }
+
+    await _addCoins(20, "Daily Reward");
+    await prefs.setString(claimKey, todayString);
+    await prefs.setString('last_claim_date', todayString);
   }
 
   Future<void> _addCoins(int coins, String source) async {
@@ -501,26 +511,28 @@ class _HomePageState extends State<HomePage> {
                   height: 70, // Match the button's height
                   child: _isPlayButtonTapped
                       ? const Center(
-                    child: SizedBox(
-                      width: 40,   // Square size
-                      height: 40,  // Same as width
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3, // Adjust thickness
-                      ),
-                    ),
-                  )
+                          child: SizedBox(
+                            width: 40, // Square size
+                            height: 40, // Same as width
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3, // Adjust thickness
+                            ),
+                          ),
+                        )
                       : LevelButton(
-                    label: 'PLAY',
-                    onPressed: () async {
-                      final connectivity = await Connectivity().checkConnectivity();
-                      if (connectivity.contains(ConnectivityResult.none)) {
-                        Fluttertoast.showToast(msg: "You're offline");
-                      } else {
-                        _handlePlayButton();
-                      }
-                    },
-                  ),
+                          label: 'PLAY',
+                          onPressed: () async {
+                            final connectivity =
+                                await Connectivity().checkConnectivity();
+                            if (connectivity
+                                .contains(ConnectivityResult.none)) {
+                              Fluttertoast.showToast(msg: "You're offline");
+                            } else {
+                              _handlePlayButton();
+                            }
+                          },
+                        ),
                 ),
 
                 const SizedBox(height: 25),
@@ -540,10 +552,10 @@ class _HomePageState extends State<HomePage> {
                 //     });
                 //   },
                 // ),
-          GestureDetector(
-            onTap: () {
-              AudioHelper().playButtonSound();
-              checkInternetAndProceed(context, () {
+                GestureDetector(
+                  onTap: () {
+                    AudioHelper().playButtonSound();
+                    checkInternetAndProceed(context, () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -553,51 +565,51 @@ class _HomePageState extends State<HomePage> {
                         ),
                       );
                     });
-              },
-            child: Container(
-              width: 180, // 80% width
-              height: 45,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8BC34A), Color(0xFF388E3C)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                borderRadius: BorderRadius.circular(25),
-                border: const Border(
-                  bottom: BorderSide(color: Color(0xFF1B5E20), width: 3),
-                  right: BorderSide(color: Color(0xFF1B5E20), width: 1),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    offset: const Offset(0, 4),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                    Icon(Icons.play_circle_fill, color: Colors.white, size: 16),
-                    const SizedBox(width: 4),
-                  Text(
-                     'Watch and earn'.toUpperCase(),
-                    style:
-                        const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                          // letterSpacing: 1.2,
+                  },
+                  child: Container(
+                    width: 180, // 80% width
+                    height: 45,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8BC34A), Color(0xFF388E3C)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      borderRadius: BorderRadius.circular(25),
+                      border: const Border(
+                        bottom: BorderSide(color: Color(0xFF1B5E20), width: 3),
+                        right: BorderSide(color: Color(0xFF1B5E20), width: 1),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          offset: const Offset(0, 4),
+                          blurRadius: 4,
                         ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_circle_fill,
+                            color: Colors.white, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Watch and earn'.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            // letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
-          ),
+                ),
               ],
             ),
           ),

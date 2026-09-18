@@ -87,9 +87,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         if (response.statusCode == 200) {
           final jsonResponse = jsonDecode(response.body);
           final token = jsonResponse['token'];
+          String? userId;
+          if (jsonResponse['user'] != null) {
+            userId = jsonResponse['user']['_id']?.toString() ??
+                jsonResponse['user']['registeredID']?.toString();
+          } else if (jsonResponse['userId'] != null) {
+            userId = jsonResponse['userId'].toString();
+          }
+          userId ??= account.id;
+
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('auth_token', token);
-          await prefs.setString('email', email);
+          await prefs.setString('email', email.trim().toLowerCase());
+          if (userId.isNotEmpty) {
+            await prefs.setString('user_id', userId);
+          }
           if (mounted) {
             final coinProvider =
                 Provider.of<CoinProvider>(context, listen: false);
@@ -171,7 +183,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', token!);
-        await prefs.setString('email', emailController.text);
+        await prefs.setString(
+            'email', emailController.text.trim().toLowerCase());
+        await prefs.setString(
+            'user_id', emailController.text.trim().toLowerCase());
 
         if (mounted) {
           final coinProvider =
@@ -198,7 +213,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         // Even on error, store dummy token for debug
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', "dummy_token_yash_error");
-        await prefs.setString('email', emailController.text);
+        await prefs.setString(
+            'email', emailController.text.trim().toLowerCase());
+        await prefs.setString(
+            'user_id', emailController.text.trim().toLowerCase());
 
         if (mounted) {
           Navigator.pushAndRemoveUntil(
@@ -227,7 +245,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     ScreenUtil.init(context);
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isNarrow = screenWidth < 360;
-    
+
     final double horizontalPadding = isNarrow ? 12.0 : 24.0;
     final double cardPadding = isNarrow ? 16.0 : 30.0;
 
@@ -292,13 +310,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           TextField(
                             controller: nameController,
                             style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.w600),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600),
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.black.withOpacity(0.2),
                               hintText: 'Name',
-                              hintStyle:
-                                  TextStyle(color: Colors.white.withOpacity(0.7)),
+                              hintStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.7)),
                               prefixIcon:
                                   const Icon(Icons.person, color: Colors.white),
                               enabledBorder: OutlineInputBorder(
@@ -317,13 +336,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           TextField(
                             controller: emailController,
                             style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.w600),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600),
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.black.withOpacity(0.2),
                               hintText: 'Email Address',
-                              hintStyle:
-                                  TextStyle(color: Colors.white.withOpacity(0.7)),
+                              hintStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.7)),
                               prefixIcon:
                                   const Icon(Icons.email, color: Colors.white),
                               enabledBorder: OutlineInputBorder(
@@ -343,13 +363,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             controller: passwordController,
                             obscureText: _obscurePassword,
                             style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.w600),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600),
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.black.withOpacity(0.2),
                               hintText: 'Password',
-                              hintStyle:
-                                  TextStyle(color: Colors.white.withOpacity(0.7)),
+                              hintStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.7)),
                               prefixIcon:
                                   const Icon(Icons.lock, color: Colors.white),
                               suffixIcon: IconButton(
@@ -420,31 +441,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           const SizedBox(height: 20),
                           //  const SizedBox(height: 25),
                           Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Already have account? ",
-                              style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 16),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text(
-                                'Login',
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Already have account? ",
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 17,
-                                  decoration: TextDecoration.underline,
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 16),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.pop(context);
+                                },
+                                child: const Text(
+                                  'Login',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 17,
+                                    decoration: TextDecoration.underline,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -453,7 +475,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

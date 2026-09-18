@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:word_puzzle/view/welcome_screen.dart';
 import '../widget/bg_container.dart';
@@ -108,7 +109,42 @@ class _SettingsPageState extends State<SettingsPage> {
                                 AudioHelper().playButtonSound();
                                 final prefs =
                                     await SharedPreferences.getInstance();
+
+                                // Collect and preserve daily reward claim history, sound, and locale
+                                final rewardKeys = prefs
+                                    .getKeys()
+                                    .where((k) =>
+                                        k.startsWith('daily_reward_') ||
+                                        k.startsWith('last_claim_date'))
+                                    .toList();
+                                final Map<String, String> preservedRewards = {};
+                                for (final key in rewardKeys) {
+                                  final val = prefs.getString(key);
+                                  if (val != null) preservedRewards[key] = val;
+                                }
+                                final soundOn = prefs.getBool('sound_on');
+                                final locale = prefs.getString('locale');
+
                                 await prefs.clear();
+
+                                // Restore preserved claim dates and settings
+                                for (final entry in preservedRewards.entries) {
+                                  await prefs.setString(entry.key, entry.value);
+                                }
+                                if (soundOn != null) {
+                                  await prefs.setBool('sound_on', soundOn);
+                                }
+                                if (locale != null) {
+                                  await prefs.setString('locale', locale);
+                                }
+
+                                try {
+                                  final GoogleSignIn googleSignIn = GoogleSignIn();
+                                  await googleSignIn.signOut();
+                                } catch (e) {
+                                  print('Google sign out error: $e');
+                                }
+
                                 if (context.mounted) {
                                   Navigator.pushAndRemoveUntil(
                                     context,
