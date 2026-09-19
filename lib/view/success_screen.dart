@@ -226,6 +226,7 @@ class _SuccessScreenState extends State<SuccessScreen>
                               context,
                               MaterialPageRoute(
                                 builder: (context) => AdPlaybackPage(
+                                  isRewardAd: true,
                                   onAdComplete: () {
                                     Provider.of<CoinProvider>(context,
                                         listen: false)

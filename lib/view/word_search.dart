@@ -982,21 +982,36 @@ class WordSearchPageState extends State<WordSearchPage>
 
   void _showSuccessDialog() {
     Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => SuccessScreen(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AdPlaybackPage(
+          isRewardAd: false,
+          onAdComplete: () {
+            if (!mounted) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SuccessScreen(
                   level: level,
                   coin: 3,
                   gridSize: gridSize,
                   onNextLevel: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => WordSearchPage(
-                                initialLevel: level + 1,
-                                gridSize: gridSize,
-                              ))),
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => WordSearchPage(
+                        initialLevel: level + 1,
+                        gridSize: gridSize,
+                      ),
+                    ),
+                  ),
                   onBackToLevels: () => Navigator.pop(context),
-                )));
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   // void _showGameOverDialog({required String reason}) {

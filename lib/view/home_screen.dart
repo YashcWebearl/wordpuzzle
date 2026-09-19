@@ -303,6 +303,7 @@ class _HomePageState extends State<HomePage> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => AdPlaybackPage(
+                                  isRewardAd: true,
                                   onAdComplete: () {
                                     Provider.of<CoinProvider>(context,
                                             listen: false)
