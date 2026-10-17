@@ -20,7 +20,6 @@ class AudioHelper {
   AudioSource? _timeOut;
   AudioSource? _hint;
 
-
   SoundHandle? _winnerHandle;
   SoundHandle? _notFoundHandle;
   SoundHandle? _backgroundHandle;
@@ -67,16 +66,25 @@ class AudioHelper {
 
   bool get isSoundOn => _isSoundOn;
 
+  static int _lastButtonSoundTime = 0;
+
   Future<void> playButtonSound() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastButtonSoundTime < 180) return;
+    _lastButtonSoundTime = now;
+
     if (_isSoundOn && _button != null) {
       await _soLoud.play(_button!);
     }
   }
+
+  Future<void> playTapSound() => playButtonSound();
   Future<void> playMoneySound() async {
     if (_isSoundOn && _money != null) {
       await _soLoud.play(_money!);
     }
   }
+
   Future<void> playLastSecond() async {
     if (_isSoundOn && _last5sec != null) {
       _last5secHandle = await _soLoud.play(_last5sec!);
@@ -89,6 +97,7 @@ class AudioHelper {
       _last5secHandle = null;
     }
   }
+
   Future<void> playHintSound() async {
     if (_isSoundOn && _hint != null) {
       _hintHandle = await _soLoud.play(_hint!);
@@ -101,6 +110,7 @@ class AudioHelper {
       _hintHandle = null;
     }
   }
+
   // Future<void> playHintSound() async {
   //   if (_isSoundOn && _hint != null) {
   //     await _soLoud.play(_hint!);
@@ -129,11 +139,13 @@ class AudioHelper {
       await _soLoud.play(_found!);
     }
   }
+
   Future<void> playTimeOutSound() async {
     if (_isSoundOn && _timeOut != null) {
       await _soLoud.play(_timeOut!);
     }
   }
+
   Future<void> playNotFoundSound() async {
     if (_isSoundOn && _notFound != null) {
       _notFoundHandle = await _soLoud.play(_notFound!);
@@ -165,7 +177,8 @@ class AudioHelper {
 
   Future<void> stopBackgroundSound() async {
     if (_backgroundHandle != null) {
-      _soLoud.fadeVolume(_backgroundHandle!, 0.0, const Duration(milliseconds: 500));
+      _soLoud.fadeVolume(
+          _backgroundHandle!, 0.0, const Duration(milliseconds: 500));
     }
   }
 

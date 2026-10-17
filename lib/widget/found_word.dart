@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class WordLinePainter extends CustomPainter {
   final Map<String, List<Offset>> foundWordPaths;
+  final List<String>? wordsList;
   final List<Offset>? hintedPath;
   final double cellSize;
   final List<Color> colors;
@@ -9,6 +10,7 @@ class WordLinePainter extends CustomPainter {
 
   WordLinePainter({
     required this.foundWordPaths,
+    this.wordsList,
     required this.cellSize,
     required this.colors,
     this.hintedPath,
@@ -29,8 +31,8 @@ class WordLinePainter extends CustomPainter {
         return Offset(x, y);
       }).toList();
 
-      linePaint.color = Colors.green.withOpacity(blinkValue);
-      linePaint.strokeWidth = cellSize * 0.7;
+      linePaint.color = Colors.green.withValues(alpha: blinkValue.clamp(0.0, 1.0));
+      linePaint.strokeWidth = cellSize * 0.78;
 
       final pathLine = Path()..moveTo(points.first.dx, points.first.dy);
       for (int i = 1; i < points.length; i++) {
@@ -39,7 +41,7 @@ class WordLinePainter extends CustomPainter {
       canvas.drawPath(pathLine, linePaint);
     }
 
-    // Draw found words (Nature Earthy/Sky Colors)
+    // Draw found words
     int colorIndex = 0;
     for (final entry in foundWordPaths.entries) {
       final path = entry.value;
@@ -51,17 +53,14 @@ class WordLinePainter extends CustomPainter {
         return Offset(x, y);
       }).toList();
 
-      // Use nature colors: Ambers, Greens, Sky Blues
-      final natureColors = [
-        const Color(0xFF8BC34A).withOpacity(0.6), // Light Green
-        const Color(0xFFFFD54F).withOpacity(0.6), // Amber
-        const Color(0xFF4FC3F7).withOpacity(0.6), // Sky Blue
-        const Color(0xFFAED581).withOpacity(0.6), // Lime Green
-        const Color(0xFFFFB74D).withOpacity(0.6), // Orange
-      ];
+      final word = entry.key;
+      final wordIdx = wordsList != null ? wordsList!.indexOf(word) : colorIndex;
+      final baseColor = (colors.isNotEmpty)
+          ? colors[(wordIdx >= 0 ? wordIdx : colorIndex) % colors.length]
+          : const Color(0xFF8BC34A);
 
-      linePaint.color = natureColors[colorIndex % natureColors.length];
-      linePaint.strokeWidth = cellSize * 0.7;
+      linePaint.color = baseColor.withValues(alpha: 0.58);
+      linePaint.strokeWidth = cellSize * 0.78;
       colorIndex++;
 
       final pathLine = Path()..moveTo(points.first.dx, points.first.dy);
@@ -77,6 +76,7 @@ class WordLinePainter extends CustomPainter {
     return oldDelegate.foundWordPaths != foundWordPaths ||
         oldDelegate.hintedPath != hintedPath ||
         oldDelegate.blinkValue != blinkValue ||
-        oldDelegate.cellSize != cellSize;
+        oldDelegate.cellSize != cellSize ||
+        oldDelegate.wordsList != wordsList;
   }
 }

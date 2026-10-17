@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:word_puzzle/services/daily_service.dart';
 
 class AdPlaybackPage extends StatefulWidget {
   final VoidCallback onAdComplete;
@@ -38,6 +39,11 @@ class _AdPlaybackPageState extends State<AdPlaybackPage> {
 
     if (widget.isRewardAd) {
       if (_isRewardEarned) {
+        DailyService().updateTaskProgress(
+          taskKey: 'watch_ad',
+          increment: 1,
+          gameName: 'Wordix',
+        );
         widget.onAdComplete();
       } else if (!isError) {
         ScaffoldMessenger.of(context).showSnackBar(

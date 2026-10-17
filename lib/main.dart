@@ -8,10 +8,10 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:word_puzzle/view/splash_page.dart';
-import 'package:word_puzzle/view/terms_policy_screen.dart';
 import 'package:word_puzzle/widget/coin_service.dart';
 import 'package:word_puzzle/widget/get_level.dart';
 import 'package:word_puzzle/widget/sound.dart';
+import 'package:word_puzzle/widget/top_task_snackbar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -89,6 +89,7 @@ class _WordSearchAppState extends State<WordSearchApp> {
       builder: (context, child) {
         // ToastService.init(context);
         return MaterialApp(
+          navigatorKey: TopTaskSnackBar.navigatorKey,
           title: 'Word Search Puzzle',
           debugShowCheckedModeBanner: false,
           home: const SplashPage(),

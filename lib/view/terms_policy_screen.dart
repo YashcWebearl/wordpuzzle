@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:word_puzzle/view/home_screen.dart';
+import 'package:word_puzzle/view/game_selection_screen.dart';
 import '../Widget/base_url.dart';
 import '../Widget/bg_container.dart';
 
@@ -113,7 +113,7 @@ class _TermsAndPolicyScreenState extends State<TermsAndPolicyScreen> {
     } else {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
+        MaterialPageRoute(builder: (context) => const GameSelectionScreen()),
         (Route<dynamic> route) => false,
       );
     }

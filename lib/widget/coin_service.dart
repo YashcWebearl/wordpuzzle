@@ -62,44 +62,39 @@ class CoinProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> addCoins(int amount, {bool isWinner = false}) async {
+  Future<void> addCoins(int amount, {bool isWinner = false, bool instant = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
-      print('token is:- $token');
       if (token == null) throw Exception('No auth token');
 
       final currentCoins = _coins;
       final newCoins = currentCoins + amount;
-      print('current:-');
 
-      if (isWinner) {
-        print('current111111:-');
+      if (isWinner && !instant) {
         // Animate coin count increment
         for (int i = 1; i <= amount; i++) {
           _coins = currentCoins + i;
           notifyListeners();
-          await Future.delayed(const Duration(milliseconds: 50)); // Animation speed
+          await Future.delayed(const Duration(milliseconds: 25)); // Smooth & faster
         }
       } else {
-        print('current22222222:-');
         // Instantly add coins
         _coins = newCoins;
         notifyListeners();
       }
-      print('current333333333333333333:-');
       await prefs.setInt('user_coins', newCoins);
 
       // Sync with server
-      print('current444444444:-');
       final url = Uri.parse('$LURL/api/coin/add');
       final response = await http.post(
         url,
         headers: {
-          'Authorization': token,
+          'Authorization': token.startsWith('Bearer ') ? token : 'Bearer $token',
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
         },
-        body: jsonEncode({'coin': amount,"gameName": "Wordix",}),
+        body: jsonEncode({'coin': amount, "gameName": "Wordix"}),
       );
 
       if (response.statusCode != 200) {
@@ -107,52 +102,61 @@ class CoinProvider extends ChangeNotifier {
         _coins = currentCoins;
         await prefs.setInt('user_coins', currentCoins);
         notifyListeners();
-        print('Failed to sync coins: ${response.body}');
       }
     } catch (e) {
       print('Error adding coins: $e');
     }
   }
 
-  Future<void> undoCoins(int amount) async {
+  Future<void> undoCoins(int amount, {bool instant = true}) async {
     try {
-      print('done undo');
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
-      print('done undo token is:- $token');
       if (token == null) throw Exception('No auth token');
 
-      final url = Uri.parse('$LURL/api/coin/undo');
-      print('done undo333333333:- $url}');
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': token,
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'coin': amount,"gameName": "Wordix",}),
-      );
-      print('done undo 4444 response is:- ${response.statusCode}');
-      print('done undo 5555555 response body is:- ${response.body}');
+      final currentCoins = _coins;
+      final newCoins = (currentCoins - amount).clamp(0, double.infinity).toInt();
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final newCoins = data['coins'];
-
-        // Animate down
-        final currentCoins = _coins;
-        if (currentCoins > newCoins) {
-          for (int i = currentCoins - 1; i >= newCoins; i--) {
-            _coins = i;
-            notifyListeners();
-            await Future.delayed(const Duration(milliseconds: 50));
-          }
-        }
-
+      if (instant) {
+        // Optimistically deduct immediately for instant responsive UI
         _coins = newCoins;
         await prefs.setInt('user_coins', _coins);
         notifyListeners();
+      }
+
+      final url = Uri.parse('$LURL/api/coin/undo');
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': token.startsWith('Bearer ') ? token : 'Bearer $token',
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({'coin': amount, "gameName": "Wordix"}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final serverCoins = data['coins'] as int? ?? newCoins;
+
+        if (!instant && currentCoins > serverCoins) {
+          for (int i = currentCoins - 1; i >= serverCoins; i--) {
+            _coins = i;
+            notifyListeners();
+            await Future.delayed(const Duration(milliseconds: 20));
+          }
+        }
+
+        _coins = serverCoins;
+        await prefs.setInt('user_coins', _coins);
+        notifyListeners();
       } else {
+        // Rollback if failed
+        if (instant) {
+          _coins = currentCoins;
+          await prefs.setInt('user_coins', _coins);
+          notifyListeners();
+        }
         throw Exception('Failed to undo coins: ${response.body}');
       }
     } catch (e) {
