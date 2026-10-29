@@ -99,9 +99,10 @@ class CrosswordLevelService {
           '$LURL/api/gameLevel/data?gameName=$_gameName&subGame=$_subGame');
       print('🌐 [CrosswordLevelService] GET Request URL: $url');
 
-      final response = await http.get(url, headers: headers).timeout(
-            const Duration(seconds: 8),
-          );
+      final response = await http.get(url, headers: headers);
+          // .timeout(
+          //   const Duration(seconds: 8),
+          // );
 
       print('📡 [CrosswordLevelService] Response Status: ${response.statusCode}');
       print('📦 [CrosswordLevelService] Response Body: ${response.body}');

@@ -236,12 +236,12 @@ class _CrosswordSuccessScreenState extends State<CrosswordSuccessScreen>
                 color: const Color(0xFF0D2818).withValues(alpha: 0.95),
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                  color: const Color(0xFFFF9100).withValues(alpha: 0.4),
+                  color: const Color(0xFF00E676).withValues(alpha: 0.4),
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF9100).withValues(alpha: 0.2),
+                    color: const Color(0xFF00E676).withValues(alpha: 0.2),
                     blurRadius: 30,
                     offset: const Offset(0, 10),
                   ),
@@ -261,7 +261,7 @@ class _CrosswordSuccessScreenState extends State<CrosswordSuccessScreen>
                       border: Border.all(color: Colors.white, width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFFF9100).withValues(alpha: 0.5),
+                          color: const Color(0xFF00E676).withValues(alpha: 0.5),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
@@ -759,9 +759,9 @@ class _CrosswordSuccessScreenState extends State<CrosswordSuccessScreen>
                             // 3D NEXT LEVEL Primary Action Button
                             App3DButton(
                               height: 58,
-                              color: const Color(0xFFFF7043),
-                              topHighlightColor: const Color(0xFFFF8A65),
-                              shadowColor: const Color(0xFFBF360C),
+                              color: const Color(0xFF00E676),
+                              topHighlightColor: const Color(0xFF69F0AE),
+                              shadowColor: const Color(0xFF0B532E),
                               isLoading: _isNextButtonTapped,
                               onPressed: () async {
                                 final connectivity =

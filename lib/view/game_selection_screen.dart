@@ -21,6 +21,9 @@ import 'package:word_puzzle/crossword/crossword_logo.dart';
 import 'package:word_puzzle/crossword/crossword_level_service.dart';
 import 'package:word_puzzle/widget/coin_grant_dialog.dart';
 import 'package:word_puzzle/view/daily_rewards_tasks_screen.dart';
+import 'package:word_puzzle/scramble/scramble_home.dart';
+import 'package:word_puzzle/scramble/scramble_splash.dart';
+import 'package:word_puzzle/scramble/scramble_logo.dart';
 
 /// Game representation model for the Selection Hub
 class _GameItemModel {
@@ -138,20 +141,20 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       category: 'WORD CONNECT',
       subtitle: 'Nature Word Connect & Crossword Challenge',
       badgeText: 'PLAY NOW',
-      badgeColor: Color(0xFFFF9100),
-      primaryColor: Color(0xFFFF7043),
-      secondaryColor: Color(0xFFFFA726),
+      badgeColor: Color(0xFF00E676),
+      primaryColor: Color(0xFF00E676),
+      secondaryColor: Color(0xFF1DE9B6),
       cardGradient: [
-        Color(0xFF1B4332),
-        Color(0xFF2D6A4F),
-        Color(0xFF40916C),
+        Color(0xFF133E2B),
+        Color(0xFF1E5239),
+        Color(0xFF2E7552),
       ],
       isPlayable: true,
       imagePath: null,
       fallbackIcon: Icons.grid_4x4_rounded,
       tags: [
         '🧩 Crossword Grid',
-        '🍂 Nature Theme',
+        '🍃 Nature Theme',
         '🔄 Letter Wheel',
         '🏆 Level Voyage'
       ],
@@ -163,15 +166,57 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       features: [
         'Connect letters in the circle wheel to form valid words',
         'Watch solved words fly up and fill crossword slots',
-        'Calming animated woodland nature background with autumn leaves',
+        'Calming animated woodland nature background with leaves',
         'Earn stars, level up, and unlock hint rewards',
       ],
       buttonGradient: [
-        Color(0xFFFF9100),
-        Color(0xFFFF5722),
+        Color(0xFF00E676),
+        Color(0xFF00A859),
       ],
-      buttonShadowColor: Color(0xFFBF360C),
-      buttonGlowColor: Color(0xFFFF9100),
+      buttonShadowColor: Color(0xFF0B532E),
+      buttonGlowColor: Color(0xFF00E676),
+      buttonTextColor: Color(0xFF052B17),
+    ),
+    _GameItemModel(
+      id: 'scramble',
+      title: 'WORD SCRAMBLE',
+      category: 'SPELL & ARRANGE',
+      subtitle: 'Kitty Stack & Bouncy Letter Puzzle',
+      badgeText: 'KIDS FAVORITE',
+      badgeColor: Color(0xFFE040FB),
+      primaryColor: Color(0xFFD500F9),
+      secondaryColor: Color(0xFF7C4DFF),
+      cardGradient: [
+        Color(0xFF38146A),
+        Color(0xFF4A148C),
+        Color(0xFF6A1B9A),
+      ],
+      isPlayable: true,
+      imagePath: null,
+      fallbackIcon: Icons.extension_rounded,
+      tags: [
+        '🐱 Kitty Theme',
+        '🔠 100+ Levels',
+        '🧩 Tile Stacks',
+        '🌟 Clue Solves'
+      ],
+      quickStats: {
+        'TYPE': 'Tile Jumble',
+        'LEVELS': '100+',
+        'STATUS': 'Live',
+      },
+      features: [
+        'Discover secret words by tapping or swiping colorful letter tiles',
+        'Solve juicy fruits, wild animals, space and candy themes',
+        'Satisfying tile collapse animations with cheerful sounds',
+        'Earn stars, level up, and use coin hints to solve words',
+      ],
+      buttonGradient: [
+        Color(0xFFE040FB),
+        Color(0xFF7C4DFF),
+      ],
+      buttonShadowColor: Color(0xFF38006B),
+      buttonGlowColor: Color(0xFFD500F9),
       buttonTextColor: Colors.white,
     ),
   ];
@@ -275,7 +320,9 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       if (!mounted) return;
       final Widget targetScreen = game.id == 'crossword'
           ? const CrosswordSplashScreen()
-          : const HomePage();
+          : (game.id == 'scramble'
+              ? const ScrambleSplashScreen()
+              : const HomePage());
 
       await Navigator.push(
         context,
@@ -822,29 +869,50 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
   }
 
   // ===========================================================================
-  // DYNAMIC REACTIVE AMBIENT GRADIENT BACKGROUND (BLUE FOR WORDIX, ORANGE/PURPLE FOR CROSSWORD)
+  // DYNAMIC REACTIVE AMBIENT GRADIENT BACKGROUND (BLUE FOR WORDIX, GREEN FOR CROSSWORD, PURPLE FOR SCRAMBLE)
   // ===========================================================================
   Widget _buildAtmosphericBackground(_GameItemModel activeGame) {
-    final bool isWordix = activeGame.id == 'wordix';
+    final List<Color> gradientColors;
+    final Color auraColor;
+    final Color secondaryAuraColor;
+    final Color bottomAuraColor;
+    final bool isBottomRight;
 
-    final List<Color> gradientColors = isWordix
-        ? const [
-            Color(0xFF002B4E), // Deep cyber ocean
-            Color(0xFF08192F), // Midnight navy
-            Color(0xFF030914), // Dark obsidian abyss
-          ]
-        : const [
-            Color(0xFF380E4B), // Deep royal violet
-            Color(0xFF220835), // Dark twilight velvet
-            Color(0xFF0C0216), // Dark obsidian
-          ];
-
-    final Color auraColor = isWordix
-        ? const Color(0xFF00E5FF) // Electric cyan glow
-        : const Color(0xFFFF9100); // Warm sunset amber/orange glow
-
-    final Color secondaryAuraColor =
-        isWordix ? const Color(0xFF0077C2) : const Color(0xFF9C27B0);
+    if (activeGame.id == 'wordix') {
+      // 1st Game: Wordix (Deep Oceanic Blue & Cyan Aura - EVERYTHING BLUE)
+      gradientColors = const [
+        Color(0xFF002B4E), // Deep cyber ocean
+        Color(0xFF08192F), // Midnight navy
+        Color(0xFF030914), // Dark obsidian abyss
+      ];
+      auraColor = const Color(0xFF00E5FF); // Electric cyan glow
+      secondaryAuraColor = const Color(0xFF0077C2); // Deep azure glow
+      bottomAuraColor = const Color(0xFF00E5FF); // Bright cyan glow
+      isBottomRight = true;
+    } else if (activeGame.id == 'crossword') {
+      // 2nd Game: Crossword (Nature Forest Green - EVERYTHING GREENISH)
+      gradientColors = const [
+        Color(0xFF0A2B1C), // Deep forest pine / emerald
+        Color(0xFF061B11), // Midnight woodland green
+        Color(0xFF020C07), // Dark obsidian abyss
+      ];
+      auraColor = const Color(0xFF00E676); // Vibrant emerald green glow
+      secondaryAuraColor =
+          const Color(0xFF00897B); // Lush nature teal/green glow
+      bottomAuraColor = const Color(0xFF00E676); // Radiant green glow
+      isBottomRight = false;
+    } else {
+      // 3rd Game: Scramble (Deep Royal Purple - EVERYTHING PURPLISH)
+      gradientColors = const [
+        Color(0xFF320B4E), // Deep royal violet / purple
+        Color(0xFF1E0630), // Dark twilight velvet
+        Color(0xFF0B0212), // Dark obsidian abyss
+      ];
+      auraColor = const Color(0xFFD500F9); // Vibrant neon purple glow
+      secondaryAuraColor = const Color(0xFF7C4DFF); // Deep royal violet glow
+      bottomAuraColor = const Color(0xFFB388FF); // Soft glowing lavender purple
+      isBottomRight = true;
+    }
 
     return Positioned.fill(
       child: AnimatedContainer(
@@ -875,7 +943,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     radius: 0.95,
                     colors: [
                       auraColor.withOpacity(0.32),
-                      secondaryAuraColor.withOpacity(0.14),
+                      secondaryAuraColor.withOpacity(0.16),
                       Colors.transparent,
                     ],
                   ),
@@ -886,8 +954,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
             // Bottom subtle corner aura
             Positioned(
               bottom: -90,
-              right: isWordix ? -60 : null,
-              left: isWordix ? null : -60,
+              right: isBottomRight ? -60 : null,
+              left: isBottomRight ? null : -60,
               width: 320,
               height: 320,
               child: AnimatedContainer(
@@ -897,10 +965,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      (isWordix
-                              ? const Color(0xFF00E676)
-                              : const Color(0xFFFF5252))
-                          .withOpacity(0.18),
+                      bottomAuraColor.withOpacity(0.20),
                       Colors.transparent,
                     ],
                   ),
@@ -930,13 +995,13 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         drawer: _buildDrawer(),
         body: Stack(
           children: [
-            // 1. Dynamic Reactive Gradient Background (Oceanic Blue for Wordix, Sunset Orange/Purple for Crossword)
+            // 1. Dynamic Reactive Gradient Background (Oceanic Blue for Wordix, Forest Green/Orange for Crossword, Purple/Orange for Scramble)
             _buildAtmosphericBackground(activeGame),
 
             // 2. Ambient Floating Animated Words & Letters Overlay (Preserved & Theme-Harmonized)
             _FloatingWordsBackground(
               controller: _floatingWordsAnimController,
-              isWordix: _currentPage == 0,
+              gameId: activeGame.id,
             ),
 
             // 3. Main Content
@@ -1395,75 +1460,126 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
   }
 
   Widget _buildGameQuickTabs() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
-      ),
-      child: Row(
-        children: List.generate(_games.length, (index) {
-          final game = _games[index];
-          final isSelected = _currentPage == index;
-
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                AudioHelper().playButtonSound();
-                _pageController.animateToPage(
-                  index,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: isSelected
-                      ? LinearGradient(
-                          colors: [
-                            game.primaryColor.withOpacity(0.85),
-                            game.secondaryColor.withOpacity(0.85),
-                          ],
-                        )
-                      : null,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        game.isPlayable
-                            ? Icons.play_circle_fill_rounded
-                            : Icons.lock_clock_rounded,
-                        color: isSelected
-                            ? const Color(0xFF0D1B2A)
-                            : Colors.white70,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        game.title,
-                        style: GoogleFonts.outfit(
-                          fontSize: 12.5.sp,
-                          fontWeight: FontWeight.w800,
-                          color: isSelected
-                              ? const Color(0xFF0D1B2A)
-                              : Colors.white70,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Column(
+        children: [
+          // Header Text (XOXO style)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD54F),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'SELECT ARENA',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 13.5.sp,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                'SWIPE OR TAP',
+                style: GoogleFonts.outfit(
+                  color: Colors.white38,
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                 ),
               ),
-            ),
-          );
-        }),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // 3+ Interactive Tabs (100% Overflow-Proof matching XOXO)
+          Row(
+            children: List.generate(_games.length, (index) {
+              final game = _games[index];
+              final isSelected = _currentPage == index;
+
+              String label;
+              if (game.id == 'wordix') {
+                label = '🔤 WORDIX';
+              } else if (game.id == 'crossword') {
+                label = '🧩 CROSS';
+              } else if (game.id == 'scramble') {
+                label = '🐱 SCRAMBLE';
+              } else if (game.id == 'balloon_pop') {
+                label = '🎈 BALLOON';
+              } else {
+                label = game.title;
+              }
+
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: index == _games.length - 1 ? 0 : 8,
+                  ),
+                  child: GestureDetector(
+                    onTap: () {
+                      AudioHelper().playButtonSound();
+                      _pageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeOutCubic,
+                      );
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? game.primaryColor.withOpacity(0.22)
+                            : Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected
+                              ? game.primaryColor
+                              : Colors.white.withOpacity(0.12),
+                          width: isSelected ? 1.8 : 1.0,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: game.primaryColor.withOpacity(0.35),
+                                  blurRadius: 8,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Center(
+                        child: Text(
+                          label,
+                          style: GoogleFonts.outfit(
+                            color: isSelected ? Colors.white : Colors.white60,
+                            fontSize: 11.5.sp,
+                            fontWeight:
+                                isSelected ? FontWeight.w900 : FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }
@@ -1621,19 +1737,24 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                                   size: 130,
                                   animate: true,
                                 )
-                              : (game.imagePath != null
-                                  ? Image.asset(
-                                      game.imagePath!,
-                                      width: 125.w,
-                                      height: 125.h,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (_, __, ___) => Icon(
-                                        game.fallbackIcon,
-                                        size: 80.sp,
-                                        color: game.primaryColor,
-                                      ),
+                              : (game.id == 'scramble'
+                                  ? const ScrambleLogo(
+                                      size: 130,
+                                      animate: true,
                                     )
-                                  : _buildCrosswordHeroArt(game)),
+                                  : (game.imagePath != null
+                                      ? Image.asset(
+                                          game.imagePath!,
+                                          width: 125.w,
+                                          height: 125.h,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (_, __, ___) => Icon(
+                                            game.fallbackIcon,
+                                            size: 80.sp,
+                                            color: game.primaryColor,
+                                          ),
+                                        )
+                                      : _buildCrosswordHeroArt(game))),
                         ),
                       ),
                     ),
@@ -1833,11 +1954,11 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
 // =============================================================================
 class _FloatingWordsBackground extends StatelessWidget {
   final AnimationController controller;
-  final bool isWordix;
+  final String gameId;
 
   const _FloatingWordsBackground({
     required this.controller,
-    this.isWordix = true,
+    this.gameId = 'wordix',
   });
 
   static final List<_FloatingParticle> _particles = [
@@ -1966,19 +2087,27 @@ class _FloatingWordsBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Theme-harmonized glowing colors
-    final Color wordBorderColor = isWordix
-        ? const Color(0xFF00E5FF).withOpacity(0.55)
-        : const Color(0xFFFFB300).withOpacity(0.55);
+    final Color wordBorderColor;
+    final Color wordTextColor;
+    final Color tileBorderColor;
+    final Color tileTextColor;
 
-    final Color wordTextColor =
-        isWordix ? const Color(0xFF80DEEA) : const Color(0xFFFFD54F);
-
-    final Color tileBorderColor = isWordix
-        ? const Color(0xFFFFD54F).withOpacity(0.55)
-        : const Color(0xFFFF4081).withOpacity(0.55);
-
-    final Color tileTextColor =
-        isWordix ? const Color(0xFFFFE082) : const Color(0xFFFF80AB);
+    if (gameId == 'wordix') {
+      wordBorderColor = const Color(0xFF00E5FF).withOpacity(0.55);
+      wordTextColor = const Color(0xFF80DEEA);
+      tileBorderColor = const Color(0xFF40C4FF).withOpacity(0.55);
+      tileTextColor = const Color(0xFF80D8FF);
+    } else if (gameId == 'crossword') {
+      wordBorderColor = const Color(0xFF00E676).withOpacity(0.55);
+      wordTextColor = const Color(0xFF69F0AE);
+      tileBorderColor = const Color(0xFF1DE9B6).withOpacity(0.55);
+      tileTextColor = const Color(0xFFA7FFEB);
+    } else {
+      wordBorderColor = const Color(0xFFE040FB).withOpacity(0.55);
+      wordTextColor = const Color(0xFFEA80FC);
+      tileBorderColor = const Color(0xFFB388FF).withOpacity(0.55);
+      tileTextColor = const Color(0xFFD1C4E9);
+    }
 
     return IgnorePointer(
       child: AnimatedBuilder(
@@ -2361,9 +2490,12 @@ class _GiftBoxPainter extends CustomPainter {
         ).createShader(const Rect.fromLTWH(-16, -18, 32, 18));
       canvas.drawPath(beamPath, beamFill);
 
-      _drawSparkleStar(canvas, Offset(-7.0, -10.0 - 5.0 * beamIntensity), 2.8 * beamIntensity);
-      _drawSparkleStar(canvas, Offset(8.0, -12.0 - 6.0 * beamIntensity), 3.2 * beamIntensity);
-      _drawSparkleStar(canvas, Offset(0.0, -15.0 - 8.0 * beamIntensity), 4.0 * beamIntensity);
+      _drawSparkleStar(canvas, Offset(-7.0, -10.0 - 5.0 * beamIntensity),
+          2.8 * beamIntensity);
+      _drawSparkleStar(canvas, Offset(8.0, -12.0 - 6.0 * beamIntensity),
+          3.2 * beamIntensity);
+      _drawSparkleStar(canvas, Offset(0.0, -15.0 - 8.0 * beamIntensity),
+          4.0 * beamIntensity);
     }
 
     // 5. 3D Gift Box Body
@@ -2402,7 +2534,8 @@ class _GiftBoxPainter extends CustomPainter {
 
     // 6. Vertical Golden Ribbon on Box Body
     const double ribW = 6.2;
-    final Rect vRibRect = Rect.fromLTWH(-ribW / 2.0, bodyRect.top, ribW, bodyRect.height);
+    final Rect vRibRect =
+        Rect.fromLTWH(-ribW / 2.0, bodyRect.top, ribW, bodyRect.height);
     final Paint ribPaint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.centerLeft,
@@ -2420,14 +2553,19 @@ class _GiftBoxPainter extends CustomPainter {
       ..color = const Color(0xFFFFFDE7).withOpacity(0.8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8;
-    canvas.drawLine(Offset(-ribW / 2.0, bodyRect.top), Offset(-ribW / 2.0, bodyRect.bottom), ribBorder);
-    canvas.drawLine(Offset(ribW / 2.0, bodyRect.top), Offset(ribW / 2.0, bodyRect.bottom), ribBorder);
+    canvas.drawLine(Offset(-ribW / 2.0, bodyRect.top),
+        Offset(-ribW / 2.0, bodyRect.bottom), ribBorder);
+    canvas.drawLine(Offset(ribW / 2.0, bodyRect.top),
+        Offset(ribW / 2.0, bodyRect.bottom), ribBorder);
 
     // 7. Horizontal Golden Ribbon on Box Body
-    final Rect hRibRect = Rect.fromLTWH(bodyRect.left, 6.0 - ribW / 2.0, bodyRect.width, ribW);
+    final Rect hRibRect =
+        Rect.fromLTWH(bodyRect.left, 6.0 - ribW / 2.0, bodyRect.width, ribW);
     canvas.drawRect(hRibRect, ribPaint);
-    canvas.drawLine(Offset(bodyRect.left, 6.0 - ribW / 2.0), Offset(bodyRect.right, 6.0 - ribW / 2.0), ribBorder);
-    canvas.drawLine(Offset(bodyRect.left, 6.0 + ribW / 2.0), Offset(bodyRect.right, 6.0 + ribW / 2.0), ribBorder);
+    canvas.drawLine(Offset(bodyRect.left, 6.0 - ribW / 2.0),
+        Offset(bodyRect.right, 6.0 - ribW / 2.0), ribBorder);
+    canvas.drawLine(Offset(bodyRect.left, 6.0 + ribW / 2.0),
+        Offset(bodyRect.right, 6.0 + ribW / 2.0), ribBorder);
 
     // 8. 3D Box Lid
     canvas.save();
@@ -2477,10 +2615,13 @@ class _GiftBoxPainter extends CustomPainter {
       lidBorder,
     );
 
-    final Rect lidRibRect = Rect.fromLTWH(-ribW / 2.0, lidRect.top, ribW, lidRect.height);
+    final Rect lidRibRect =
+        Rect.fromLTWH(-ribW / 2.0, lidRect.top, ribW, lidRect.height);
     canvas.drawRect(lidRibRect, ribPaint);
-    canvas.drawLine(Offset(-ribW / 2.0, lidRect.top), Offset(-ribW / 2.0, lidRect.bottom), ribBorder);
-    canvas.drawLine(Offset(ribW / 2.0, lidRect.top), Offset(ribW / 2.0, lidRect.bottom), ribBorder);
+    canvas.drawLine(Offset(-ribW / 2.0, lidRect.top),
+        Offset(-ribW / 2.0, lidRect.bottom), ribBorder);
+    canvas.drawLine(Offset(ribW / 2.0, lidRect.top),
+        Offset(ribW / 2.0, lidRect.bottom), ribBorder);
 
     // 9. 3D Golden Ribbon Bow atop Lid
     const double bowY = -8.0;
@@ -2499,7 +2640,8 @@ class _GiftBoxPainter extends CustomPainter {
     canvas.drawPath(rightBow, ribPaint);
     canvas.drawPath(rightBow, ribBorder);
 
-    final Rect knotRect = Rect.fromCircle(center: const Offset(0.0, bowY), radius: 3.5);
+    final Rect knotRect =
+        Rect.fromCircle(center: const Offset(0.0, bowY), radius: 3.5);
     final Paint knotPaint = Paint()
       ..shader = const RadialGradient(
         colors: [Color(0xFFFFFDE7), Color(0xFFFFD54F), Color(0xFFFF8F00)],
@@ -2679,7 +2821,8 @@ class _ArcheryTargetPainter extends CustomPainter {
 
     if (t < 0.16) {
       final double flightT = (t / 0.16).clamp(0.0, 1.0);
-      final double flightDist = 55.0 * (1.0 - Curves.easeInQuad.transform(flightT));
+      final double flightDist =
+          55.0 * (1.0 - Curves.easeInQuad.transform(flightT));
       tipPos = Offset(
         bullseye.dx + flightDist * math.cos(baseAngle),
         bullseye.dy + flightDist * math.sin(baseAngle),
@@ -2747,7 +2890,8 @@ class _ArcheryTargetPainter extends CustomPainter {
       if (t >= 0.42 && t <= 0.85) {
         final double glintT = ((t - 0.42) / 0.43).clamp(0.0, 1.0);
         final double glintScale = math.sin(glintT * math.pi);
-        _drawDiamondStar(canvas, bullseye.translate(1.0, -1.0), 3.0 * glintScale);
+        _drawDiamondStar(
+            canvas, bullseye.translate(1.0, -1.0), 3.0 * glintScale);
       }
 
       canvas.restore();
@@ -2998,7 +3142,8 @@ class _SpinWheelPainter extends CustomPainter {
     final Paint bulbPaint = Paint()..color = const Color(0xFFFFFDE7);
     for (int i = 0; i < sectorCount; i++) {
       final double ang = i * sweep + (sweep / 2.0);
-      final Offset bulbPos = Offset((radius - 1.2) * math.cos(ang), (radius - 1.2) * math.sin(ang));
+      final Offset bulbPos = Offset(
+          (radius - 1.2) * math.cos(ang), (radius - 1.2) * math.sin(ang));
       canvas.drawCircle(bulbPos, 1.2, bulbPaint);
     }
 
@@ -3023,7 +3168,8 @@ class _SpinWheelPainter extends CustomPainter {
     );
 
     canvas.drawCircle(center, 3.2, Paint()..color = const Color(0xFF00E5FF));
-    canvas.drawCircle(center.translate(-0.8, -0.8), 0.8, Paint()..color = Colors.white);
+    canvas.drawCircle(
+        center.translate(-0.8, -0.8), 0.8, Paint()..color = Colors.white);
 
     // Top Pointer Needle
     final double tickProgress = (progress * sectorCount) % 1.0;
@@ -3062,12 +3208,16 @@ class _SpinWheelPainter extends CustomPainter {
         ..strokeWidth = 0.8,
     );
 
-    canvas.drawCircle(const Offset(0, -2.5), 1.4, Paint()..color = const Color(0xFFFFFDE7));
+    canvas.drawCircle(
+        const Offset(0, -2.5), 1.4, Paint()..color = const Color(0xFFFFFDE7));
     canvas.restore();
 
-    final double starPulse = math.sin(progress * 2.0 * math.pi * 3.0) * 0.5 + 0.5;
-    _drawSparkle(canvas, Offset(cx - radius * 0.75, cy - radius * 0.75), 2.2 * starPulse);
-    _drawSparkle(canvas, Offset(cx + radius * 0.80, cy + radius * 0.65), 1.8 * (1.0 - starPulse));
+    final double starPulse =
+        math.sin(progress * 2.0 * math.pi * 3.0) * 0.5 + 0.5;
+    _drawSparkle(canvas, Offset(cx - radius * 0.75, cy - radius * 0.75),
+        2.2 * starPulse);
+    _drawSparkle(canvas, Offset(cx + radius * 0.80, cy + radius * 0.65),
+        1.8 * (1.0 - starPulse));
   }
 
   void _drawSparkle(Canvas canvas, Offset center, double size) {

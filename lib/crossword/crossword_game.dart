@@ -730,12 +730,12 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
 
   // Dynamic rotating Level Themes for exciting visual variety across levels
   static final List<CrosswordLevelTheme> _levelThemes = [
-    // Level 1, 9, 17... Sunset Coral Orange
+    // Level 1, 9, 17... Emerald Forest Green
     const CrosswordLevelTheme(
-      primary: Color(0xFFFF7043),
-      secondary: Color(0xFFE64A19),
-      glow: Color(0xFFFF9100),
-      darkShadow: Color(0xFFBF360C),
+      primary: Color(0xFF00E676),
+      secondary: Color(0xFF00A859),
+      glow: Color(0xFF69F0AE),
+      darkShadow: Color(0xFF0B532E),
     ),
     // Level 2, 10, 18... Electric Ocean Blue
     const CrosswordLevelTheme(
@@ -765,12 +765,12 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
       glow: Color(0xFFFF5376),
       darkShadow: Color(0xFF880026),
     ),
-    // Level 6, 14, 22... Golden Amber
+    // Level 6, 14, 22... Mint Woodland Green
     const CrosswordLevelTheme(
-      primary: Color(0xFFFFB703),
-      secondary: Color(0xFFFB8500),
-      glow: Color(0xFFFFD166),
-      darkShadow: Color(0xFFBC6C25),
+      primary: Color(0xFF1DE9B6),
+      secondary: Color(0xFF00BFA5),
+      glow: Color(0xFFA7FFEB),
+      darkShadow: Color(0xFF004D40),
     ),
     // Level 7, 15, 23... Neon Berry Magenta
     const CrosswordLevelTheme(

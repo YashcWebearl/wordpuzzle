@@ -45,7 +45,6 @@ class _HomePageState extends State<HomePage> {
         Provider.of<GameLevelProvider>(context, listen: false).refresh();
       }
     });
-    _checkAndGiveDailyReward();
   }
 
   @override
@@ -54,27 +53,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  Future<void> _checkAndGiveDailyReward() async {
-    final prefs = await SharedPreferences.getInstance();
-    final email = prefs.getString('email')?.trim().toLowerCase() ?? '';
-    final userId = prefs.getString('user_id')?.trim() ?? '';
-    final identifier =
-        email.isNotEmpty ? email : (userId.isNotEmpty ? userId : 'guest');
 
-    final today = DateTime.now();
-    final todayString = "${today.year}-${today.month}-${today.day}";
-
-    final claimKey = 'daily_reward_$identifier';
-    final lastClaimDate = prefs.getString(claimKey);
-
-    if (lastClaimDate == todayString) {
-      return;
-    }
-
-    await _addCoins(20, "Daily Reward");
-    await prefs.setString(claimKey, todayString);
-    await prefs.setString('last_claim_date', todayString);
-  }
 
   Future<void> _addCoins(int coins, String source) async {
     try {

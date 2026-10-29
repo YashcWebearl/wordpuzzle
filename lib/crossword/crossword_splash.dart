@@ -92,7 +92,7 @@ class _CrosswordSplashScreenState extends State<CrosswordSplashScreen> {
                           letterSpacing: 4.5,
                           shadows: [
                             Shadow(
-                              color: Color(0xFFFF9100),
+                              color: Color(0xFF00E676),
                               blurRadius: 20,
                             ),
                             Shadow(
@@ -123,7 +123,7 @@ class _CrosswordSplashScreenState extends State<CrosswordSplashScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFFFFE082),
+                            color: Color(0xFF69F0AE),
                             letterSpacing: 2.5,
                           ),
                         ),
@@ -200,15 +200,15 @@ class _CrosswordSplashScreenState extends State<CrosswordSplashScreen> {
                                         decoration: BoxDecoration(
                                           gradient: const LinearGradient(
                                             colors: [
-                                              Color(0xFFFF9100),
-                                              Color(0xFFFF5252),
+                                              Color(0xFF00E676),
+                                              Color(0xFF00A859),
                                             ],
                                           ),
                                           borderRadius:
                                               BorderRadius.circular(10),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: const Color(0xFFFF9100)
+                                              color: const Color(0xFF00E676)
                                                   .withValues(alpha: 0.6),
                                               blurRadius: 8,
                                             ),

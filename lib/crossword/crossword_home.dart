@@ -270,12 +270,12 @@ class _CrosswordHomeScreenState extends State<CrosswordHomeScreen> {
                   color: const Color(0xFF071426).withValues(alpha: 0.95),
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: const Color(0xFF00E5FF).withValues(alpha: 0.45),
+                    color: const Color(0xFF00E676).withValues(alpha: 0.45),
                     width: 1.6,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF00E5FF).withValues(alpha: 0.22),
+                      color: const Color(0xFF00E676).withValues(alpha: 0.22),
                       blurRadius: 28,
                       spreadRadius: 2,
                     ),
@@ -292,17 +292,17 @@ class _CrosswordHomeScreenState extends State<CrosswordHomeScreen> {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                        color: const Color(0xFF00E676).withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color:
-                              const Color(0xFF00E5FF).withValues(alpha: 0.35),
+                              const Color(0xFF00E676).withValues(alpha: 0.35),
                           width: 1.2,
                         ),
                       ),
                       child: const Icon(
                         Icons.sports_esports_rounded,
-                        color: Color(0xFF00E5FF),
+                        color: Color(0xFF00E676),
                         size: 34,
                       ),
                     ),
@@ -347,7 +347,7 @@ class _CrosswordHomeScreenState extends State<CrosswordHomeScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: App3DButton.cyan(
+                          child: App3DButton.green(
                             text: 'YES',
                             height: 46,
                             fontSize: 14.sp,
@@ -402,13 +402,13 @@ class _CrosswordHomeScreenState extends State<CrosswordHomeScreen> {
                               text: 'ARCADE HUB',
                               icon: Icons.arrow_back_ios_new_rounded,
                               gradientColors: const [
-                                Color(0xFF0F3057),
-                                Color(0xFF002244),
+                                Color(0xFF1B4332),
+                                Color(0xFF0F291E),
                               ],
-                              shadowColor: const Color(0xFF001122),
-                              glowColor: const Color(0xFF00E5FF),
+                              shadowColor: const Color(0xFF07140E),
+                              glowColor: const Color(0xFF00E676),
                               textColor: Colors.white,
-                              iconColor: const Color(0xFF00E5FF),
+                              iconColor: const Color(0xFF00E676),
                               height: 42,
                               depth: 3.5,
                               fontSize: 12.sp,
@@ -485,7 +485,7 @@ class _CrosswordHomeScreenState extends State<CrosswordHomeScreen> {
                                             child: const Text(
                                               'WOODLAND ODYSSEY',
                                               style: TextStyle(
-                                                color: Color(0xFFFFE082),
+                                                color: Color(0xFF69F0AE),
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w900,
                                                 letterSpacing: 2.0,
@@ -536,14 +536,14 @@ class _CrosswordHomeScreenState extends State<CrosswordHomeScreen> {
                                             borderRadius: 27.0,
                                             width: double.infinity,
                                             gradientColors: const [
-                                              Color(0xFFFF7043),
-                                              Color(0xFFE64A19),
+                                              Color(0xFF00E676),
+                                              Color(0xFF00A859),
                                             ],
                                             shadowColor:
-                                                const Color(0xFFBF360C),
-                                            glowColor: const Color(0xFFFF7043),
-                                            textColor: Colors.white,
-                                            iconColor: Colors.white,
+                                                const Color(0xFF0B532E),
+                                            glowColor: const Color(0xFF00E676),
+                                            textColor: const Color(0xFF052B17),
+                                            iconColor: const Color(0xFF052B17),
                                             onPressed: () async {
                                               final connectivity =
                                                   await Connectivity()
@@ -604,10 +604,10 @@ class _CrosswordHomeScreenState extends State<CrosswordHomeScreen> {
                                                 const Color(0xFF2D6A4F),
                                             shadowColor:
                                                 const Color(0xFF081C15),
-                                            borderColor: const Color(0xFFFFD54F)
+                                            borderColor: const Color(0xFF00E676)
                                                 .withValues(alpha: 0.35),
                                             textColor: Colors.white,
-                                            iconColor: const Color(0xFFFFD54F),
+                                            iconColor: const Color(0xFF00E676),
                                             onPressed: () {
                                               Navigator.push(
                                                 context,

@@ -57,12 +57,12 @@ class _CrosswordNatureBackgroundState extends State<CrosswordNatureBackground>
           symbol: symbol,
           color: isLeaf
               ? [
-                  const Color(0xFFFF7043),
-                  const Color(0xFFFFA726),
-                  const Color(0xFFFFB74D),
+                  const Color(0xFF66BB6A),
                   const Color(0xFF81C784),
+                  const Color(0xFF4CAF50),
+                  const Color(0xFF2E7D32),
                 ][_random.nextInt(4)]
-              : const Color(0xFFFFD54F),
+              : const Color(0xFFB9F6CA),
         ),
       );
     }

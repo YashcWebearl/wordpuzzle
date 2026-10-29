@@ -68,7 +68,7 @@ class _CrosswordLogoState extends State<CrosswordLogo>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFFFF9100).withValues(alpha: 0.35),
+                  const Color(0xFF00E676).withValues(alpha: 0.35),
                   const Color(0xFF2E7D32).withValues(alpha: 0.20),
                   Colors.transparent,
                 ],
@@ -91,7 +91,7 @@ class _CrosswordLogoState extends State<CrosswordLogo>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFF6D00).withValues(alpha: 0.35),
+                        color: const Color(0xFF00E676).withValues(alpha: 0.35),
                         blurRadius: 28,
                         spreadRadius: 4,
                       ),
@@ -165,7 +165,7 @@ class _CrosswordLogoState extends State<CrosswordLogo>
                   ],
                 ),
 
-                // Autumn Leaf Emblem in Corner (🍁)
+                // Autumn Leaf Emblem in Corner (🍃)
                 Positioned(
                   right: widget.size * 0.15,
                   top: widget.size * 0.14,
@@ -181,7 +181,7 @@ class _CrosswordLogoState extends State<CrosswordLogo>
                           width: 1,
                         ),
                       ),
-                      child: const Text('🍁', style: TextStyle(fontSize: 14)),
+                      child: const Text('🍃', style: TextStyle(fontSize: 14)),
                     ),
                   ),
                 ),
@@ -199,13 +199,13 @@ class _CrosswordLogoState extends State<CrosswordLogo>
         ? const [Color(0xFFFFD54F), Color(0xFFFF9100)]
         : isEmerald
             ? const [Color(0xFF66BB6A), Color(0xFF2E7D32)]
-            : const [Color(0xFFFF7043), Color(0xFFE64A19)];
+            : const [Color(0xFF00E676), Color(0xFF00A859)];
 
     final Color shadowColor = isGold
         ? const Color(0xFFE65100)
         : isEmerald
             ? const Color(0xFF1B5E20)
-            : const Color(0xFFBF360C);
+            : const Color(0xFF0B532E);
 
     return Container(
       width: size,
