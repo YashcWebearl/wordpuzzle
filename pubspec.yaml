@@ -98,6 +98,7 @@ flutter:
     - assets/music/last5sec.mp3
     - assets/music/hint.mp3
     - assets/music/crossword/
+    - assets/music/scramble/
 
   #   - images/a_dot_ham.jpeg
 

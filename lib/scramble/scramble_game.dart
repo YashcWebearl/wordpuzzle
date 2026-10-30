@@ -61,6 +61,8 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   // Single-character hint highlight state (does NOT solve the full word)
   String? _hintedTileId;
   Timer? _hintTimer;
+  late AnimationController _hintPulseController;
+  late Animation<double> _hintPulseAnimation;
 
   // Praise popup state
   String? _currentPraiseText;
@@ -118,6 +120,15 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     );
     _shuffleAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _shuffleAnimController, curve: Curves.easeInOut),
+    );
+
+    // Continuous hint pulse animation for highlighted starting letter
+    _hintPulseController = AnimationController(
+      duration: const Duration(milliseconds: 650),
+      vsync: this,
+    );
+    _hintPulseAnimation = Tween<double>(begin: 1.0, end: 1.14).animate(
+      CurvedAnimation(parent: _hintPulseController, curve: Curves.easeInOut),
     );
 
     _flyingWordController = AnimationController(
@@ -201,6 +212,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   void dispose() {
     _gameTimer?.cancel();
     _hintTimer?.cancel();
+    _hintPulseController.dispose();
     _shakeAnimController.dispose();
     _shuffleAnimController.dispose();
     _flyingWordController.dispose();
@@ -346,14 +358,26 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                                     Navigator.pop(dialogContext);
                                     final movesUsed = math.max(
                                         0, _totalMoves - _remainingMoves);
-                                    Navigator.pushReplacement(
+                                    Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => ScrambleSuccessScreen(
-                                          level: widget.level,
-                                          isWin: false,
-                                          coinsEarned: 0,
-                                          movesUsed: movesUsed,
+                                        builder: (context) => AdPlaybackPage(
+                                          isRewardAd: false,
+                                          onAdComplete: () {
+                                            if (!mounted) return;
+                                            Navigator.pushReplacement(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    ScrambleSuccessScreen(
+                                                  level: widget.level,
+                                                  isWin: false,
+                                                  coinsEarned: 0,
+                                                  movesUsed: movesUsed,
+                                                ),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ),
                                     );
@@ -396,8 +420,9 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                                         return;
                                       }
 
+                                      // Smooth spinner delay matching Crossword & Wordix so circular indicator is visible
                                       await Future.delayed(
-                                          const Duration(milliseconds: 300));
+                                          const Duration(milliseconds: 350));
                                       await coinProvider.undoCoins(4);
                                       AudioHelper().playMoneySound();
                                       Fluttertoast.showToast(
@@ -503,7 +528,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
         _currentFormedWord = touchedTile.letter;
         _dragDirection = null;
       });
-      AudioHelper().playButtonSound();
+      AudioHelper().playScramblePop(0);
       HapticFeedback.selectionClick();
       return;
     }
@@ -522,7 +547,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
         }
         _currentFormedWord = _selectedTiles.map((t) => t.letter).join('');
       });
-      AudioHelper().playButtonSound();
+      AudioHelper().playScramblePop(_selectedTiles.length - 1);
       HapticFeedback.selectionClick();
       return;
     }
@@ -544,7 +569,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
           _selectedTiles.add(touchedTile);
           _currentFormedWord = _selectedTiles.map((t) => t.letter).join('');
         });
-        AudioHelper().playButtonSound();
+        AudioHelper().playScramblePop(_selectedTiles.length - 1);
         HapticFeedback.selectionClick();
       } else if (_dragDirection != null) {
         // Must continue in the exact same straight line!
@@ -555,7 +580,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
             _selectedTiles.add(touchedTile);
             _currentFormedWord = _selectedTiles.map((t) => t.letter).join('');
           });
-          AudioHelper().playButtonSound();
+          AudioHelper().playScramblePop(_selectedTiles.length - 1);
           HapticFeedback.selectionClick();
         }
       }
@@ -570,12 +595,13 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     if (_selectedTiles.isEmpty || _isProcessingSolve || _isGameOver) return;
 
     final formed = _currentFormedWord.toUpperCase();
+    final reversedFormed = formed.split('').reversed.join('');
 
     String? matchedWord;
     for (final word in _levelData.targetWords) {
       if (!_solvedWords.contains(word)) {
-        // Strict forward matching only: words must be swiped in proper spelling order!
-        if (word == formed) {
+        // Matches word swiped in natural order or reverse order (e.g. Left-to-Right OR Right-to-Left!)
+        if (word == formed || word == reversedFormed) {
           matchedWord = word;
           break;
         }
@@ -593,13 +619,14 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   void _onWordSolved(String word, List<ScrambleTile> solvedTiles) async {
     _isProcessingSolve = true;
     HapticFeedback.heavyImpact();
-    AudioHelper().playFoundSound();
+    AudioHelper().playScrambleSolve();
 
     // Kitty joy reaction!
     setState(() {
       if (_remainingMoves > 0) _remainingMoves--;
       _kittyMood = 'happy';
     });
+    AudioHelper().playScrambleKitty();
     Future.delayed(const Duration(milliseconds: 1600), () {
       if (mounted && _kittyMood == 'happy') {
         setState(() => _kittyMood = 'idle');
@@ -619,6 +646,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     setState(() {
       _currentPraiseText = praises[math.Random().nextInt(praises.length)];
     });
+    AudioHelper().playScramblePraise();
     _praiseAnimController.forward(from: 0.0);
 
     // Solve sparkles & star burst particles
@@ -668,7 +696,10 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
         col.removeWhere((t) => solvedIds.contains(t.id));
       }
 
-      // Update remaining tiles rows based on new column heights
+      // Slide columns together horizontally when a column becomes completely empty
+      _columns.removeWhere((col) => col.isEmpty);
+
+      // Update remaining tiles rows and columns based on new column heights & compaction
       int newMaxRows = 0;
       for (final col in _columns) {
         if (col.length > newMaxRows) newMaxRows = col.length;
@@ -676,6 +707,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       for (int c = 0; c < _columns.length; c++) {
         final col = _columns[c];
         for (int k = 0; k < col.length; k++) {
+          col[k].col = c;
           col[k].row = newMaxRows - 1 - k;
           col[k].isSelected = false;
         }
@@ -684,7 +716,17 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       _selectedTiles.clear();
       _currentFormedWord = '';
       _dragDirection = null;
+
+      // Stop hint highlight if the hinted tile was solved
+      if (_hintedTileId != null && solvedIds.contains(_hintedTileId)) {
+        _hintedTileId = null;
+        _hintPulseController.stop();
+        _hintPulseController.reset();
+        _hintTimer?.cancel();
+      }
     });
+
+    AudioHelper().playScrambleCollapse();
 
     await Future.delayed(const Duration(milliseconds: 200));
     _isProcessingSolve = false;
@@ -692,21 +734,30 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     // Check if entire level is cleared
     if (_solvedWords.length == _levelData.targetWords.length) {
       _gameTimer?.cancel();
-      AudioHelper().playWinnerSound();
-
       final movesUsed = math.max(0, _totalMoves - _remainingMoves);
 
       await Future.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
 
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => ScrambleSuccessScreen(
-            level: widget.level,
-            coinsEarned: 3,
-            isWin: true,
-            movesUsed: movesUsed,
+          builder: (context) => AdPlaybackPage(
+            isRewardAd: false,
+            onAdComplete: () {
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ScrambleSuccessScreen(
+                    level: widget.level,
+                    coinsEarned: 3,
+                    isWin: true,
+                    movesUsed: movesUsed,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       );
@@ -866,32 +917,140 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   void _showInsufficientCoinsDialog() {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
         backgroundColor: Colors.transparent,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(30),
+        elevation: 0,
+        contentPadding: EdgeInsets.zero,
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
-              padding: const EdgeInsets.all(30),
+              padding: const EdgeInsets.all(26),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B0733).withValues(alpha: 0.90),
-                borderRadius: BorderRadius.circular(30),
+                color: const Color(0xFF230D42).withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: const Color(0xFFD500F9).withValues(alpha: 0.4),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFD500F9).withValues(alpha: 0.2),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('NOT ENOUGH COINS',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white)),
-                  const SizedBox(height: 20),
-                  App3DButton.cyan(
-                    text: 'OK',
-                    height: 44,
-                    width: 120,
-                    onPressed: () => Navigator.pop(context),
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFD700), Color(0xFFFF9100)],
+                      ),
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFD500F9).withValues(alpha: 0.5),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.monetization_on_rounded,
+                      color: Colors.white,
+                      size: 36,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'NOT ENOUGH COINS!',
+                    style: GoogleFonts.fredoka(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'You need 4 coins to continue or retry.\nWatch a quick ad to claim free bonus coins!',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.nunito(
+                      fontSize: 14,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: App3DButton(
+                          height: 48,
+                          color: const Color(0xFF4A148C),
+                          topHighlightColor: const Color(0xFF7B1FA2),
+                          shadowColor: const Color(0xFF1E0338),
+                          onPressed: () => Navigator.pop(dialogCtx),
+                          child: Text(
+                            'RETURN',
+                            style: GoogleFonts.fredoka(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: App3DButton(
+                          height: 48,
+                          color: const Color(0xFFAB47BC),
+                          topHighlightColor: const Color(0xFFCE93D8),
+                          shadowColor: const Color(0xFF4A148C),
+                          onPressed: () {
+                            Navigator.pop(dialogCtx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AdPlaybackPage(
+                                  isRewardAd: true,
+                                  onAdComplete: () {
+                                    Provider.of<CoinProvider>(context,
+                                            listen: false)
+                                        .addCoins(5);
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.ondemand_video_rounded,
+                                  color: Colors.white, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                '+5 COINS',
+                                style: GoogleFonts.fredoka(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -988,23 +1147,22 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     AudioHelper().playHintSound();
     HapticFeedback.mediumImpact();
 
-    // Highlight only this single character with an electric cyan neon glow!
+    // Highlight only this starting letter with pulsing gold/emerald glow!
     setState(() {
       _hintedTileId = hintTile!.id;
     });
+    _hintPulseController.repeat(reverse: true);
 
     _hintTimer?.cancel();
-    _hintTimer = Timer(const Duration(seconds: 5), () {
+    _hintTimer = Timer(const Duration(seconds: 6), () {
       if (mounted && _hintedTileId != null) {
         setState(() {
           _hintedTileId = null;
         });
+        _hintPulseController.stop();
+        _hintPulseController.reset();
       }
     });
-
-    Fluttertoast.showToast(
-      msg: "Hint: Starts with '${hintTile.letter}' for '$unsolvedWord'!",
-    );
   }
 
   void _onShuffleTapped() {
@@ -1031,6 +1189,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       AudioHelper().playMoneySound();
     }
 
+    AudioHelper().playScrambleShuffle();
     _shuffleAnimController.forward(from: 0.0);
     HapticFeedback.lightImpact();
     AudioHelper().playButtonSound();
@@ -1841,6 +2000,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     final double top = row * step;
 
     final bool isSelected = tile.isSelected;
+    final bool isHinted = (_hintedTileId == tile.id);
 
     // 2.5D Physical Depth & Corner Chamfer
     final double depth = 5.0.h;
@@ -1852,10 +2012,17 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       curve: Curves.bounceOut,
       left: left,
       top: top,
-      child: AnimatedScale(
-        scale: isSelected ? 1.06 : 1.0,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOutBack,
+      child: AnimatedBuilder(
+        animation: _hintPulseAnimation,
+        builder: (context, child) {
+          final double currentScale = isSelected
+              ? 1.06
+              : (isHinted ? _hintPulseAnimation.value : 1.0);
+          return Transform.scale(
+            scale: currentScale,
+            child: child,
+          );
+        },
         child: Container(
           width: tileSize,
           height: tileSize,
@@ -1863,7 +2030,9 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
             // Extruded 2.5D base color (solid bottom shelf)
             color: isSelected
                 ? const Color(0xFFC76A00)
-                : const Color(0xFF14520A),
+                : (isHinted
+                    ? const Color(0xFF00796B)
+                    : const Color(0xFF14520A)),
             borderRadius: BorderRadius.circular(cornerRadius),
             boxShadow: [
               // Bottom drop shadow on the table/floor
@@ -1878,6 +2047,13 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                   color: const Color(0xFFFFB300).withValues(alpha: 0.65),
                   blurRadius: 14,
                   spreadRadius: 2,
+                ),
+              // Vibrant Electric Emerald / Cyan pulse aura when hinted!
+              if (isHinted)
+                BoxShadow(
+                  color: const Color(0xFF00E676).withValues(alpha: 0.85),
+                  blurRadius: 18,
+                  spreadRadius: 3.5,
                 ),
             ],
           ),
@@ -1904,20 +2080,32 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                             Color(0xFFFF9800),
                           ],
                         )
-                      : const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0xFF5CD834),
-                            Color(0xFF38B81E),
-                            Color(0xFF289914),
-                          ],
-                        ),
+                      : (isHinted
+                          ? const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0xFF69F0AE),
+                                Color(0xFF00E676),
+                                Color(0xFF00B0FF),
+                              ],
+                            )
+                          : const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0xFF5CD834),
+                                Color(0xFF38B81E),
+                                Color(0xFF289914),
+                              ],
+                            )),
                   border: Border.all(
                     color: isSelected
                         ? const Color(0xFFFFFDE7).withValues(alpha: 0.85)
-                        : const Color(0xFF9EFF6B).withValues(alpha: 0.65),
-                    width: isSelected ? 1.5 : 1.2,
+                        : (isHinted
+                            ? const Color(0xFFE0F7FA)
+                            : const Color(0xFF9EFF6B).withValues(alpha: 0.65)),
+                    width: (isSelected || isHinted) ? 2.0 : 1.2,
                   ),
                 ),
                 child: Stack(
@@ -1933,7 +2121,9 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                         decoration: BoxDecoration(
                           color: isSelected
                               ? Colors.white.withValues(alpha: 0.7)
-                              : const Color(0xFFB9FF8F).withValues(alpha: 0.75),
+                              : (isHinted
+                                  ? Colors.white.withValues(alpha: 0.85)
+                                  : const Color(0xFFB9FF8F).withValues(alpha: 0.75)),
                           borderRadius: BorderRadius.circular(2.r),
                         ),
                       ),
@@ -1943,14 +2133,16 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                       style: GoogleFonts.fredoka(
                         fontSize: 29.sp,
                         fontWeight: FontWeight.w900,
-                        color: isSelected
-                            ? const Color(0xFF3E2723)
+                        color: (isSelected || isHinted)
+                            ? const Color(0xFF00332C)
                             : Colors.white,
                         shadows: [
                           Shadow(
                             color: isSelected
                                 ? Colors.white.withValues(alpha: 0.45)
-                                : const Color(0xFF114207),
+                                : (isHinted
+                                    ? Colors.white.withValues(alpha: 0.5)
+                                    : const Color(0xFF114207)),
                             offset: const Offset(0, 2.2),
                             blurRadius: 1.0,
                           ),

@@ -73,6 +73,48 @@ class ScramblePuzzleEngine {
         .map((w) => w.toString().toUpperCase().trim())
         .toList();
 
+    // Deterministic 1:1 match for Level 1 (Exact Flagship Reference from User Image!)
+    if (level == 1) {
+      final List<List<String>> level1Cols = [
+        ['L', 'F', 'O'],
+        ['H', 'G', 'N', 'U', 'A', 'L'],
+        ['O', 'N', 'I', 'I', 'B'],
+        ['S', 'I', 'O', 'L', 'O'],
+        ['S', 'A', 'N', 'M', 'O'],
+        ['P', 'K'],
+      ];
+      int maxRows = 6;
+      final List<List<ScrambleTile>> initialColumns = List.generate(6, (_) => []);
+      final List<ScrambleTile> allTiles = [];
+      int tileCounter = 0;
+
+      for (int c = 0; c < 6; c++) {
+        final colList = level1Cols[c];
+        for (int k = 0; k < colList.length; k++) {
+          final row = maxRows - 1 - k;
+          final tile = ScrambleTile(
+            id: 'tile_1_${tileCounter++}',
+            letter: colList[k],
+            row: row,
+            col: c,
+          );
+          initialColumns[c].add(tile);
+          allTiles.add(tile);
+        }
+      }
+
+      return ScrambleLevelData(
+        level: 1,
+        themeTitle: themeTitle,
+        emoji: emoji,
+        targetWords: words,
+        rows: maxRows,
+        cols: 6,
+        tiles: allTiles,
+        initialColumns: initialColumns,
+      );
+    }
+
     // Determine grid columns based on word lengths
     final int maxWordLen = words.map((w) => w.length).reduce(math.max);
     final int totalLetters =
@@ -80,6 +122,8 @@ class ScramblePuzzleEngine {
 
     int cols = math.max(maxWordLen, 3);
     if (totalLetters >= 12 && cols < 4) cols = 4;
+    if (totalLetters >= 18 && cols < 5) cols = 5;
+    if (totalLetters >= 24 && cols < 6) cols = 6;
     if (cols > 6) cols = 6;
 
     // Build the solvable columns layout
@@ -458,12 +502,13 @@ class ScramblePuzzleEngine {
 /// Catalog of 60+ Curated Themes with Infinite Procedural Progression
 class ScrambleLevelCatalog {
   static final List<Map<String, dynamic>> _curatedThemes = [
-    // --- Levels 1 - 10: Easy Starters (2 to 3 words, mixed vertical & horizontal) ---
+    // --- Level 1: Flagship Real Game Master Level (Matching User Screenshot Exactly!) ---
     {
       'theme': 'Makes you cry',
       'emoji': '🧅',
-      'words': ['ONION', 'LAUGH'],
+      'words': ['ONION', 'LAUGH', 'LOSS', 'PAIN', 'FILM', 'BOOK'],
     },
+    // --- Levels 2 - 10: Smooth Onboarding (2-3 words, progressive collapse) ---
     {
       'theme': 'PET ANIMALS',
       'emoji': '🐱',
@@ -693,6 +738,8 @@ class ScrambleLevelCatalog {
   ];
 
   /// Procedural theme generator for infinite level progression (> 60)
+  /// Incorporates ~0.5% incremental difficulty scaling:
+  /// Higher levels introduce more words, slightly longer words, and richer cascades!
   static Map<String, dynamic> getThemeForLevel(int level) {
     if (level <= _curatedThemes.length) {
       return _curatedThemes[level - 1];
@@ -703,10 +750,24 @@ class ScrambleLevelCatalog {
     final int idx = (level - 1) % _curatedThemes.length;
     final base = _curatedThemes[idx];
 
+    // Difficulty scaling: add supplementary related vocabulary as loop increases
+    final List<String> baseWords = List<String>.from(base['words'] as List);
+    final List<String> extraVocabularyPool = [
+      'STAR', 'GOLD', 'FAST', 'MOON', 'GLOW', 'BEAT', 'WAVE', 'WIND',
+      'PEAK', 'DAWN', 'ROAR', 'ZOOM', 'FIRE', 'MINT', 'WILD', 'CALM',
+    ];
+
+    if (loop >= 2 && baseWords.length < 4) {
+      baseWords.add(extraVocabularyPool[(level * 3) % extraVocabularyPool.length]);
+    }
+    if (loop >= 3 && baseWords.length < 5) {
+      baseWords.add(extraVocabularyPool[(level * 7) % extraVocabularyPool.length]);
+    }
+
     return {
       'theme': '${base['theme']} • STAGE $loop',
       'emoji': base['emoji'],
-      'words': base['words'],
+      'words': baseWords,
     };
   }
 

@@ -20,6 +20,15 @@ class AudioHelper {
   AudioSource? _timeOut;
   AudioSource? _hint;
 
+  // Word Scramble bespoke sound sources
+  final List<AudioSource> _scramblePopNotes = [];
+  AudioSource? _scramblePopDefault;
+  AudioSource? _scrambleCollapse;
+  AudioSource? _scrambleSolve;
+  AudioSource? _scrambleKitty;
+  AudioSource? _scrambleShuffle;
+  AudioSource? _scramblePraise;
+
   SoundHandle? _winnerHandle;
   SoundHandle? _notFoundHandle;
   SoundHandle? _backgroundHandle;
@@ -47,6 +56,29 @@ class AudioHelper {
     _timeOut = await _soLoud.loadAsset('assets/music/time_out.mp3');
     _last5sec = await _soLoud.loadAsset('assets/music/last5sec.mp3');
     _hint = await _soLoud.loadAsset('assets/music/hint.mp3');
+
+    // Load Word Scramble sounds safely
+    _scramblePopNotes.clear();
+    for (int i = 1; i <= 8; i++) {
+      try {
+        final src = await _soLoud.loadAsset(
+          'assets/music/scramble/scramble_pop_$i.wav',
+        );
+        _scramblePopNotes.add(src);
+      } catch (_) {}
+    }
+    _scramblePopDefault =
+        await _safeLoad('assets/music/scramble/scramble_pop.wav');
+    _scrambleCollapse =
+        await _safeLoad('assets/music/scramble/scramble_collapse.wav');
+    _scrambleSolve =
+        await _safeLoad('assets/music/scramble/scramble_solve.wav');
+    _scrambleKitty =
+        await _safeLoad('assets/music/scramble/scramble_kitty.wav');
+    _scrambleShuffle =
+        await _safeLoad('assets/music/scramble/scramble_shuffle.wav');
+    _scramblePraise =
+        await _safeLoad('assets/music/scramble/scramble_praise.wav');
 
     await _loadSoundSetting();
   }
@@ -184,5 +216,75 @@ class AudioHelper {
 
   void dispose() {
     _soLoud.deinit();
+  }
+
+  Future<AudioSource?> _safeLoad(String path) async {
+    try {
+      return await _soLoud.loadAsset(path);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // --- Word Scramble In-Game Audio Methods ---
+  Future<void> playScramblePop([int noteIndex = 0]) async {
+    if (!_isSoundOn) return;
+    try {
+      if (_scramblePopNotes.isNotEmpty) {
+        final idx = noteIndex.clamp(0, _scramblePopNotes.length - 1);
+        await _soLoud.play(_scramblePopNotes[idx]);
+      } else if (_scramblePopDefault != null) {
+        await _soLoud.play(_scramblePopDefault!);
+      } else {
+        await playButtonSound();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playScrambleCollapse() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_scrambleCollapse != null) {
+        await _soLoud.play(_scrambleCollapse!);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playScrambleSolve() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_scrambleSolve != null) {
+        await _soLoud.play(_scrambleSolve!);
+      } else {
+        await playFoundSound();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playScrambleKitty() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_scrambleKitty != null) {
+        await _soLoud.play(_scrambleKitty!);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playScrambleShuffle() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_scrambleShuffle != null) {
+        await _soLoud.play(_scrambleShuffle!);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playScramblePraise() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_scramblePraise != null) {
+        await _soLoud.play(_scramblePraise!);
+      }
+    } catch (_) {}
   }
 }
