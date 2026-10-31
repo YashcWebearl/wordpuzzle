@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:word_puzzle/widget/sound.dart';
-
-import 'coin_noti.dart';
 import 'coin_service.dart';
 
 class CoinBalanceWidget extends StatelessWidget {

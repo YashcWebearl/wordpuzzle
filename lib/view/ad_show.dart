@@ -139,7 +139,7 @@ class _AdPlaybackPageState extends State<AdPlaybackPage> {
       },
       child: SafeArea(
         child: Scaffold(
-          backgroundColor: Colors.black.withOpacity(0.8),
+          backgroundColor: Colors.black.withValues(alpha: 0.8),
           body: Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),

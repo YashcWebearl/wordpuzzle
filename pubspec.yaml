@@ -99,6 +99,7 @@ flutter:
     - assets/music/hint.mp3
     - assets/music/crossword/
     - assets/music/scramble/
+    - assets/music/balloon/
 
   #   - images/a_dot_ham.jpeg
 

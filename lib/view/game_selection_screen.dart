@@ -21,9 +21,10 @@ import 'package:word_puzzle/crossword/crossword_logo.dart';
 import 'package:word_puzzle/crossword/crossword_level_service.dart';
 import 'package:word_puzzle/widget/coin_grant_dialog.dart';
 import 'package:word_puzzle/view/daily_rewards_tasks_screen.dart';
-import 'package:word_puzzle/scramble/scramble_home.dart';
 import 'package:word_puzzle/scramble/scramble_splash.dart';
 import 'package:word_puzzle/scramble/scramble_logo.dart';
+import 'package:word_puzzle/balloon_rescue/balloon_splash.dart';
+import 'package:word_puzzle/balloon_rescue/balloon_logo.dart';
 
 /// Game representation model for the Selection Hub
 class _GameItemModel {
@@ -219,6 +220,48 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       buttonGlowColor: Color(0xFFD500F9),
       buttonTextColor: Colors.white,
     ),
+    _GameItemModel(
+      id: 'balloon',
+      title: 'BALLOON RESCUE',
+      category: 'GUESS & SAVE',
+      subtitle: '5 Balloons Life & Big 3D Letter Tiles',
+      badgeText: 'NEW ARENA',
+      badgeColor: Color(0xFFFFD54F),
+      primaryColor: Color(0xFFFFD54F),
+      secondaryColor: Color(0xFFFF9100),
+      cardGradient: [
+        Color(0xFF2E1C00),
+        Color(0xFF4A3000),
+        Color(0xFF785202),
+      ],
+      isPlayable: true,
+      imagePath: null,
+      fallbackIcon: Icons.air_rounded,
+      tags: [
+        '🎈 5 Balloon Lives',
+        '👦 Save The Buddy',
+        '🔠 12 Letter Tiles',
+        '🏆 100+ Levels'
+      ],
+      quickStats: {
+        'TYPE': 'Word Guess',
+        'LEVELS': '100+',
+        'STATUS': 'Live',
+      },
+      features: [
+        'Save the floating buddy by guessing target secret words',
+        '10 to 12 chunky 3D letter tiles for easy tapping',
+        'Wrong letters pop balloons with realistic burst animations',
+        'Win coins, unlock achievements, and restore balloons with hints',
+      ],
+      buttonGradient: [
+        Color(0xFFFFD54F),
+        Color(0xFFFF9100),
+      ],
+      buttonShadowColor: Color(0xFFE65100),
+      buttonGlowColor: Color(0xFFFFD54F),
+      buttonTextColor: Color(0xFF3E2723),
+    ),
   ];
 
   @override
@@ -322,7 +365,9 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
           ? const CrosswordSplashScreen()
           : (game.id == 'scramble'
               ? const ScrambleSplashScreen()
-              : const HomePage());
+              : (game.id == 'balloon'
+                  ? const BalloonSplashScreen()
+                  : const HomePage()));
 
       await Navigator.push(
         context,
@@ -365,16 +410,16 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
             child: Container(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
               decoration: BoxDecoration(
-                color: const Color(0xFF101B2B).withOpacity(0.96),
+                color: const Color(0xFF101B2B).withValues(alpha: 0.96),
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(32)),
                 border: Border.all(
-                  color: game.primaryColor.withOpacity(0.4),
+                  color: game.primaryColor.withValues(alpha: 0.4),
                   width: 1.8,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: game.primaryColor.withOpacity(0.2),
+                    color: game.primaryColor.withValues(alpha: 0.2),
                     blurRadius: 30,
                     offset: const Offset(0, -6),
                   ),
@@ -399,7 +444,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
                         colors: [
-                          game.primaryColor.withOpacity(0.3),
+                          game.primaryColor.withValues(alpha: 0.3),
                           Colors.transparent
                         ],
                         begin: Alignment.topLeft,
@@ -420,7 +465,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                     decoration: BoxDecoration(
-                      color: game.badgeColor.withOpacity(0.2),
+                      color: game.badgeColor.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: game.badgeColor, width: 1.2),
                     ),
@@ -484,7 +529,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                               feature,
                               style: GoogleFonts.outfit(
                                 fontSize: 13.sp,
-                                color: Colors.white.withOpacity(0.9),
+                                color: Colors.white.withValues(alpha: 0.9),
                                 height: 1.3,
                               ),
                             ),
@@ -600,10 +645,10 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
               child: Container(
                 padding: const EdgeInsets.all(26),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A).withOpacity(0.92),
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(26),
                   border: Border.all(
-                      color: Colors.white.withOpacity(0.2), width: 1.5),
+                      color: Colors.white.withValues(alpha: 0.2), width: 1.5),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -611,7 +656,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF5252).withOpacity(0.15),
+                        color: const Color(0xFFFF5252).withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -901,7 +946,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
           const Color(0xFF00897B); // Lush nature teal/green glow
       bottomAuraColor = const Color(0xFF00E676); // Radiant green glow
       isBottomRight = false;
-    } else {
+    } else if (activeGame.id == 'scramble') {
       // 3rd Game: Scramble (Deep Royal Purple - EVERYTHING PURPLISH)
       gradientColors = const [
         Color(0xFF320B4E), // Deep royal violet / purple
@@ -912,6 +957,17 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       secondaryAuraColor = const Color(0xFF7C4DFF); // Deep royal violet glow
       bottomAuraColor = const Color(0xFFB388FF); // Soft glowing lavender purple
       isBottomRight = true;
+    } else {
+      // 4th Game: Balloon Rescue (Warm Golden Amber & Honey Sunburst - EVERYTHING YELLOW)
+      gradientColors = const [
+        Color(0xFF332002), // Deep rich honey amber obsidian
+        Color(0xFF211400), // Dark midnight amber
+        Color(0xFF0F0A00), // Dark obsidian abyss
+      ];
+      auraColor = const Color(0xFFFFD54F); // Vibrant radiant yellow glow
+      secondaryAuraColor = const Color(0xFFFF9100); // Warm rich amber glow
+      bottomAuraColor = const Color(0xFFFFE082); // Soft glowing golden yellow
+      isBottomRight = false;
     }
 
     return Positioned.fill(
@@ -942,8 +998,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     center: const Alignment(0, -0.4),
                     radius: 0.95,
                     colors: [
-                      auraColor.withOpacity(0.32),
-                      secondaryAuraColor.withOpacity(0.16),
+                      auraColor.withValues(alpha: 0.32),
+                      secondaryAuraColor.withValues(alpha: 0.16),
                       Colors.transparent,
                     ],
                   ),
@@ -965,7 +1021,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      bottomAuraColor.withOpacity(0.20),
+                      bottomAuraColor.withValues(alpha: 0.20),
                       Colors.transparent,
                     ],
                   ),
@@ -1150,15 +1206,15 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                   duration: const Duration(milliseconds: 300),
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
+                    color: Colors.white.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: activeColor.withOpacity(0.7),
+                      color: activeColor.withValues(alpha: 0.7),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: activeColor.withOpacity(0.25),
+                        color: activeColor.withValues(alpha: 0.25),
                         blurRadius: 10,
                       ),
                     ],
@@ -1220,12 +1276,12 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
               borderRadius:
                   const BorderRadius.horizontal(right: Radius.circular(32)),
               border: Border.all(
-                color: const Color(0xFF00E5FF).withOpacity(0.35),
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.35),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   blurRadius: 30,
                   offset: const Offset(6, 0),
                 ),
@@ -1255,7 +1311,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                             border: Border.all(color: Colors.white, width: 2.2),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF00E5FF).withOpacity(0.4),
+                                color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
                                 blurRadius: 18,
                                 spreadRadius: 2,
                               ),
@@ -1296,7 +1352,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.08),
+                            color: Colors.white.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: Colors.white12),
                           ),
@@ -1304,7 +1360,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                             _userEmail,
                             style: GoogleFonts.outfit(
                               fontSize: 12.sp,
-                              color: Colors.white.withOpacity(0.85),
+                              color: Colors.white.withValues(alpha: 0.85),
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 1,
@@ -1316,7 +1372,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                   ),
 
                   const SizedBox(height: 20),
-                  Divider(color: Colors.white.withOpacity(0.12), height: 1),
+                  Divider(color: Colors.white.withValues(alpha: 0.12), height: 1),
                   const SizedBox(height: 12),
 
                   // Settings Section Heading
@@ -1368,7 +1424,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
 
                         const SizedBox(height: 10),
                         Divider(
-                            color: Colors.white.withOpacity(0.12), height: 1),
+                            color: Colors.white.withValues(alpha: 0.12), height: 1),
                         const SizedBox(height: 10),
 
                         // Logout Tile
@@ -1422,16 +1478,16 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: ListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.15),
+            color: iconColor.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: iconColor, size: 20),
@@ -1517,7 +1573,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                 label = '🧩 CROSS';
               } else if (game.id == 'scramble') {
                 label = '🐱 SCRAMBLE';
-              } else if (game.id == 'balloon_pop') {
+              } else if (game.id == 'balloon' || game.id == 'balloon_pop') {
                 label = '🎈 BALLOON';
               } else {
                 label = game.title;
@@ -1542,19 +1598,19 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? game.primaryColor.withOpacity(0.22)
-                            : Colors.white.withOpacity(0.05),
+                            ? game.primaryColor.withValues(alpha: 0.22)
+                            : Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isSelected
                               ? game.primaryColor
-                              : Colors.white.withOpacity(0.12),
+                              : Colors.white.withValues(alpha: 0.12),
                           width: isSelected ? 1.8 : 1.0,
                         ),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: game.primaryColor.withOpacity(0.35),
+                                  color: game.primaryColor.withValues(alpha: 0.35),
                                   blurRadius: 8,
                                 ),
                               ]
@@ -1616,9 +1672,9 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                game.cardGradient[0].withOpacity(0.88),
-                game.cardGradient[1].withOpacity(0.82),
-                game.cardGradient[2].withOpacity(0.88),
+                game.cardGradient[0].withValues(alpha: 0.88),
+                game.cardGradient[1].withValues(alpha: 0.82),
+                game.cardGradient[2].withValues(alpha: 0.88),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -1626,13 +1682,13 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
               color: isSelected
-                  ? game.primaryColor.withOpacity(0.8)
-                  : Colors.white.withOpacity(0.2),
+                  ? game.primaryColor.withValues(alpha: 0.8)
+                  : Colors.white.withValues(alpha: 0.2),
               width: isSelected ? 2.0 : 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: game.primaryColor.withOpacity(isSelected ? 0.35 : 0.15),
+                color: game.primaryColor.withValues(alpha: isSelected ? 0.35 : 0.15),
                 blurRadius: isSelected ? 24 : 12,
                 spreadRadius: isSelected ? 1 : 0,
               ),
@@ -1647,7 +1703,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                 child: Icon(
                   game.fallbackIcon,
                   size: 160,
-                  color: Colors.white.withOpacity(0.04),
+                  color: Colors.white.withValues(alpha: 0.04),
                 ),
               ),
 
@@ -1664,7 +1720,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.25),
+                            color: Colors.black.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(10),
                             border:
                                 Border.all(color: Colors.white24, width: 0.8),
@@ -1683,7 +1739,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: game.badgeColor.withOpacity(0.22),
+                            color: game.badgeColor.withValues(alpha: 0.22),
                             borderRadius: BorderRadius.circular(12),
                             border:
                                 Border.all(color: game.badgeColor, width: 1.2),
@@ -1717,7 +1773,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
 
                     const Spacer(),
 
-                    // Hero Art / Icon Display (Proper, prominent size & 3D Crossword Logo)
+                    // Hero Art / Icon Display (Proper, prominent size & 3D Crossword / Balloon Rescue Logo)
                     Center(
                       child: Container(
                         width: 140.w,
@@ -1726,35 +1782,13 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           shape: BoxShape.circle,
                           gradient: RadialGradient(
                             colors: [
-                              game.primaryColor.withOpacity(0.35),
+                              game.primaryColor.withValues(alpha: 0.35),
                               Colors.transparent,
                             ],
                           ),
                         ),
                         child: Center(
-                          child: game.id == 'crossword'
-                              ? const CrosswordLogo(
-                                  size: 130,
-                                  animate: true,
-                                )
-                              : (game.id == 'scramble'
-                                  ? const ScrambleLogo(
-                                      size: 130,
-                                      animate: true,
-                                    )
-                                  : (game.imagePath != null
-                                      ? Image.asset(
-                                          game.imagePath!,
-                                          width: 125.w,
-                                          height: 125.h,
-                                          fit: BoxFit.contain,
-                                          errorBuilder: (_, __, ___) => Icon(
-                                            game.fallbackIcon,
-                                            size: 80.sp,
-                                            color: game.primaryColor,
-                                          ),
-                                        )
-                                      : _buildCrosswordHeroArt(game))),
+                          child: _buildGameHeroArt(game),
                         ),
                       ),
                     ),
@@ -1771,7 +1805,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                         letterSpacing: 1.2,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withValues(alpha: 0.5),
                             offset: const Offset(0, 2),
                             blurRadius: 4,
                           ),
@@ -1785,7 +1819,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
                         fontSize: 12.sp,
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         height: 1.25,
                       ),
                     ),
@@ -1801,10 +1835,10 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
+                            color: Colors.white.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                                color: Colors.white.withOpacity(0.15)),
+                                color: Colors.white.withValues(alpha: 0.15)),
                           ),
                           child: Text(
                             tag,
@@ -1856,15 +1890,50 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
     );
   }
 
+  Widget _buildGameHeroArt(_GameItemModel game) {
+    if (game.id == 'crossword') {
+      return const CrosswordLogo(
+        size: 130,
+        animate: true,
+      );
+    }
+    if (game.id == 'scramble') {
+      return const ScrambleLogo(
+        size: 130,
+        animate: true,
+      );
+    }
+    if (game.id == 'balloon') {
+      return const BalloonRescueLogo(
+        size: 130,
+        animate: true,
+      );
+    }
+    if (game.imagePath != null) {
+      return Image.asset(
+        game.imagePath!,
+        width: 125.w,
+        height: 125.h,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => Icon(
+          game.fallbackIcon,
+          size: 80.sp,
+          color: game.primaryColor,
+        ),
+      );
+    }
+    return _buildCrosswordHeroArt(game);
+  }
+
   Widget _buildCrosswordHeroArt(_GameItemModel game) {
     return Container(
       width: 88.w,
       height: 88.h,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(18),
         border:
-            Border.all(color: game.primaryColor.withOpacity(0.6), width: 1.6),
+            Border.all(color: game.primaryColor.withValues(alpha: 0.6), width: 1.6),
       ),
       child: Center(
         child: Column(
@@ -1910,8 +1979,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         color: isBlack
             ? Colors.black54
             : (highlight
-                ? const Color(0xFFFFB300).withOpacity(0.85)
-                : Colors.white.withOpacity(0.2)),
+                ? const Color(0xFFFFB300).withValues(alpha: 0.85)
+                : Colors.white.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Center(
@@ -1940,7 +2009,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
           decoration: BoxDecoration(
             color: isSelected
                 ? _games[index].primaryColor
-                : Colors.white.withOpacity(0.35),
+                : Colors.white.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(4),
           ),
         );
@@ -2093,20 +2162,26 @@ class _FloatingWordsBackground extends StatelessWidget {
     final Color tileTextColor;
 
     if (gameId == 'wordix') {
-      wordBorderColor = const Color(0xFF00E5FF).withOpacity(0.55);
+      wordBorderColor = const Color(0xFF00E5FF).withValues(alpha: 0.55);
       wordTextColor = const Color(0xFF80DEEA);
-      tileBorderColor = const Color(0xFF40C4FF).withOpacity(0.55);
+      tileBorderColor = const Color(0xFF40C4FF).withValues(alpha: 0.55);
       tileTextColor = const Color(0xFF80D8FF);
     } else if (gameId == 'crossword') {
-      wordBorderColor = const Color(0xFF00E676).withOpacity(0.55);
+      wordBorderColor = const Color(0xFF00E676).withValues(alpha: 0.55);
       wordTextColor = const Color(0xFF69F0AE);
-      tileBorderColor = const Color(0xFF1DE9B6).withOpacity(0.55);
+      tileBorderColor = const Color(0xFF1DE9B6).withValues(alpha: 0.55);
       tileTextColor = const Color(0xFFA7FFEB);
-    } else {
-      wordBorderColor = const Color(0xFFE040FB).withOpacity(0.55);
+    } else if (gameId == 'scramble') {
+      wordBorderColor = const Color(0xFFE040FB).withValues(alpha: 0.55);
       wordTextColor = const Color(0xFFEA80FC);
-      tileBorderColor = const Color(0xFFB388FF).withOpacity(0.55);
+      tileBorderColor = const Color(0xFFB388FF).withValues(alpha: 0.55);
       tileTextColor = const Color(0xFFD1C4E9);
+    } else {
+      // 4th Game: Balloon Rescue (Radiant Sunny Yellow / Amber Gold)
+      wordBorderColor = const Color(0xFFFFD54F).withValues(alpha: 0.55);
+      wordTextColor = const Color(0xFFFFF59D);
+      tileBorderColor = const Color(0xFFFFCA28).withValues(alpha: 0.55);
+      tileTextColor = const Color(0xFFFFF9C4);
     }
 
     return IgnorePointer(
@@ -2168,7 +2243,7 @@ class _FloatingWordsBackground extends StatelessWidget {
                             width: (p.size * 1.3).sp,
                             height: (p.size * 1.3).sp,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.08),
+                              color: Colors.white.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: tileBorderColor,
@@ -2310,13 +2385,13 @@ class _CircularFloatingBadgeState extends State<_CircularFloatingBadge>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.6),
+                          color: Colors.black.withValues(alpha: 0.6),
                           offset: const Offset(0, 3),
                           blurRadius: 5,
                         ),
                         BoxShadow(
                           color: (widget.labelGradient?.first ?? Colors.orange)
-                              .withOpacity(0.45),
+                              .withValues(alpha: 0.45),
                           blurRadius: 8,
                         ),
                       ],
@@ -2413,7 +2488,7 @@ class _GiftBoxPainter extends CustomPainter {
     canvas.rotate(rayAngle);
 
     final Paint rayPaint = Paint()
-      ..color = const Color(0xFFFFD54F).withOpacity(0.16)
+      ..color = const Color(0xFFFFD54F).withValues(alpha: 0.16)
       ..style = PaintingStyle.fill;
 
     const int rayCount = 8;
@@ -2437,7 +2512,7 @@ class _GiftBoxPainter extends CustomPainter {
 
     // 2. Drop Shadow under the gift box
     final Paint shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.45)
+      ..color = Colors.black.withValues(alpha: 0.45)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
     canvas.drawOval(
       Rect.fromCenter(
@@ -2483,8 +2558,8 @@ class _GiftBoxPainter extends CustomPainter {
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: [
-            const Color(0xFFFFF9C4).withOpacity(0.85 * beamIntensity),
-            const Color(0xFFFFD54F).withOpacity(0.45 * beamIntensity),
+            const Color(0xFFFFF9C4).withValues(alpha: 0.85 * beamIntensity),
+            const Color(0xFFFFD54F).withValues(alpha: 0.45 * beamIntensity),
             Colors.transparent,
           ],
         ).createShader(const Rect.fromLTWH(-16, -18, 32, 18));
@@ -2524,7 +2599,7 @@ class _GiftBoxPainter extends CustomPainter {
     );
 
     final Paint bodyBorder = Paint()
-      ..color = const Color(0xFFFF8A80).withOpacity(0.65)
+      ..color = const Color(0xFFFF8A80).withValues(alpha: 0.65)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
     canvas.drawRRect(
@@ -2550,7 +2625,7 @@ class _GiftBoxPainter extends CustomPainter {
     canvas.drawRect(vRibRect, ribPaint);
 
     final Paint ribBorder = Paint()
-      ..color = const Color(0xFFFFFDE7).withOpacity(0.8)
+      ..color = const Color(0xFFFFFDE7).withValues(alpha: 0.8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8;
     canvas.drawLine(Offset(-ribW / 2.0, bodyRect.top),
@@ -2588,7 +2663,7 @@ class _GiftBoxPainter extends CustomPainter {
         ),
         const Radius.circular(4.0),
       ),
-      Paint()..color = Colors.black.withOpacity(0.40),
+      Paint()..color = Colors.black.withValues(alpha: 0.40),
     );
 
     final Paint lidPaint = Paint()
@@ -2681,7 +2756,7 @@ class _GiftBoxPainter extends CustomPainter {
       ..close();
     canvas.drawPath(
       star,
-      Paint()..color = const Color(0xFFFFF9C4).withOpacity(0.92),
+      Paint()..color = const Color(0xFFFFF9C4).withValues(alpha: 0.92),
     );
   }
 
@@ -2750,7 +2825,7 @@ class _ArcheryTargetPainter extends CustomPainter {
       bullseye.translate(0, 2.5),
       targetR,
       Paint()
-        ..color = Colors.black.withOpacity(0.45)
+        ..color = Colors.black.withValues(alpha: 0.45)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0),
     );
 
@@ -2766,7 +2841,7 @@ class _ArcheryTargetPainter extends CustomPainter {
       bullseye,
       targetR,
       Paint()
-        ..color = const Color(0xFF7F0000).withOpacity(0.6)
+        ..color = const Color(0xFF7F0000).withValues(alpha: 0.6)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.4,
     );
@@ -2805,7 +2880,7 @@ class _ArcheryTargetPainter extends CustomPainter {
     canvas.drawPath(
       glossPath,
       Paint()
-        ..color = Colors.white.withOpacity(0.38)
+        ..color = Colors.white.withValues(alpha: 0.38)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.4,
     );
@@ -2840,7 +2915,7 @@ class _ArcheryTargetPainter extends CustomPainter {
           bullseye,
           3.0 + 12.0 * shockT,
           Paint()
-            ..color = Colors.white.withOpacity((1.0 - shockT) * 0.70)
+            ..color = Colors.white.withValues(alpha: (1.0 - shockT) * 0.70)
             ..style = PaintingStyle.stroke
             ..strokeWidth = 1.8,
         );
@@ -2860,7 +2935,7 @@ class _ArcheryTargetPainter extends CustomPainter {
       );
 
       final Paint shaftPaint = Paint()
-        ..color = const Color(0xFF263238).withOpacity(arrowOpacity)
+        ..color = const Color(0xFF263238).withValues(alpha: arrowOpacity)
         ..strokeWidth = 2.0
         ..strokeCap = StrokeCap.round;
 
@@ -2868,7 +2943,7 @@ class _ArcheryTargetPainter extends CustomPainter {
         tipPos.translate(0, 1.5),
         tailPos.translate(0, 1.5),
         Paint()
-          ..color = Colors.black.withOpacity(0.25 * arrowOpacity)
+          ..color = Colors.black.withValues(alpha: 0.25 * arrowOpacity)
           ..strokeWidth = 2.0,
       );
 
@@ -2877,12 +2952,12 @@ class _ArcheryTargetPainter extends CustomPainter {
       canvas.drawCircle(
         tipPos,
         2.2,
-        Paint()..color = const Color(0xFF263238).withOpacity(arrowOpacity),
+        Paint()..color = const Color(0xFF263238).withValues(alpha: arrowOpacity),
       );
       canvas.drawCircle(
         tipPos,
         1.2,
-        Paint()..color = const Color(0xFFB0BEC5).withOpacity(arrowOpacity),
+        Paint()..color = const Color(0xFFB0BEC5).withValues(alpha: arrowOpacity),
       );
 
       _drawFeatherFletching(canvas, tailPos, currentAngle, arrowOpacity);
@@ -2925,7 +3000,7 @@ class _ArcheryTargetPainter extends CustomPainter {
     canvas.drawPath(
       upperFeather,
       Paint()
-        ..color = Colors.white.withOpacity(0.65 * opacity)
+        ..color = Colors.white.withValues(alpha: 0.65 * opacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.6,
     );
@@ -2940,13 +3015,13 @@ class _ArcheryTargetPainter extends CustomPainter {
     canvas.drawPath(
       lowerFeather,
       Paint()
-        ..color = Colors.white.withOpacity(0.65 * opacity)
+        ..color = Colors.white.withValues(alpha: 0.65 * opacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.6,
     );
 
     final Paint ribPaint = Paint()
-      ..color = Colors.white.withOpacity(0.40 * opacity)
+      ..color = Colors.white.withValues(alpha: 0.40 * opacity)
       ..strokeWidth = 0.6;
     for (int i = 0; i < 3; i++) {
       final double vx = -6.6 + i * 2.2;
@@ -2966,7 +3041,7 @@ class _ArcheryTargetPainter extends CustomPainter {
       const Offset(-0.8, 0),
       const Offset(1.8, 0),
       Paint()
-        ..color = const Color(0xFF263238).withOpacity(opacity)
+        ..color = const Color(0xFF263238).withValues(alpha: opacity)
         ..strokeWidth = 2.0
         ..strokeCap = StrokeCap.round,
     );
@@ -2974,14 +3049,14 @@ class _ArcheryTargetPainter extends CustomPainter {
       const Offset(-8.6, -1.1),
       const Offset(-8.6, 1.1),
       Paint()
-        ..color = const Color(0xFFECEFF1).withOpacity(opacity)
+        ..color = const Color(0xFFECEFF1).withValues(alpha: opacity)
         ..strokeWidth = 1.0,
     );
 
     canvas.drawCircle(
       const Offset(1.8, 0),
       1.1,
-      Paint()..color = const Color(0xFF00E5FF).withOpacity(opacity),
+      Paint()..color = const Color(0xFF00E5FF).withValues(alpha: opacity),
     );
 
     canvas.restore();
@@ -2991,7 +3066,7 @@ class _ArcheryTargetPainter extends CustomPainter {
     final double dist = 6.0 + 8.0 * progress;
     final double alpha = (1.0 - progress).clamp(0.0, 1.0);
     final Paint sparkPaint = Paint()
-      ..color = const Color(0xFFFFD54F).withOpacity(alpha);
+      ..color = const Color(0xFFFFD54F).withValues(alpha: alpha);
 
     for (int i = 0; i < 4; i++) {
       final double ang = i * (math.pi / 2.0) + (math.pi / 4.0);
@@ -3089,7 +3164,7 @@ class _SpinWheelPainter extends CustomPainter {
       center.translate(0, 3.0),
       radius,
       Paint()
-        ..color = Colors.black.withOpacity(0.50)
+        ..color = Colors.black.withValues(alpha: 0.50)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0),
     );
 
@@ -3113,7 +3188,7 @@ class _SpinWheelPainter extends CustomPainter {
     }
 
     final Paint spokePaint = Paint()
-      ..color = Colors.white.withOpacity(0.65)
+      ..color = Colors.white.withValues(alpha: 0.65)
       ..strokeWidth = 1.0;
 
     for (int i = 0; i < sectorCount; i++) {
@@ -3230,7 +3305,7 @@ class _SpinWheelPainter extends CustomPainter {
       ..close();
     canvas.drawPath(
       star,
-      Paint()..color = const Color(0xFFFFF9C4).withOpacity(0.9),
+      Paint()..color = const Color(0xFFFFF9C4).withValues(alpha: 0.9),
     );
   }
 
@@ -3301,7 +3376,7 @@ class _WatchAdVideoPainter extends CustomPainter {
     canvas.rotate(rayAngle);
 
     final Paint rayPaint = Paint()
-      ..color = const Color(0xFFFFB300).withOpacity(0.18)
+      ..color = const Color(0xFFFFB300).withValues(alpha: 0.18)
       ..style = PaintingStyle.fill;
 
     const int rayCount = 8;
@@ -3334,7 +3409,7 @@ class _WatchAdVideoPainter extends CustomPainter {
         const Radius.circular(8.0),
       ),
       Paint()
-        ..color = Colors.black.withOpacity(0.50)
+        ..color = Colors.black.withValues(alpha: 0.50)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0),
     );
 
@@ -3420,7 +3495,7 @@ class _WatchAdVideoPainter extends CustomPainter {
       ..close();
     canvas.drawPath(
       star,
-      Paint()..color = const Color(0xFFFFF9C4).withOpacity(0.9),
+      Paint()..color = const Color(0xFFFFF9C4).withValues(alpha: 0.9),
     );
   }
 

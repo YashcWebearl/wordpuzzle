@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:word_puzzle/widget/sound.dart';
 
 class LevelButton extends StatelessWidget {
   final String label;

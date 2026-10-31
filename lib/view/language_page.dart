@@ -64,7 +64,7 @@ class _LanguagePageState extends State<LanguagePage> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           offset: const Offset(0, 4),
                           blurRadius: 6,
                         ),
@@ -85,10 +85,10 @@ class _LanguagePageState extends State<LanguagePage> {
                       width: 320,
                       padding: const EdgeInsets.all(30),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(30),
                         border: Border.all(
-                            color: Colors.black.withOpacity(0.2), width: 1.5),
+                            color: Colors.black.withValues(alpha: 0.2), width: 1.5),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,

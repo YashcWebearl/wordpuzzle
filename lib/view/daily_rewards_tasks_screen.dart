@@ -769,7 +769,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFFD54F).withOpacity(0.35),
+                  color: const Color(0xFFFFD54F).withValues(alpha: 0.35),
                   blurRadius: 28,
                   spreadRadius: 2,
                 ),
@@ -796,7 +796,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.amber.withOpacity(0.5),
+                        color: Colors.amber.withValues(alpha: 0.5),
                         blurRadius: 18,
                       ),
                     ],
@@ -830,7 +830,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -842,10 +842,10 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.4),
+                    color: Colors.black.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: const Color(0xFFFFD54F).withOpacity(0.7),
+                      color: const Color(0xFFFFD54F).withValues(alpha: 0.7),
                       width: 1.4,
                     ),
                   ),
@@ -991,7 +991,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFF00E5FF).withOpacity(0.18),
+                  const Color(0xFF00E5FF).withValues(alpha: 0.18),
                   Colors.transparent,
                 ],
               ),
@@ -1010,7 +1010,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFF7C4DFF).withOpacity(0.18),
+                  const Color(0xFF7C4DFF).withValues(alpha: 0.18),
                   Colors.transparent,
                 ],
               ),
@@ -1029,7 +1029,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFFFFB300).withOpacity(0.12),
+                  const Color(0xFFFFB300).withValues(alpha: 0.12),
                   Colors.transparent,
                 ],
               ),
@@ -1059,10 +1059,10 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   width: 1.2,
                 ),
               ),
@@ -1095,7 +1095,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   'Daily Streaks, Quests & Wheel',
                   style: GoogleFonts.outfit(
                     fontSize: 11,
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1120,7 +1120,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.amber.withOpacity(0.2),
+                      color: Colors.amber.withValues(alpha: 0.2),
                       blurRadius: 8,
                     ),
                   ],
@@ -1157,10 +1157,10 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       margin: const EdgeInsets.symmetric(horizontal: 14),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withOpacity(0.12),
+          color: Colors.white.withValues(alpha: 0.12),
           width: 1.2,
         ),
       ),
@@ -1173,7 +1173,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.orange.withOpacity(0.4),
+              color: Colors.orange.withValues(alpha: 0.4),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -1182,7 +1182,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         labelColor: Colors.white,
-        unselectedLabelColor: Colors.white.withOpacity(0.65),
+        unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
         labelStyle: GoogleFonts.dynaPuff(
           fontSize: 12,
           fontWeight: FontWeight.w900,
@@ -1235,12 +1235,12 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                 end: Alignment.bottomRight,
               ),
               border: Border.all(
-                color: const Color(0xFFFFB300).withOpacity(0.7),
+                color: const Color(0xFFFFB300).withValues(alpha: 0.7),
                 width: 1.8,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFFB300).withOpacity(0.2),
+                  color: const Color(0xFFFFB300).withValues(alpha: 0.2),
                   blurRadius: 16,
                 ),
               ],
@@ -1260,7 +1260,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.red.withOpacity(0.4),
+                          color: Colors.red.withValues(alpha: 0.4),
                           blurRadius: 12,
                         ),
                       ],
@@ -1295,7 +1295,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFD54F).withOpacity(0.2),
+                              color: const Color(0xFFFFD54F).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: const Color(0xFFFFD54F),
@@ -1922,12 +1922,12 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                 end: Alignment.bottomRight,
               ),
               border: Border.all(
-                color: const Color(0xFF00E5FF).withOpacity(0.7),
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.7),
                 width: 1.8,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF00E5FF).withOpacity(0.25),
+                  color: const Color(0xFF00E5FF).withValues(alpha: 0.25),
                   blurRadius: 16,
                 ),
               ],
@@ -1944,7 +1944,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF00E5FF).withOpacity(0.4),
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
                         blurRadius: 12,
                       ),
                     ],
@@ -2030,14 +2030,14 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isClaimed
-              ? const Color(0xFF00E676).withOpacity(0.6)
+              ? const Color(0xFF00E676).withValues(alpha: 0.6)
               : isCompleted
-                  ? const Color(0xFFFFD54F).withOpacity(0.8)
-                  : Colors.white.withOpacity(0.12),
+                  ? const Color(0xFFFFD54F).withValues(alpha: 0.8)
+                  : Colors.white.withValues(alpha: 0.12),
           width: (isCompleted && !isClaimed) ? 1.8 : 1.2,
         ),
       ),
@@ -2048,7 +2048,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.18),
+              color: iconColor.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: iconColor, width: 1.4),
             ),
@@ -2096,7 +2096,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   task['description'] as String,
                   style: GoogleFonts.outfit(
                     fontSize: 11,
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -2142,7 +2142,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
             child: isClaimed
                 ? Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00E676).withOpacity(0.18),
+                      color: const Color(0xFF00E676).withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                           color: const Color(0xFF00E676), width: 1.2),
@@ -2303,7 +2303,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                       border: Border.all(color: Colors.white, width: 2.5),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.6),
+                          color: Colors.black.withValues(alpha: 0.6),
                           blurRadius: 10,
                         ),
                       ],
@@ -2400,7 +2400,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.04),
+              color: Colors.white.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white12),
             ),
@@ -2464,7 +2464,7 @@ class _InteractiveWheelPainter extends CustomPainter {
       center.translate(0, 4),
       radius,
       Paint()
-        ..color = Colors.black.withOpacity(0.5)
+        ..color = Colors.black.withValues(alpha: 0.5)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
 
@@ -2486,7 +2486,7 @@ class _InteractiveWheelPainter extends CustomPainter {
 
     // Spokes
     final Paint spokePaint = Paint()
-      ..color = Colors.white.withOpacity(0.65)
+      ..color = Colors.white.withValues(alpha: 0.65)
       ..strokeWidth = 1.4;
 
     for (int i = 0; i < sectorCount; i++) {
@@ -2598,7 +2598,7 @@ class _WheelPointerPainter extends CustomPainter {
     canvas.drawPath(
       path.shift(const Offset(0, 2)),
       Paint()
-        ..color = Colors.black.withOpacity(0.5)
+        ..color = Colors.black.withValues(alpha: 0.5)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
     );
 

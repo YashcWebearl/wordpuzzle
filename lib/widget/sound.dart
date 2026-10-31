@@ -29,6 +29,18 @@ class AudioHelper {
   AudioSource? _scrambleShuffle;
   AudioSource? _scramblePraise;
 
+  // Balloon Rescue bespoke sound sources
+  final List<AudioSource> _balloonPops = [];
+  AudioSource? _balloonPopDefault;
+  AudioSource? _balloonBurst;
+  AudioSource? _balloonFly;
+  AudioSource? _balloonPraise;
+  AudioSource? _balloonTakeoff;
+  AudioSource? _balloonFall;
+  AudioSource? _balloonInflate;
+  AudioSource? _balloonDanger;
+  AudioSource? _balloonWrong;
+
   SoundHandle? _winnerHandle;
   SoundHandle? _notFoundHandle;
   SoundHandle? _backgroundHandle;
@@ -79,6 +91,35 @@ class AudioHelper {
         await _safeLoad('assets/music/scramble/scramble_shuffle.wav');
     _scramblePraise =
         await _safeLoad('assets/music/scramble/scramble_praise.wav');
+
+    // Load Balloon Rescue sounds safely
+    _balloonPops.clear();
+    for (int i = 1; i <= 8; i++) {
+      try {
+        final src = await _soLoud.loadAsset(
+          'assets/music/balloon/balloon_pop_$i.wav',
+        );
+        _balloonPops.add(src);
+      } catch (_) {}
+    }
+    _balloonPopDefault =
+        await _safeLoad('assets/music/balloon/balloon_pop.wav');
+    _balloonBurst =
+        await _safeLoad('assets/music/balloon/balloon_burst.wav');
+    _balloonFly =
+        await _safeLoad('assets/music/balloon/balloon_fly.wav');
+    _balloonPraise =
+        await _safeLoad('assets/music/balloon/balloon_praise.wav');
+    _balloonTakeoff =
+        await _safeLoad('assets/music/balloon/balloon_takeoff.wav');
+    _balloonFall =
+        await _safeLoad('assets/music/balloon/balloon_fall.wav');
+    _balloonInflate =
+        await _safeLoad('assets/music/balloon/balloon_inflate.wav');
+    _balloonDanger =
+        await _safeLoad('assets/music/balloon/balloon_danger.wav');
+    _balloonWrong =
+        await _safeLoad('assets/music/balloon/balloon_wrong.wav');
 
     await _loadSoundSetting();
   }
@@ -284,6 +325,103 @@ class AudioHelper {
     try {
       if (_scramblePraise != null) {
         await _soLoud.play(_scramblePraise!);
+      }
+    } catch (_) {}
+  }
+
+  // --- Balloon Rescue In-Game Audio Methods ---
+  Future<void> playBalloonPop([int noteIndex = 0]) async {
+    if (!_isSoundOn) return;
+    try {
+      if (_balloonPops.isNotEmpty) {
+        final idx = noteIndex.clamp(0, _balloonPops.length - 1);
+        await _soLoud.play(_balloonPops[idx]);
+      } else if (_balloonPopDefault != null) {
+        await _soLoud.play(_balloonPopDefault!);
+      } else {
+        await playButtonSound();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playBalloonBurst() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_balloonBurst != null) {
+        await _soLoud.play(_balloonBurst!);
+      } else {
+        await playNotFoundSound();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playBalloonFly() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_balloonFly != null) {
+        await _soLoud.play(_balloonFly!);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playBalloonPraise() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_balloonPraise != null) {
+        await _soLoud.play(_balloonPraise!);
+      } else {
+        await playButtonSound();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playBalloonTakeoff() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_balloonTakeoff != null) {
+        await _soLoud.play(_balloonTakeoff!);
+      } else {
+        await playWinnerSound();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playBalloonFall() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_balloonFall != null) {
+        await _soLoud.play(_balloonFall!);
+      } else {
+        await playTimeOutSound();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playBalloonInflate() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_balloonInflate != null) {
+        await _soLoud.play(_balloonInflate!);
+      } else {
+        await playMoneySound();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playBalloonDanger() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_balloonDanger != null) {
+        await _soLoud.play(_balloonDanger!);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> playBalloonWrong() async {
+    if (!_isSoundOn) return;
+    try {
+      if (_balloonWrong != null) {
+        await _soLoud.play(_balloonWrong!);
       }
     } catch (_) {}
   }

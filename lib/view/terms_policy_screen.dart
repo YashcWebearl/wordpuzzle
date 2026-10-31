@@ -173,10 +173,10 @@ class _TermsAndPolicyScreenState extends State<TermsAndPolicyScreen> {
                         margin: const EdgeInsets.symmetric(horizontal: 20),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.55),
+                          color: Colors.black.withValues(alpha: 0.55),
                           borderRadius: BorderRadius.circular(16),
                           border:
-                              Border.all(color: Colors.white.withOpacity(0.3)),
+                              Border.all(color: Colors.white.withValues(alpha: 0.3)),
                         ),
                         child: Scrollbar(
                           controller: _scrollController,
@@ -206,14 +206,14 @@ class _TermsAndPolicyScreenState extends State<TermsAndPolicyScreen> {
                           margin: const EdgeInsets.symmetric(horizontal: 20),
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.65),
+                            color: Colors.black.withValues(alpha: 0.65),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
+                                color: Colors.white.withValues(alpha: 0.3),
                                 width: 1.5),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
+                                color: Colors.black.withValues(alpha: 0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -259,7 +259,7 @@ class _TermsAndPolicyScreenState extends State<TermsAndPolicyScreen> {
                                   ),
                                   style: OutlinedButton.styleFrom(
                                     side: BorderSide(
-                                        color: Colors.white.withOpacity(0.5)),
+                                        color: Colors.white.withValues(alpha: 0.5)),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(20),
                                     ),
@@ -295,7 +295,7 @@ class _TermsAndPolicyScreenState extends State<TermsAndPolicyScreen> {
                               ? const Color(0xFF4CAF50)
                               : Colors.grey.shade700,
                           disabledBackgroundColor:
-                              Colors.grey.shade700.withOpacity(0.6),
+                              Colors.grey.shade700.withValues(alpha: 0.6),
                           elevation: canAccept ? 4 : 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
