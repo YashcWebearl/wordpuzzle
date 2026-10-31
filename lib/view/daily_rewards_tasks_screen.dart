@@ -6,6 +6,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:word_puzzle/crossword/crossword_splash.dart';
+import 'package:word_puzzle/scramble/scramble_home.dart';
+import 'package:word_puzzle/balloon_rescue/balloon_home.dart';
 import 'package:word_puzzle/services/daily_service.dart';
 import 'package:word_puzzle/view/ad_show.dart';
 import 'package:word_puzzle/widget/app_3d_button.dart';
@@ -17,13 +19,15 @@ import 'package:word_puzzle/wordix/home_screen.dart';
 /// 🎮 Word Puzzle Hub - Daily Rewards, Tactical Tasks & Lucky Spin Wheel Screen
 /// Implements full AAA game visual aesthetics with neon glow, metallic bevels,
 /// 3D physics-based spinning wheel, 7-day streak calendar, and daily quests.
-/// Designed for Wordix & Crossword Nature Connect.
+/// Designed for Wordix, Crossword, Word Scramble & Balloon Rescue.
 class DailyRewardsTasksScreen extends StatefulWidget {
   final int initialTabIndex;
+  final String gameName;
 
   const DailyRewardsTasksScreen({
     super.key,
     this.initialTabIndex = 0,
+    this.gameName = 'Wordix',
   });
 
   @override
@@ -158,6 +162,58 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       'gameScope': 'crossword',
       'icon': Icons.emoji_events_rounded,
       'iconColor': const Color(0xFFFF9100),
+      'isCompleted': false,
+      'isClaimed': false,
+    },
+    {
+      'taskKey': 'play_scramble',
+      'title': 'Letter Unscrambler',
+      'description': 'Play 3 Word Scramble levels',
+      'progress': 0,
+      'total': 3,
+      'coins': 100,
+      'gameScope': 'scramble',
+      'icon': Icons.spellcheck_rounded,
+      'iconColor': const Color(0xFFAB47BC),
+      'isCompleted': false,
+      'isClaimed': false,
+    },
+    {
+      'taskKey': 'win_scramble',
+      'title': 'Master Speller',
+      'description': 'Complete 2 Word Scramble levels',
+      'progress': 0,
+      'total': 2,
+      'coins': 150,
+      'gameScope': 'scramble',
+      'icon': Icons.military_tech_rounded,
+      'iconColor': const Color(0xFFFFD700),
+      'isCompleted': false,
+      'isClaimed': false,
+    },
+    {
+      'taskKey': 'play_balloon',
+      'title': 'Balloon Savior',
+      'description': 'Play 3 Balloon Rescue levels',
+      'progress': 0,
+      'total': 3,
+      'coins': 100,
+      'gameScope': 'balloon',
+      'icon': Icons.air_rounded,
+      'iconColor': const Color(0xFFFF7043),
+      'isCompleted': false,
+      'isClaimed': false,
+    },
+    {
+      'taskKey': 'win_balloon',
+      'title': 'Sky Guardian',
+      'description': 'Complete 2 Balloon Rescue levels',
+      'progress': 0,
+      'total': 2,
+      'coins': 150,
+      'gameScope': 'balloon',
+      'icon': Icons.shield_rounded,
+      'iconColor': const Color(0xFF26A69A),
       'isCompleted': false,
       'isClaimed': false,
     },
@@ -318,7 +374,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   }
 
   Future<void> _loadData() async {
-    final data = await DailyService().getDailyStatus(gameName: 'Wordix');
+    final data = await DailyService().getDailyStatus(gameName: widget.gameName);
     if (!mounted) return;
     _applyDailyData(data);
   }
@@ -370,10 +426,48 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       }
     }
 
-    // Assign appropriate icons to tasks
+    // Assign appropriate icons to tasks and clamp progress to total
     if (tasks.isNotEmpty) {
+      // Gather whether Wordix and Crossword have been played today
+      int wordixProg = 0;
+      int crossProg = 0;
+      for (var task in tasks) {
+        final k = task['taskKey']?.toString() ?? '';
+        final p = (task['progress'] as num?)?.toInt() ?? 0;
+        if (k == 'play_wordix' || k == 'win_wordix') {
+          if (p > wordixProg) wordixProg = p;
+        } else if (k == 'play_crossword' || k == 'win_crossword') {
+          if (p > crossProg) crossProg = p;
+        }
+      }
+
+      final bool hasWordix = wordixProg > 0;
+      final bool hasCross = crossProg > 0;
+      final int duoCalculatedProg = (hasWordix ? 1 : 0) + (hasCross ? 1 : 0);
+
       for (var task in tasks) {
         final key = task['taskKey']?.toString() ?? '';
+        final total = (task['total'] as num?)?.toInt() ?? 1;
+        int rawProg = (task['progress'] as num?)?.toInt() ?? 0;
+
+        // Strictly enforce Dual Scholar rule:
+        // Wordix played = 1, Crossword played = 1, total = 2.
+        // Playing multiple levels in only one game must NEVER complete it!
+        if (key == 'word_master_duo') {
+          final isClaimed = task['isClaimed'] == true;
+          if (!isClaimed) {
+            rawProg = duoCalculatedProg;
+            task['isCompleted'] = duoCalculatedProg >= 2;
+          } else {
+            rawProg = 2;
+            task['isCompleted'] = true;
+          }
+        } else {
+          task['isCompleted'] = (task['isCompleted'] == true) || (rawProg >= total);
+        }
+
+        task['total'] = total;
+        task['progress'] = math.min(rawProg, total);
         _assignTaskIconAndDetails(task, key);
       }
     }
@@ -403,6 +497,18 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     } else if (key == 'win_crossword') {
       task['icon'] = Icons.emoji_events_rounded;
       task['iconColor'] = const Color(0xFFFF9100);
+    } else if (key == 'play_scramble') {
+      task['icon'] = Icons.spellcheck_rounded;
+      task['iconColor'] = const Color(0xFFAB47BC);
+    } else if (key == 'win_scramble') {
+      task['icon'] = Icons.military_tech_rounded;
+      task['iconColor'] = const Color(0xFFFFD700);
+    } else if (key == 'play_balloon') {
+      task['icon'] = Icons.air_rounded;
+      task['iconColor'] = const Color(0xFFFF7043);
+    } else if (key == 'win_balloon') {
+      task['icon'] = Icons.shield_rounded;
+      task['iconColor'] = const Color(0xFF26A69A);
     } else if (key == 'word_master_duo') {
       task['icon'] = Icons.auto_awesome_rounded;
       task['iconColor'] = const Color(0xFFE040FB);
@@ -442,7 +548,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     AudioHelper().playButtonSound();
     HapticFeedback.heavyImpact();
 
-    final res = await DailyService().claimStreak(gameName: 'Wordix');
+    final res = await DailyService().claimStreak(gameName: widget.gameName);
 
     if (!mounted) return;
     setState(() => _isClaimingStreak = false);
@@ -451,10 +557,15 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       final data = res['data'] ?? {};
       final rewardCoins = (data['coinsAwarded'] as int?) ??
           _streakRewards[(_currentStreak - 1).clamp(0, 6)]['coins'] as int;
+      final serverWallet = (data['newWalletBalance'] as int?);
 
-      // INSTANT COIN ADD
+      // Set wallet balance directly or add locally without duplicate server increment
       final coinProvider = Provider.of<CoinProvider>(context, listen: false);
-      await coinProvider.addCoins(rewardCoins, instant: true);
+      if (serverWallet != null) {
+        await coinProvider.setCoins(serverWallet);
+      } else {
+        await coinProvider.addCoins(rewardCoins, instant: true, syncServer: false);
+      }
 
       setState(() {
         _isTodayClaimed = true;
@@ -500,16 +611,23 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     final res = await DailyService().claimTask(
       taskKey: taskKey,
       coins: rewardCoins,
-      gameName: 'Wordix',
+      gameName: widget.gameName,
     );
 
     if (!mounted) return;
     setState(() => _claimingTaskId = null);
 
     if (res['success'] == true) {
-      // INSTANT COIN ADD
+      final data = res['data'] ?? {};
+      final serverWallet = (data['newWalletBalance'] as int?);
+
+      // Set wallet balance directly or add locally without duplicate server increment
       final coinProvider = Provider.of<CoinProvider>(context, listen: false);
-      await coinProvider.addCoins(rewardCoins, instant: true);
+      if (serverWallet != null) {
+        await coinProvider.setCoins(serverWallet);
+      } else {
+        await coinProvider.addCoins(rewardCoins, instant: true, syncServer: false);
+      }
 
       setState(() {
         task['isClaimed'] = true;
@@ -531,23 +649,96 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
   void _handleTaskNavigation(Map<String, dynamic> task) {
     AudioHelper().playButtonSound();
+    final key = task['taskKey']?.toString() ?? '';
     final scope = task['gameScope'] as String? ?? 'all';
 
-    if (scope == 'wordix') {
+    // 1. Wordix tasks: Word Finder (play_wordix) & Grid Conqueror (win_wordix)
+    if (key == 'play_wordix' || key == 'win_wordix' || scope == 'wordix') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const HomePage()),
       );
-    } else if (scope == 'crossword') {
+    }
+    // 2. Crossword tasks: Wheel Weaver (play_crossword) & Crossword Maestro (win_crossword)
+    else if (key == 'play_crossword' || key == 'win_crossword' || scope == 'crossword') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const CrosswordSplashScreen()),
       );
-    } else if (task['taskKey'] == 'spin_wheel_task') {
+    }
+    // 3. Word Scramble tasks: Letter Unscrambler (play_scramble) & Master Speller (win_scramble)
+    else if (key == 'play_scramble' || key == 'win_scramble' || scope == 'scramble') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ScrambleHomeScreen()),
+      );
+    }
+    // 4. Balloon Rescue tasks: Balloon Savior (play_balloon) & Sky Guardian (win_balloon)
+    else if (key == 'play_balloon' || key == 'win_balloon' || scope == 'balloon') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const BalloonHomeScreen()),
+      );
+    }
+    // 5. Dual Scholar (word_master_duo)
+    // First goes to Wordix. When Wordix is played (1/2), goes to Crossword for the 2nd game!
+    else if (key == 'word_master_duo') {
+      final wordixPlayTask = _dailyTasks.firstWhere(
+        (t) => t['taskKey'] == 'play_wordix',
+        orElse: () => <String, dynamic>{},
+      );
+      final wordixWinTask = _dailyTasks.firstWhere(
+        (t) => t['taskKey'] == 'win_wordix',
+        orElse: () => <String, dynamic>{},
+      );
+      final wordixPlayed = (((wordixPlayTask['progress'] as num?)?.toInt() ?? 0) > 0) ||
+                           (((wordixWinTask['progress'] as num?)?.toInt() ?? 0) > 0);
+
+      final crossPlayTask = _dailyTasks.firstWhere(
+        (t) => t['taskKey'] == 'play_crossword',
+        orElse: () => <String, dynamic>{},
+      );
+      final crossWinTask = _dailyTasks.firstWhere(
+        (t) => t['taskKey'] == 'win_crossword',
+        orElse: () => <String, dynamic>{},
+      );
+      final crossPlayed = (((crossPlayTask['progress'] as num?)?.toInt() ?? 0) > 0) ||
+                          (((crossWinTask['progress'] as num?)?.toInt() ?? 0) > 0);
+
+      if (!wordixPlayed) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      } else if (!crossPlayed) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CrosswordSplashScreen()),
+        );
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }
+    }
+    // 6. Clue Seeker (use_hint) -> Open Wordix game home
+    else if (key == 'use_hint') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    }
+    // 7. Fortune Seeker (spin_wheel_task) -> Switch to Lucky Spin wheel tab
+    else if (key == 'spin_wheel_task') {
       _tabController.animateTo(2);
-    } else if (task['taskKey'] == 'watch_ad') {
+    }
+    // 8. Bonus Hunter (watch_ad) -> Directly open rewarded ad
+    else if (key == 'watch_ad') {
       _handleWatchAdForTask(task);
-    } else {
+    }
+    // Fallback
+    else {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const HomePage()),
@@ -639,7 +830,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     // 1. Request spin outcome from backend API
     final spinRes = await DailyService().spinWheel(
       spinType: buttonType == 'coin' ? 'coins' : buttonType,
-      gameName: 'Wordix',
+      gameName: widget.gameName,
     );
 
     int targetIndex = 1;
@@ -711,14 +902,18 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
       if (!mounted) return;
       final coinProvider = Provider.of<CoinProvider>(context, listen: false);
-      // INSTANT COIN ADD (tarat add thay jay)
-      await coinProvider.addCoins(winCoins, instant: true);
+      final serverWallet = (spinRes['data']?['newWalletBalance'] as int?);
+      if (serverWallet != null) {
+        await coinProvider.setCoins(serverWallet);
+      } else {
+        await coinProvider.addCoins(winCoins, instant: true, syncServer: false);
+      }
 
       // Report spin wheel task completion
       await DailyService().updateTaskProgress(
         taskKey: 'spin_wheel_task',
         increment: 1,
-        gameName: 'Wordix',
+        gameName: widget.gameName,
       );
 
       AudioHelper().playMoneySound();
@@ -2022,8 +2217,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   Widget _buildTaskCard(Map<String, dynamic> task, int index) {
     final bool isCompleted = task['isCompleted'] as bool;
     final bool isClaimed = task['isClaimed'] as bool;
-    final int progress = task['progress'] as int;
-    final int total = task['total'] as int;
+    final int total = (task['total'] as num?)?.toInt() ?? 1;
+    final int rawProgress = (task['progress'] as num?)?.toInt() ?? 0;
+    final int progress = math.min(rawProgress, total);
     final int coins = task['coins'] as int;
     final Color iconColor = task['iconColor'] as Color;
 

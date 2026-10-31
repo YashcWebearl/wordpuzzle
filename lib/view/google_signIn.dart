@@ -18,6 +18,8 @@ import '../Widget/bg_container.dart';
 import '../widget/coin_service.dart';
 import '../widget/get_level.dart';
 import '../crossword/crossword_level_service.dart';
+import '../scramble/scramble_level_service.dart';
+import '../balloon_rescue/balloon_level_service.dart';
 
 final GoogleSignIn _googleSignIn = GoogleSignIn(
   scopes: [
@@ -67,11 +69,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     // Specific email/password combination rule preserved exactly
-    if (email != 'yashchauhan864@gmail.com' || password != '123123') {
+    // if (email != 'yashchauhan864@gmail.com' || password != '123123') {
+    //   Fluttertoast.showToast(msg: "please use google sign in for login");
+    //   return;
+    // }
+    if ((email != 'yashchauhan864@gmail.com' &&
+        email != 'yashc.webearl@gmail.com') ||
+        password != '123123') {
       Fluttertoast.showToast(msg: "please use google sign in for login");
       return;
     }
-
     setState(() => isLoading = true);
 
     try {
@@ -116,6 +123,8 @@ class _LoginScreenState extends State<LoginScreen> {
             coinProvider.getCoin(),
             gameLevelProvider.refresh(),
             CrosswordLevelService.fetchLevel(),
+            ScrambleLevelService.fetchLevel(),
+            BalloonLevelService.fetchLevel(),
           ]);
         }
         if (mounted) {
@@ -216,6 +225,8 @@ class _LoginScreenState extends State<LoginScreen> {
             coinProvider.getCoin(),
             gameLevelProvider.refresh(),
             CrosswordLevelService.fetchLevel(),
+            ScrambleLevelService.fetchLevel(),
+            BalloonLevelService.fetchLevel(),
           ]);
         }
         if (mounted) {

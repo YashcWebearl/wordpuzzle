@@ -159,26 +159,12 @@ class _SettingsPageState extends State<SettingsPage> {
                               final prefs =
                                   await SharedPreferences.getInstance();
 
-                              // Preserve daily rewards, sound, locale
-                              final rewardKeys = prefs
-                                  .getKeys()
-                                  .where((k) =>
-                                      k.startsWith('daily_reward_') ||
-                                      k.startsWith('last_claim_date'))
-                                  .toList();
-                              final Map<String, String> preservedRewards = {};
-                              for (final key in rewardKeys) {
-                                final val = prefs.getString(key);
-                                if (val != null) preservedRewards[key] = val;
-                              }
+                              // Preserve sound & locale on logout
                               final soundOn = prefs.getBool('sound_on');
                               final locale = prefs.getString('locale');
 
                               await prefs.clear();
 
-                              for (final entry in preservedRewards.entries) {
-                                await prefs.setString(entry.key, entry.value);
-                              }
                               if (soundOn != null) {
                                 await prefs.setBool('sound_on', soundOn);
                               }

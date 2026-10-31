@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:word_puzzle/widget/bg_container.dart';
 import 'package:word_puzzle/widget/common_game_success_screen.dart';
 import 'package:word_puzzle/widget/floating_words_background.dart';
+import 'package:word_puzzle/widget/get_level.dart';
 import 'home_screen.dart';
 
 /// Wordix Success Screen powered by CommonGameSuccessScreen
@@ -9,6 +11,7 @@ class SuccessScreen extends StatelessWidget {
   final int level;
   final int? coin;
   final int gridSize;
+  final bool isWin;
   final VoidCallback onNextLevel;
   final VoidCallback onBackToLevels;
 
@@ -17,6 +20,7 @@ class SuccessScreen extends StatelessWidget {
     required this.level,
     this.coin,
     required this.gridSize,
+    this.isWin = true,
     required this.onNextLevel,
     required this.onBackToLevels,
   });
@@ -25,8 +29,8 @@ class SuccessScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return CommonGameSuccessScreen(
       level: level,
-      coinsEarned: coin ?? 3,
-      isWin: true,
+      coinsEarned: isWin ? (coin ?? 3) : 0,
+      isWin: isWin,
       background: Stack(
         fit: StackFit.expand,
         children: [
@@ -50,6 +54,12 @@ class SuccessScreen extends StatelessWidget {
       primaryColor: const Color(0xFF00E5FF),
       accentColor: const Color(0xFF80D8FF),
       darkAuraColor: const Color(0xFF0A2239),
+      onCompleteLevel: () async {
+        try {
+          await Provider.of<GameLevelProvider>(context, listen: false)
+              .updateGameLevel(level + 1, gridSize);
+        } catch (_) {}
+      },
       onNextLevel: () async {
         Navigator.pop(context);
         onNextLevel();

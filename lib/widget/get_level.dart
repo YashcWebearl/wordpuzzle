@@ -72,6 +72,9 @@ class GameLevelProvider with ChangeNotifier {
         },
       );
 
+      print('======================================================');
+      print('🔄 [WordixLevelService] fetchLevel() START');
+      print('🌐 [WordixLevelService] GET Request URL: $LURL/api/gameLevel/data?gameName=Wordix');
       print('GameLevel API response: ${response.statusCode} | body: ${response.body}');
 
       if (response.statusCode == 200) {
@@ -102,34 +105,71 @@ class GameLevelProvider with ChangeNotifier {
   Future<void> updateGameLevel(int newLevel, int gridSize) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = prefs.getString('auth_token') ?? '';
+      final authHeader = token.isNotEmpty
+          ? (token.startsWith('Bearer ') ? token : 'Bearer $token')
+          : '';
 
-      // Call the API
-      final response = await http.post(
-        Uri.parse('$LURL/api/gameLevel/update'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ?? '',
-        },
-        body: jsonEncode({
+      print('======================================================');
+      print('🏆 [WordixLevelService] updateGameLevel() START -> Level $newLevel, Grid $gridSize');
+
+      // Update local state immediately
+      _currentLevel = newLevel;
+      _currentGridSize = gridSize;
+      await _saveToPrefs();
+      notifyListeners();
+
+      if (authHeader.isNotEmpty) {
+        // 1. Complete Level API
+        try {
+          final completeUrl = Uri.parse('$LURL/api/gameLevel/completeLevel');
+          final completeBody = jsonEncode({
+            "gameName": "Wordix",
+            "level": newLevel - 1,
+            "stars": 3,
+            "score": 350,
+            "moves": 0,
+          });
+          print('🌐 [WordixLevelService] POST completeLevel URL: $completeUrl');
+          print('📤 [WordixLevelService] Request Payload: $completeBody');
+          final completeRes = await http.post(
+            completeUrl,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': authHeader,
+            },
+            body: completeBody,
+          );
+          print('📡 [WordixLevelService] completeLevel Response: ${completeRes.statusCode} | ${completeRes.body}');
+        } catch (e) {
+          print('Wordix completeLevel error: $e');
+        }
+
+        // 2. Update Level API
+        final updateUrl = Uri.parse('$LURL/api/gameLevel/update');
+        final updateBody = jsonEncode({
           "gameName": "Wordix",
           "gameLevel": newLevel,
           "gridSize": "$gridSize",
-        }),
-      );
+        });
+        print('🔄 [WordixLevelService] POST update URL: $updateUrl');
+        print('📤 [WordixLevelService] Update Payload: $updateBody');
+        final response = await http.post(
+          updateUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+          },
+          body: updateBody,
+        );
 
-      if (response.statusCode == 200) {
-        // Update local state
-        _currentLevel = newLevel;
-        _currentGridSize = gridSize;
-        await _saveToPrefs();
-        notifyListeners();
-      } else {
-        print('Update failed: ${response.body}');
-        // Optionally show an error to the user
+        print('📡 [WordixLevelService] update Response: ${response.statusCode} | body: ${response.body}');
+        if (response.statusCode == 200) {
+          print('🎉 [WordixLevelService] Successfully updated Wordix Level to $newLevel');
+        }
       }
     } catch (e) {
-      print('Update error: $e');
+      print('WordixLevelService update error: $e');
     }
   }
 

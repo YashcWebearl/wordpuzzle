@@ -23,8 +23,10 @@ import 'package:word_puzzle/widget/coin_grant_dialog.dart';
 import 'package:word_puzzle/view/daily_rewards_tasks_screen.dart';
 import 'package:word_puzzle/scramble/scramble_splash.dart';
 import 'package:word_puzzle/scramble/scramble_logo.dart';
+import 'package:word_puzzle/scramble/scramble_level_service.dart';
 import 'package:word_puzzle/balloon_rescue/balloon_splash.dart';
 import 'package:word_puzzle/balloon_rescue/balloon_logo.dart';
+import 'package:word_puzzle/balloon_rescue/balloon_level_service.dart';
 
 /// Game representation model for the Selection Hub
 class _GameItemModel {
@@ -285,6 +287,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         Provider.of<GameLevelProvider>(context, listen: false).refresh();
         Provider.of<CoinProvider>(context, listen: false).getCoin();
         CrosswordLevelService.fetchLevel();
+        ScrambleLevelService.fetchLevel();
+        BalloonLevelService.fetchLevel();
       }
     });
   }
@@ -723,26 +727,12 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                               final prefs =
                                   await SharedPreferences.getInstance();
 
-                              // Preserve daily reward claim history, sound & locale
-                              final rewardKeys = prefs
-                                  .getKeys()
-                                  .where((k) =>
-                                      k.startsWith('daily_reward_') ||
-                                      k.startsWith('last_claim_date'))
-                                  .toList();
-                              final Map<String, String> preservedRewards = {};
-                              for (final key in rewardKeys) {
-                                final val = prefs.getString(key);
-                                if (val != null) preservedRewards[key] = val;
-                              }
+                              // Preserve sound & locale on logout
                               final soundOn = prefs.getBool('sound_on');
                               final locale = prefs.getString('locale');
 
                               await prefs.clear();
 
-                              for (final entry in preservedRewards.entries) {
-                                await prefs.setString(entry.key, entry.value);
-                              }
                               if (soundOn != null) {
                                 await prefs.setBool('sound_on', soundOn);
                               }

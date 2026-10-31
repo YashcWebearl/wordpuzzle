@@ -11,30 +11,54 @@ class TopTaskSnackBar {
 
   static OverlayEntry? _currentEntry;
   static Timer? _dismissTimer;
+  static final Set<String> _shownKeys = {};
 
-  /// Show Top Snackbar when a daily task is completed
+  /// Mark task as already notified so it never shows again
+  static void markNotified(String taskKey, String date) {
+    _shownKeys.add('${taskKey}_$date');
+  }
+
+  /// Official 12 Daily Tasks catalog metadata
+  static const Map<String, Map<String, dynamic>> taskCatalog = {
+    'play_wordix': {'title': 'Word Finder', 'coins': 100},
+    'win_wordix': {'title': 'Grid Conqueror', 'coins': 150},
+    'play_crossword': {'title': 'Wheel Weaver', 'coins': 100},
+    'win_crossword': {'title': 'Crossword Maestro', 'coins': 150},
+    'play_scramble': {'title': 'Letter Unscrambler', 'coins': 100},
+    'win_scramble': {'title': 'Master Speller', 'coins': 150},
+    'play_balloon': {'title': 'Balloon Savior', 'coins': 100},
+    'win_balloon': {'title': 'Sky Guardian', 'coins': 150},
+    'word_master_duo': {'title': 'Dual Scholar', 'coins': 200},
+    'use_hint': {'title': 'Clue Seeker', 'coins': 80},
+    'spin_wheel_task': {'title': 'Fortune Seeker', 'coins': 50},
+    'watch_ad': {'title': 'Bonus Hunter', 'coins': 80},
+  };
+
+  /// Show Top Snackbar when a daily task is completed (Guaranteed exactly 1 time)
   static void showTaskCompleted({
     required String taskKey,
     String? title,
-    int coins = 100,
+    int? coins,
   }) {
-    final taskTitles = {
-      'play_wordix': 'Word Finder',
-      'win_wordix': 'Word Search Master',
-      'play_crossword': 'Crossword Starter',
-      'win_crossword': 'Crossword Champion',
-      'word_master_duo': 'Dual Game Master',
-      'use_hint': 'Hint Master',
-      'spin_wheel_task': 'Lucky Spinner',
-      'watch_ad': 'Ad Supporter',
-    };
+    final now = DateTime.now();
+    final todayStr =
+        "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    final debounceKey = '${taskKey}_$todayStr';
 
-    final displayTitle = title ?? taskTitles[taskKey] ?? 'Daily Quest Complete';
+    // Strictly enforce: ONLY ONCE per task per day!
+    if (_shownKeys.contains(debounceKey)) {
+      return;
+    }
+    _shownKeys.add(debounceKey);
+
+    final info = taskCatalog[taskKey];
+    final displayTitle = title ?? info?['title'] as String? ?? 'Daily Quest Complete';
+    final rewardCoins = coins ?? info?['coins'] as int? ?? 100;
 
     show(
       title: '🏆 DAILY TASK COMPLETED!',
       message: displayTitle,
-      coinReward: coins,
+      coinReward: rewardCoins,
       onTap: () {
         dismiss();
         final context = navigatorKey.currentContext;

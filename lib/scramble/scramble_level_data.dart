@@ -309,7 +309,7 @@ class ScramblePuzzleEngine {
       for (final col in colStrings) {
         if (col.length > maxH) maxH = col.length;
       }
-      if (maxH > 8) continue;
+      if (maxH > 10) continue;
 
       // Validate trap-free solvability: EVERY available move must lead to a winning path!
       if (_isBoardFullyTrapFree(colStrings, words)) {

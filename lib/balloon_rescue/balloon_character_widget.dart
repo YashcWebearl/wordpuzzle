@@ -173,15 +173,16 @@ class BalloonCharacterWidgetState extends State<BalloonCharacterWidget>
     _takeOffController.dispose();
     _snapBackController.dispose();
     _trembleController.dispose();
+    AudioHelper().stopBalloonHoldScared();
     super.dispose();
   }
 
   void _onDragStart(Offset localPosition) {
-    if (_isFalling || widget.balloonsRemaining <= 0) return;
+    if (_isFalling || widget.balloonsRemaining <= 0 || _isHolding) return;
 
     _snapBackController.stop();
     HapticFeedback.lightImpact();
-    AudioHelper().playButtonSound();
+    AudioHelper().playBalloonScared();
 
     setState(() {
       _isHolding = true;
@@ -220,6 +221,9 @@ class BalloonCharacterWidgetState extends State<BalloonCharacterWidget>
   void _onDragRelease() {
     if (!_isHolding) return;
 
+    // Immediately silence any active scared hold vocalization
+    AudioHelper().stopBalloonHoldScared();
+
     setState(() {
       _isHolding = false;
     });
@@ -235,15 +239,21 @@ class BalloonCharacterWidgetState extends State<BalloonCharacterWidget>
         curve: Curves.elasticOut,
       ));
       _snapBackController.forward(from: 0.0);
+      Future.delayed(const Duration(milliseconds: 320), () {
+        if (mounted && !_isHolding) {
+          AudioHelper().playBalloonRelief();
+        }
+      });
     } else {
       // Simple touch/tap without drag: Stay strictly in place, no jump!
       _dragOffset = Offset.zero;
       _snapBackAnimation = null;
-      Future.delayed(const Duration(milliseconds: 350), () {
+      Future.delayed(const Duration(milliseconds: 250), () {
         if (mounted && !_isHolding) {
           setState(() {
             _isScared = false;
           });
+          AudioHelper().playBalloonRelief();
         }
       });
     }
@@ -263,6 +273,7 @@ class BalloonCharacterWidgetState extends State<BalloonCharacterWidget>
     if (widget.balloonsRemaining <= 0 && !_isFalling) {
       _isFalling = true;
       _isHolding = false;
+      AudioHelper().playBalloonFall();
       // Brief 120ms comedic pause, then plummet straight down fast!
       Future.delayed(const Duration(milliseconds: 120), () {
         if (mounted && widget.balloonsRemaining <= 0) {
@@ -279,6 +290,7 @@ class BalloonCharacterWidgetState extends State<BalloonCharacterWidget>
     if (widget.expression == 'win' && !_isTakingOff) {
       _isTakingOff = true;
       _isHolding = false;
+      AudioHelper().playBalloonWoohoo();
       _takeOffController.forward(from: 0.0);
     } else if (widget.expression != 'win' && _isTakingOff) {
       _isTakingOff = false;
@@ -354,7 +366,6 @@ class BalloonCharacterWidgetState extends State<BalloonCharacterWidget>
             : ((_isHolding || _isScared) ? 'shocked' : widget.expression);
 
         return GestureDetector(
-          onPanDown: (details) => _onDragStart(details.localPosition),
           onPanStart: (details) => _onDragStart(details.localPosition),
           onPanUpdate: (details) => _onDragUpdate(details.delta),
           onPanEnd: (_) => _onDragRelease(),

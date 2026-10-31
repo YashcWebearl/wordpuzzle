@@ -14,6 +14,8 @@ import 'package:word_puzzle/widget/bg_container.dart';
 import 'package:word_puzzle/widget/floating_words_background.dart';
 import 'personal_ad_screen.dart';
 import '../crossword/crossword_level_service.dart';
+import '../scramble/scramble_level_service.dart';
+import '../balloon_rescue/balloon_level_service.dart';
 import '../widget/base_url.dart';
 import '../widget/get_level.dart';
 import 'game_selection_screen.dart';
@@ -117,6 +119,8 @@ class _SplashPageState extends State<SplashPage>
             Provider.of<GameLevelProvider>(context, listen: false);
         gameLevelProvider.refresh();
         CrosswordLevelService.fetchLevel();
+        ScrambleLevelService.fetchLevel();
+        BalloonLevelService.fetchLevel();
       }
       nextScreen = const GameSelectionScreen();
     } else {

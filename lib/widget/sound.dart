@@ -40,7 +40,11 @@ class AudioHelper {
   AudioSource? _balloonInflate;
   AudioSource? _balloonDanger;
   AudioSource? _balloonWrong;
+  AudioSource? _balloonScared;
+  AudioSource? _balloonGiggle;
+  AudioSource? _balloonLetterHappy;
 
+  SoundHandle? _characterVocalHandle;
   SoundHandle? _winnerHandle;
   SoundHandle? _notFoundHandle;
   SoundHandle? _backgroundHandle;
@@ -58,7 +62,7 @@ class AudioHelper {
     print('sound fetch11111111111');
     await _soLoud.init();
 
-    _button = await _soLoud.loadAsset('assets/music/button.mp3');
+    _button = await _safeLoad('assets/music/button.mp3');
     _dragWord = await _soLoud.loadAsset('assets/music/drag_word.mp3');
     _found = await _soLoud.loadAsset('assets/music/found.mp3');
     _notFound = await _soLoud.loadAsset('assets/music/not_found.mp3');
@@ -104,22 +108,20 @@ class AudioHelper {
     }
     _balloonPopDefault =
         await _safeLoad('assets/music/balloon/balloon_pop.wav');
-    _balloonBurst =
-        await _safeLoad('assets/music/balloon/balloon_burst.wav');
-    _balloonFly =
-        await _safeLoad('assets/music/balloon/balloon_fly.wav');
-    _balloonPraise =
-        await _safeLoad('assets/music/balloon/balloon_praise.wav');
+    _balloonBurst = await _safeLoad('assets/music/balloon/balloon_burst.wav');
+    _balloonFly = await _safeLoad('assets/music/balloon/balloon_fly.wav');
+    _balloonPraise = await _safeLoad('assets/music/balloon/balloon_praise.wav');
     _balloonTakeoff =
         await _safeLoad('assets/music/balloon/balloon_takeoff.wav');
-    _balloonFall =
-        await _safeLoad('assets/music/balloon/balloon_fall.wav');
+    _balloonFall = await _safeLoad('assets/music/balloon/balloon_fall.wav');
     _balloonInflate =
         await _safeLoad('assets/music/balloon/balloon_inflate.wav');
-    _balloonDanger =
-        await _safeLoad('assets/music/balloon/balloon_danger.wav');
-    _balloonWrong =
-        await _safeLoad('assets/music/balloon/balloon_wrong.wav');
+    _balloonDanger = await _safeLoad('assets/music/balloon/balloon_danger.wav');
+    _balloonWrong = await _safeLoad('assets/music/balloon/balloon_wrong.wav');
+    _balloonScared = await _safeLoad('assets/music/balloon/balloon_scared.wav');
+    _balloonGiggle = await _safeLoad('assets/music/balloon/balloon_giggle.wav');
+    _balloonLetterHappy =
+        await _safeLoad('assets/music/balloon/balloon_letter_happy.wav');
 
     await _loadSoundSetting();
   }
@@ -142,13 +144,14 @@ class AudioHelper {
   static int _lastButtonSoundTime = 0;
 
   Future<void> playButtonSound() async {
+    if (!_isSoundOn || _button == null) return;
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastButtonSoundTime < 180) return;
+    if (now - _lastButtonSoundTime < 100) return;
     _lastButtonSoundTime = now;
 
-    if (_isSoundOn && _button != null) {
-      await _soLoud.play(_button!);
-    }
+    try {
+      _soLoud.play(_button!);
+    } catch (_) {}
   }
 
   Future<void> playTapSound() => playButtonSound();
@@ -425,4 +428,65 @@ class AudioHelper {
       }
     } catch (_) {}
   }
+
+  /// Stop any active character vocalization immediately to prevent sound overlay
+  Future<void> stopCharacterVoice() async {
+    if (_characterVocalHandle != null) {
+      try {
+        await _soLoud.stop(_characterVocalHandle!);
+      } catch (_) {}
+      _characterVocalHandle = null;
+    }
+  }
+
+  /// Cute playful cartoon squeak/chirp on touch (0.22s, pleasant, NOT engine loop)
+  Future<void> playBalloonScared() async {
+    if (!_isSoundOn || _balloonScared == null) return;
+    await stopCharacterVoice();
+    try {
+      _characterVocalHandle = await _soLoud.play(_balloonScared!, volume: 0.75);
+    } catch (_) {}
+  }
+
+  Future<void> startBalloonHoldScared() => playBalloonScared();
+  Future<void> stopBalloonHoldScared() => stopCharacterVoice();
+
+  /// When finger is released without panic: cute short baby relief giggle
+  Future<void> playBalloonRelief() async {
+    if (!_isSoundOn || _balloonGiggle == null) return;
+    await stopCharacterVoice();
+    try {
+      _characterVocalHandle = await _soLoud.play(_balloonGiggle!, volume: 0.85);
+    } catch (_) {}
+  }
+
+  /// When 1 letter is correct in Balloon Rescue: short, sweet baby happy "Yay!"
+  Future<void> playBalloonLetterHappy() async {
+    if (!_isSoundOn) return;
+    await stopCharacterVoice();
+    try {
+      if (_balloonLetterHappy != null) {
+        _characterVocalHandle =
+            await _soLoud.play(_balloonLetterHappy!, volume: 0.85);
+      } else if (_balloonGiggle != null) {
+        _characterVocalHandle =
+            await _soLoud.play(_balloonGiggle!, volume: 0.85);
+      }
+    } catch (_) {}
+  }
+
+  /// Celebratory "Yoo-hoooo!" joyful victory cheer on takeoff
+  Future<void> playBalloonWoohoo() async {
+    if (!_isSoundOn) return;
+    await stopCharacterVoice();
+    try {
+      if (_balloonTakeoff != null) {
+        _characterVocalHandle =
+            await _soLoud.play(_balloonTakeoff!, volume: 0.95);
+      }
+    } catch (_) {}
+  }
+
+  // Future<void> playBalloonScared() => startBalloonHoldScared();
+  Future<void> playBalloonGiggle() => playBalloonRelief();
 }

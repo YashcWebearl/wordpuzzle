@@ -19,6 +19,7 @@ import 'package:word_puzzle/widget/sound.dart';
 import 'package:word_puzzle/widget/word_highliter.dart';
 import 'package:word_puzzle/view/ad_show.dart';
 import 'package:word_puzzle/services/daily_service.dart';
+import 'package:word_puzzle/widget/get_level.dart';
 
 class _FlyingLetterInfo {
   final String char;
@@ -1271,6 +1272,12 @@ class WordSearchPageState extends State<WordSearchPage>
       increment: 1,
       gameName: 'Wordix',
     );
+    try {
+      Provider.of<GameLevelProvider>(context, listen: false)
+          .updateGameLevel(level + 1, gridSize);
+    } catch (e) {
+      print('Wordix updateGameLevel error: $e');
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -1373,120 +1380,185 @@ class WordSearchPageState extends State<WordSearchPage>
     _hintTimer?.cancel();
     AudioHelper().stopLastSecond();
     bool isRetrying = false;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-              child: Container(
-                padding: const EdgeInsets.all(30),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(reason == 'time' ? "TIME'S UP!" : "OUT OF MOVES!",
-                        style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white)),
-                    const SizedBox(height: 15),
-                    reason == 'time'
-                        ? Image.asset('assets/time_out.png',
-                            width: 200, height: 200)
-                        : Image.asset('assets/out_of_moves.png',
-                            width: 200, height: 200),
-                    const SizedBox(height: 10),
-                    const Text("Would you like to try again?",
-                        style: TextStyle(color: Colors.white70),
-                        textAlign: TextAlign.center),
-                    const SizedBox(height: 30),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: App3DButton.amber(
-                            text: 'EXIT',
-                            height: 46,
-                            fontSize: 14,
-                            onPressed: isRetrying
-                                ? null
-                                : () {
-                                    Navigator.pop(dialogContext);
-                                    Navigator.pop(context);
-                                  },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: App3DButton.green(
-                            text: 'RETRY',
-                            height: 46,
-                            fontSize: 14,
-                            isLoading: isRetrying,
-                            onPressed: isRetrying
-                                ? null
-                                : () async {
-                                    final coinProvider =
-                                        Provider.of<CoinProvider>(
-                                      context,
-                                      listen: false,
-                                    );
-                                    setDialogState(() => isRetrying = true);
-
-                                    try {
-                                      final connectivity =
-                                          await Connectivity().checkConnectivity();
-                                      if (connectivity
-                                          .contains(ConnectivityResult.none)) {
-                                        Fluttertoast.showToast(msg: "You're offline");
-                                        setDialogState(() => isRetrying = false);
-                                        return;
-                                      }
-
-                                      if (coinProvider.coins < 4) {
-                                        setDialogState(() => isRetrying = false);
-                                        _showInsufficientCoinsDialog();
-                                        return;
-                                      }
-
-                                      // Smooth spinner delay matching crossword_home / crossword_success / crossword_game
-                                      await Future.delayed(
-                                          const Duration(milliseconds: 350));
-                                      await coinProvider.undoCoins(4);
-                                      AudioHelper().playMoneySound();
-                                      Fluttertoast.showToast(
-                                        msg: "4 coins deducted to retry",
-                                      );
-
-                                      if (!dialogContext.mounted) return;
-                                      Navigator.pop(dialogContext);
-                                      _restartLevel();
-                                    } catch (e) {
-                                      debugPrint("Retry error: $e");
-                                      if (dialogContext.mounted) {
-                                        setDialogState(() => isRetrying = false);
-                                      }
-                                    }
-                                  },
-                          ),
-                        ),
-                      ],
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(26),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      width: 1.5,
                     ),
-                  ],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        reason == 'time' ? "TIME'S UP!" : "OUT OF MOVES!",
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Image.asset(
+                        reason == 'time'
+                            ? 'assets/time_out.png'
+                            : 'assets/out_of_moves.png',
+                        width: 170,
+                        height: 170,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        "Would you like to try again?",
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 26),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: App3DButton.amber(
+                              text: 'GIVE UP',
+                              height: 46,
+                              fontSize: 14,
+                              onPressed: isRetrying
+                                  ? null
+                                  : () {
+                                      Navigator.pop(dialogContext);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => AdPlaybackPage(
+                                            isRewardAd: false,
+                                            onAdComplete: () {
+                                              if (!mounted) return;
+                                              Navigator.pushReplacement(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      SuccessScreen(
+                                                    level: level,
+                                                    coin: 0,
+                                                    isWin: false,
+                                                    gridSize: gridSize,
+                                                    onNextLevel: () => Navigator
+                                                        .pushReplacement(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            WordSearchPage(
+                                                          initialLevel: level,
+                                                          gridSize: gridSize,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    onBackToLevels: () =>
+                                                        Navigator.pop(context),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: App3DButton.green(
+                              text: 'RETRY',
+                              height: 46,
+                              fontSize: 14,
+                              isLoading: isRetrying,
+                              onPressed: isRetrying
+                                  ? null
+                                  : () async {
+                                      final coinProvider =
+                                          Provider.of<CoinProvider>(
+                                        context,
+                                        listen: false,
+                                      );
+                                      setDialogState(() => isRetrying = true);
+
+                                      try {
+                                        final connectivity =
+                                            await Connectivity()
+                                                .checkConnectivity();
+                                        if (connectivity.contains(
+                                            ConnectivityResult.none)) {
+                                          Fluttertoast.showToast(
+                                              msg: "You're offline");
+                                          setDialogState(
+                                              () => isRetrying = false);
+                                          return;
+                                        }
+
+                                        if (coinProvider.coins < 4) {
+                                          setDialogState(
+                                              () => isRetrying = false);
+                                          _showInsufficientCoinsDialog();
+                                          return;
+                                        }
+
+                                        await Future.delayed(
+                                            const Duration(milliseconds: 350));
+                                        await coinProvider.undoCoins(4);
+                                        AudioHelper().playMoneySound();
+                                        Fluttertoast.showToast(
+                                          msg: "4 coins deducted to retry",
+                                        );
+
+                                        if (!dialogContext.mounted) return;
+                                        Navigator.pop(dialogContext);
+                                        setState(() {
+                                          if (reason == 'time') {
+                                            timeLeft = 45;
+                                          } else {
+                                            maxMoves = (maxMoves ?? 0) + 5;
+                                          }
+                                        });
+                                        _startTimer();
+                                      } catch (e) {
+                                        if (dialogContext.mounted) {
+                                          setDialogState(
+                                              () => isRetrying = false);
+                                        }
+                                      }
+                                    },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1927,7 +1999,7 @@ class WordSearchPageState extends State<WordSearchPage>
                                         child: CustomPaint(
                                           painter: WordLinePainter(
                                             foundWordPaths: _foundWordPaths,
-                                                                                        hintedPath: _hintedPath,
+                                            hintedPath: _hintedPath,
                                             cellSize: cellSize,
                                             colors: _highlightColors,
                                             blinkValue: _blinkAnimation.value,
@@ -2345,6 +2417,8 @@ class WordSearchPageState extends State<WordSearchPage>
   void dispose() {
     _timer?.cancel();
     _hintTimer?.cancel();
+    // Ensure last 5-second countdown audio stops immediately on screen exit
+    AudioHelper().stopLastSecond();
     _animationController.dispose();
     _blinkController.dispose();
     _flightController.dispose();

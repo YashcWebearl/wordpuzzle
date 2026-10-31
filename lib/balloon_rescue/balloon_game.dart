@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:word_puzzle/db/prefs.dart';
+import 'package:word_puzzle/services/daily_service.dart';
 import 'package:word_puzzle/view/ad_show.dart';
 import 'package:word_puzzle/widget/app_3d_button.dart';
 import 'package:word_puzzle/widget/coin_container.dart';
@@ -114,9 +117,33 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
       });
 
     _loadPuzzle();
+
+    // Wordix-style interstitial ad after every 4 games
+    Prefs.incrementPlayCount().then((count) {
+      if (!mounted) return;
+      if (count % 4 == 0 && count != 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AdPlaybackPage(
+                  isRewardAd: false,
+                  onAdComplete: () {},
+                ),
+              ),
+            );
+          }
+        });
+      }
+    });
   }
 
   void _loadPuzzle() {
+    DailyService().updateTaskProgress(
+      taskKey: 'play_balloon',
+      gameName: 'balloon',
+    );
     _puzzle = BalloonLevelData.getPuzzleForLevel(widget.level);
     _balloonsRemaining = 5;
     _revealedLetters.clear();
@@ -181,8 +208,9 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
                 ? 'GREAT! 🌟'
                 : (_correctStreak == 4 ? 'AMAZING! 🔥' : 'PERFECT! 💎'));
         _praiseController.forward(from: 0.0);
-        AudioHelper().playBalloonPraise();
       }
+      // Always play sweet baby happy sound on every correct letter!
+      AudioHelper().playBalloonLetterHappy();
 
       setState(() {
         _usedTileIndices.add(index);
@@ -209,9 +237,9 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
       _correctStreak = 0;
       _praiseController.reset();
 
-      HapticFeedback.heavyImpact();
-      AudioHelper().playBalloonWrong();
+      HapticFeedback.mediumImpact();
       AudioHelper().playBalloonBurst();
+      AudioHelper().playBalloonWrong();
 
       final newBalloons = (_balloonsRemaining - 1).clamp(0, 5);
 
@@ -228,8 +256,7 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
       // Danger pulse when down to only 1 final balloon!
       if (newBalloons == 1) {
         _dangerPulseController.repeat(reverse: true);
-        HapticFeedback.heavyImpact();
-        AudioHelper().playBalloonDanger();
+        HapticFeedback.lightImpact();
       } else {
         _dangerPulseController.stop();
         _dangerPulseController.reset();
@@ -265,7 +292,10 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
     final slotBox =
         _slotKeys[slotIndex]?.currentContext?.findRenderObject() as RenderBox?;
 
-    if (tileBox == null || !tileBox.attached || slotBox == null || !slotBox.attached) {
+    if (tileBox == null ||
+        !tileBox.attached ||
+        slotBox == null ||
+        !slotBox.attached) {
       // Fallback: reveal immediately if positions cannot be resolved
       _onFlyingTileArrived(slotIndex, letter);
       return;
@@ -323,6 +353,10 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
 
   void _handleVictory() {
     _isGameOver = true;
+    DailyService().updateTaskProgress(
+      taskKey: 'win_balloon',
+      gameName: 'balloon',
+    );
     _dangerPulseController.stop();
     _dangerPulseController.reset();
 
@@ -339,14 +373,25 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
     // 1400ms delay: Boy waves happily, shoots UP into the stratosphere, confetti rains!
     Future.delayed(const Duration(milliseconds: 1400), () {
       if (!mounted) return;
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => BalloonSuccessScreen(
-            isWin: true,
-            level: widget.level,
-            word: _puzzle.word,
-            balloonsLeft: _balloonsRemaining,
+          builder: (context) => AdPlaybackPage(
+            isRewardAd: false,
+            onAdComplete: () {
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BalloonSuccessScreen(
+                    isWin: true,
+                    level: widget.level,
+                    word: _puzzle.word,
+                    balloonsLeft: _balloonsRemaining,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       );
@@ -388,18 +433,180 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
     // Give time for 5th balloon burst + comic pause + plummeting straight down off-screen
     Future.delayed(const Duration(milliseconds: 1400), () {
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BalloonSuccessScreen(
-            isWin: false,
-            level: widget.level,
-            word: _puzzle.word,
-            balloonsLeft: 0,
+      _showGameOverDialog();
+    });
+  }
+
+  void _showGameOverDialog() {
+    bool isRetrying = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(26),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "OUT OF LIVES!",
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Image.asset(
+                        'assets/out_of_moves.png',
+                        width: 170,
+                        height: 170,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        "All balloons popped! Would you like to try again?",
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 26),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: App3DButton.amber(
+                              text: 'GIVE UP',
+                              height: 46,
+                              fontSize: 14,
+                              onPressed: isRetrying
+                                  ? null
+                                  : () {
+                                      Navigator.pop(dialogContext);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => AdPlaybackPage(
+                                            isRewardAd: false,
+                                            onAdComplete: () {
+                                              if (!mounted) return;
+                                              Navigator.pushReplacement(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      BalloonSuccessScreen(
+                                                    isWin: false,
+                                                    level: widget.level,
+                                                    word: _puzzle.word,
+                                                    balloonsLeft: 0,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: App3DButton.green(
+                              text: 'RETRY',
+                              height: 46,
+                              fontSize: 14,
+                              isLoading: isRetrying,
+                              onPressed: isRetrying
+                                  ? null
+                                  : () async {
+                                      final coinProvider =
+                                          Provider.of<CoinProvider>(
+                                        context,
+                                        listen: false,
+                                      );
+                                      setDialogState(() => isRetrying = true);
+
+                                      try {
+                                        final connectivity =
+                                            await Connectivity()
+                                                .checkConnectivity();
+                                        if (connectivity.contains(
+                                            ConnectivityResult.none)) {
+                                          Fluttertoast.showToast(
+                                              msg: "You're offline");
+                                          setDialogState(
+                                              () => isRetrying = false);
+                                          return;
+                                        }
+
+                                        if (coinProvider.coins < 4) {
+                                          setDialogState(
+                                              () => isRetrying = false);
+                                          _showInsufficientCoinsDialog();
+                                          return;
+                                        }
+
+                                        await Future.delayed(
+                                            const Duration(milliseconds: 350));
+                                        await coinProvider.undoCoins(4);
+                                        AudioHelper().playMoneySound();
+                                        Fluttertoast.showToast(
+                                          msg: "4 coins deducted to retry",
+                                        );
+
+                                        if (!dialogContext.mounted) return;
+                                        Navigator.pop(dialogContext);
+                                        setState(() {
+                                          _balloonsRemaining = 2;
+                                          _boyExpression = 'idle';
+                                          _isGameOver = false;
+                                        });
+                                      } catch (e) {
+                                        if (dialogContext.mounted) {
+                                          setDialogState(
+                                              () => isRetrying = false);
+                                        }
+                                      }
+                                    },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
-      );
-    });
+      ),
+    );
   }
 
   void _addExtraBalloon({bool useCoins = true}) async {
@@ -426,6 +633,7 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
       _balloonsRemaining = (_balloonsRemaining + 1).clamp(1, 5);
       _boyExpression = 'happy';
     });
+    AudioHelper().playBalloonGiggle();
 
     if (_balloonsRemaining > 1) {
       _dangerPulseController.stop();
@@ -465,6 +673,10 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
       await coinProvider.undoCoins(10);
       AudioHelper().playHintSound();
     }
+    DailyService().updateTaskProgress(
+      taskKey: 'use_hint',
+      gameName: 'balloon',
+    );
     HapticFeedback.mediumImpact();
 
     // Find and auto-tap the tile containing this letter
@@ -804,12 +1016,12 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
                     // 5. Balloon Lives Indicator Pill
                     _buildLivesPill(),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
 
                     // 6. Bottom: The 10 or 12 Big 3D Letter Tiles
                     _buildLetterTileGrid(),
 
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 10),
                   ],
                 ),
               ),
@@ -845,8 +1057,8 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
             ..._flyingTiles.map((data) => _FlyingTileWidget(
                   key: data.key,
                   data: data,
-                  onArrived: () => _onFlyingTileArrived(
-                      data.targetSlotIndex, data.letter),
+                  onArrived: () =>
+                      _onFlyingTileArrived(data.targetSlotIndex, data.letter),
                 )),
 
             // Combo & Praise Popup Badge
@@ -861,7 +1073,8 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
                       animation: _praiseController,
                       builder: (context, _) {
                         return Opacity(
-                          opacity: _praiseOpacityAnimation.value.clamp(0.0, 1.0),
+                          opacity:
+                              _praiseOpacityAnimation.value.clamp(0.0, 1.0),
                           child: Transform.scale(
                             scale: _praiseScaleAnimation.value,
                             child: Container(
@@ -884,7 +1097,8 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFFFB703).withValues(alpha: 0.8),
+                                    color: const Color(0xFFFFB703)
+                                        .withValues(alpha: 0.8),
                                     blurRadius: 20,
                                     spreadRadius: 3,
                                   ),
@@ -973,9 +1187,7 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
                   ),
                   SizedBox(width: isNarrow ? 4.0 : 6.0),
                   Text(
-                    isNarrow
-                        ? 'Lvl ${widget.level}'
-                        : 'Level ${widget.level}',
+                    isNarrow ? 'Lvl ${widget.level}' : 'Level ${widget.level}',
                     style: GoogleFonts.fredoka(
                       color: Colors.white,
                       fontSize: isNarrow ? 12.5 : 14.5,
@@ -1023,7 +1235,8 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
 
   Widget _buildCategoryBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      constraints: const BoxConstraints(maxWidth: 320),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(20),
@@ -1038,21 +1251,24 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
           ),
         ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(_puzzle.emoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 8),
-          Text(
-            '${_puzzle.category} • ${_puzzle.word.length} LETTERS',
-            style: GoogleFonts.fredoka(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              letterSpacing: 1.2,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_puzzle.emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Text(
+              '${_puzzle.category} • ${_puzzle.word.length} LETTERS',
+              style: GoogleFonts.fredoka(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: 1.2,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1065,84 +1281,90 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
     final availableW = screenW - horizontalPadding;
     final spacing = chars.length >= 7 ? 6.0 : (chars.length >= 6 ? 7.0 : 8.0);
     final totalSpacing = spacing * (chars.length - 1);
-    final slotW = math.min(52.0, math.max(34.0, (availableW - totalSpacing) / chars.length));
+    final slotW = math.min(
+        52.0, math.max(34.0, (availableW - totalSpacing) / chars.length));
     final slotH = (slotW * 1.08).clamp(42.0, 56.0);
     final fontSize = (slotW * 0.50).clamp(18.0, 26.0);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: chars.asMap().entries.map((entry) {
-          final slotIdx = entry.key;
-          final char = entry.value;
-          final isRevealed = _revealedSlotIndices.contains(slotIdx);
-          final isLanding = _landingPopSlots.contains(slotIdx);
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: chars.asMap().entries.map((entry) {
+              final slotIdx = entry.key;
+              final char = entry.value;
+              final isRevealed = _revealedSlotIndices.contains(slotIdx);
+              final isLanding = _landingPopSlots.contains(slotIdx);
 
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing / 2),
-            child: AnimatedScale(
-              scale: isLanding ? 1.20 : 1.0,
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutBack,
-              child: AnimatedContainer(
-                key: _slotKeys.putIfAbsent(slotIdx, () => GlobalKey()),
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutBack,
-                width: slotW,
-                height: slotH,
-                decoration: BoxDecoration(
-                  gradient: isRevealed
-                      ? const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0xFF69F0AE),
-                            Color(0xFF00E676),
-                            Color(0xFF00C853),
-                          ],
-                        )
-                      : LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.35),
-                            Colors.black.withValues(alpha: 0.50),
-                          ],
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: spacing / 2),
+                child: AnimatedScale(
+                  scale: isLanding ? 1.20 : 1.0,
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutBack,
+                  child: AnimatedContainer(
+                    key: _slotKeys.putIfAbsent(slotIdx, () => GlobalKey()),
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutBack,
+                    width: slotW,
+                    height: slotH,
+                    decoration: BoxDecoration(
+                      gradient: isRevealed
+                          ? const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0xFF69F0AE),
+                                Color(0xFF00E676),
+                                Color(0xFF00C853),
+                              ],
+                            )
+                          : LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.35),
+                                Colors.black.withValues(alpha: 0.50),
+                              ],
+                            ),
+                      borderRadius: BorderRadius.circular(slotW * 0.26),
+                      border: Border.all(
+                        color: isRevealed
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.35),
+                        width: isRevealed ? 2.5 : 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isRevealed
+                              ? const Color(0xFF00E676).withValues(alpha: 0.5)
+                              : Colors.black.withValues(alpha: 0.25),
+                          blurRadius: isRevealed ? 12 : 4,
+                          offset: const Offset(0, 3),
                         ),
-                  borderRadius: BorderRadius.circular(slotW * 0.26),
-                  border: Border.all(
-                    color: isRevealed
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.35),
-                    width: isRevealed ? 2.5 : 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isRevealed
-                          ? const Color(0xFF00E676).withValues(alpha: 0.5)
-                          : Colors.black.withValues(alpha: 0.25),
-                      blurRadius: isRevealed ? 12 : 4,
-                      offset: const Offset(0, 3),
+                      ],
                     ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    isRevealed ? char : '',
-                    style: GoogleFonts.fredoka(
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w900,
-                      color: isRevealed ? const Color(0xFF052B17) : Colors.white,
+                    child: Center(
+                      child: Text(
+                        isRevealed ? char : '',
+                        style: GoogleFonts.fredoka(
+                          fontSize: fontSize,
+                          fontWeight: FontWeight.w900,
+                          color: isRevealed
+                              ? const Color(0xFF052B17)
+                              : Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
+              );
+            }).toList(),
+          ),
+        ));
   }
 
   Widget _buildLivesPill() {
@@ -1151,7 +1373,8 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1.2),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1.2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1188,18 +1411,37 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
 
   Widget _buildLetterTileGrid() {
     final pool = _puzzle.letterPool;
-    final row1Count = pool.length <= 10 ? 5 : 6;
-    final row1 = pool.sublist(0, row1Count);
-    final row2 = pool.sublist(row1Count);
+    final List<List<String>> rows = [];
 
+    // Split into 3 clean, balanced rows to prevent any horizontal overflow on any screen
+    if (pool.length == 12) {
+      rows.add(pool.sublist(0, 4));
+      rows.add(pool.sublist(4, 8));
+      rows.add(pool.sublist(8, 12));
+    } else if (pool.length == 10) {
+      rows.add(pool.sublist(0, 4));
+      rows.add(pool.sublist(4, 7));
+      rows.add(pool.sublist(7, 10));
+    } else {
+      final chunkSize = (pool.length / 3).ceil();
+      for (int i = 0; i < pool.length; i += chunkSize) {
+        rows.add(pool.sublist(i, math.min(i + chunkSize, pool.length)));
+      }
+    }
+
+    int startIndex = 0;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Column(
-        children: [
-          _buildLetterRow(row1, startIndex: 0),
-          const SizedBox(height: 10),
-          _buildLetterRow(row2, startIndex: row1Count),
-        ],
+        mainAxisSize: MainAxisSize.min,
+        children: rows.map((rowLetters) {
+          final sIndex = startIndex;
+          startIndex += rowLetters.length;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 7.0),
+            child: _buildLetterRow(rowLetters, startIndex: sIndex),
+          );
+        }).toList(),
       ),
     );
   }
@@ -1207,6 +1449,7 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
   Widget _buildLetterRow(List<String> letters, {required int startIndex}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: List.generate(letters.length, (colIdx) {
         final actualIndex = startIndex + colIdx;
         final letter = letters[colIdx];
@@ -1215,7 +1458,7 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
         final isCorrect = isUsed && !isWrong;
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          padding: const EdgeInsets.symmetric(horizontal: 3.5),
           child: _build3DLetterTile(
             letter: letter,
             index: actualIndex,
@@ -1236,7 +1479,9 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
     required bool isCorrect,
   }) {
     final screenW = MediaQuery.of(context).size.width;
-    final tileSize = math.min(52.0, (screenW - 56) / (_puzzle.poolSize == 10 ? 5 : 6));
+    // With 4 items per row maximum, tiles fit comfortably on any screen width
+    final maxAllowedW = (screenW - 56) / 4.0;
+    final tileSize = math.min(48.0, math.max(36.0, maxAllowedW - 7.0));
 
     // Colors according to state
     Color topColor;

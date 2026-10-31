@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:word_puzzle/db/prefs.dart';
 import 'package:word_puzzle/services/daily_service.dart';
 import 'package:word_puzzle/view/ad_show.dart';
 import 'package:word_puzzle/widget/app_3d_button.dart';
@@ -58,9 +59,10 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   // Connecting laser trail live touch point
   Offset? _currentDragPoint;
 
-  // Single-character hint highlight state (does NOT solve the full word)
-  String? _hintedTileId;
-  Timer? _hintTimer;
+  // Progressive character hint highlight state (persistent until word is solved)
+  String? _currentHintWord;
+  int _hintLetterCount = 0;
+  final Set<String> _hintedTileIds = {};
   late AnimationController _hintPulseController;
   late Animation<double> _hintPulseAnimation;
 
@@ -87,6 +89,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   int _remainingMoves = 15;
   int _totalMoves = 15;
   int _remainingShuffles = 5;
+  bool _isShuffleAvailable = true;
   bool _isGameOver = false;
   bool _isGameOverDialogShowing = false;
   bool _isWatchingAd = false;
@@ -104,7 +107,6 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   void initState() {
     super.initState();
     AudioHelper().initialize();
-    _loadLevel(widget.level);
 
     _shakeAnimController = AnimationController(
       duration: const Duration(milliseconds: 350),
@@ -205,13 +207,39 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
         .chain(CurveTween(curve: Curves.easeInOutSine))
         .animate(_kittyAnimController);
 
-    _startTimer();
+    _loadLevel(widget.level);
+
+    // Wordix-style interstitial ad after every 4 games
+    Prefs.incrementPlayCount().then((count) {
+      if (!mounted) return;
+      if (count % 4 == 0 && count != 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _gameTimer?.cancel();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AdPlaybackPage(
+                  isRewardAd: false,
+                  onAdComplete: () {},
+                ),
+              ),
+            ).then((_) {
+              if (mounted && !_isGameOver) {
+                _startTimer();
+              }
+            });
+          }
+        });
+      } else {
+        _startTimer();
+      }
+    });
   }
 
   @override
   void dispose() {
     _gameTimer?.cancel();
-    _hintTimer?.cancel();
     _hintPulseController.dispose();
     _shakeAnimController.dispose();
     _shuffleAnimController.dispose();
@@ -223,6 +251,10 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   }
 
   void _loadLevel(int level) {
+    DailyService().updateTaskProgress(
+      taskKey: 'play_scramble',
+      gameName: 'scramble',
+    );
     _levelData = ScrambleLevelCatalog.getLevelData(level);
     _solvedWords.clear();
     _selectedTiles.clear();
@@ -246,6 +278,14 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     _totalMoves = math.max(12, _levelData.targetWords.length * 3 + 4);
     _remainingMoves = _totalMoves;
     _remainingShuffles = 5;
+    _currentHintWord = null;
+    _hintLetterCount = 0;
+    _hintedTileIds.clear();
+    try {
+      _hintPulseController.stop();
+      _hintPulseController.reset();
+    } catch (_) {}
+    _updateShuffleAvailability();
   }
 
   void _startTimer() {
@@ -283,8 +323,10 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => Dialog(
           backgroundColor: Colors.transparent,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(30),
@@ -451,6 +493,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
           ),
         ),
       ),
+    ),
     ).then((_) {
       _isGameOverDialogShowing = false;
     });
@@ -595,13 +638,12 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     if (_selectedTiles.isEmpty || _isProcessingSolve || _isGameOver) return;
 
     final formed = _currentFormedWord.toUpperCase();
-    final reversedFormed = formed.split('').reversed.join('');
 
     String? matchedWord;
     for (final word in _levelData.targetWords) {
       if (!_solvedWords.contains(word)) {
-        // Matches word swiped in natural order or reverse order (e.g. Left-to-Right OR Right-to-Left!)
-        if (word == formed || word == reversedFormed) {
+        // Only accept the word in the exact forward spelling order swiped by the player!
+        if (word == formed) {
           matchedWord = word;
           break;
         }
@@ -717,12 +759,14 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       _currentFormedWord = '';
       _dragDirection = null;
 
-      // Stop hint highlight if the hinted tile was solved
-      if (_hintedTileId != null && solvedIds.contains(_hintedTileId)) {
-        _hintedTileId = null;
+      // Clear persistent hint if the hinted word or its tiles were solved
+      if (_currentHintWord == word ||
+          _hintedTileIds.any((id) => solvedIds.contains(id))) {
+        _currentHintWord = null;
+        _hintLetterCount = 0;
+        _hintedTileIds.clear();
         _hintPulseController.stop();
         _hintPulseController.reset();
-        _hintTimer?.cancel();
       }
     });
 
@@ -731,8 +775,18 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     await Future.delayed(const Duration(milliseconds: 200));
     _isProcessingSolve = false;
 
+    if (mounted) {
+      setState(() {
+        _updateShuffleAvailability();
+      });
+    }
+
     // Check if entire level is cleared
     if (_solvedWords.length == _levelData.targetWords.length) {
+      DailyService().updateTaskProgress(
+        taskKey: 'win_scramble',
+        gameName: 'scramble',
+      );
       _gameTimer?.cancel();
       final movesUsed = math.max(0, _totalMoves - _remainingMoves);
 
@@ -1079,7 +1133,88 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     Fluttertoast.showToast(msg: "+5 Extra Moves added!");
   }
 
-  /// Hint: Highlights the starting character of an unsolved word to guide the player (does not auto-solve)
+  /// Scans the active board to locate an unbroken, contiguous line of tiles matching [word]
+  /// that can currently be swiped by the player (vertical top-to-bottom/bottom-to-top or horizontal).
+  List<ScrambleTile>? _findPlayableWordTiles(String word) {
+    final int len = word.length;
+
+    // 1. Check all columns for contiguous vertical placement
+    for (int c = 0; c < _columns.length; c++) {
+      final col = _columns[c];
+      if (col.length < len) continue;
+
+      // Top to bottom reading (most common in scramble):
+      for (int k = col.length - 1; k >= len - 1; k--) {
+        bool match = true;
+        final List<ScrambleTile> candidate = [];
+        for (int i = 0; i < len; i++) {
+          final tile = col[k - i];
+          if (tile.isSolved || tile.letter.toUpperCase() != word[i].toUpperCase()) {
+            match = false;
+            break;
+          }
+          candidate.add(tile);
+        }
+        if (match) return candidate;
+      }
+
+      // Bottom to top reading:
+      for (int k = 0; k <= col.length - len; k++) {
+        bool match = true;
+        final List<ScrambleTile> candidate = [];
+        for (int i = 0; i < len; i++) {
+          final tile = col[k + i];
+          if (tile.isSolved || tile.letter.toUpperCase() != word[i].toUpperCase()) {
+            match = false;
+            break;
+          }
+          candidate.add(tile);
+        }
+        if (match) return candidate;
+      }
+    }
+
+    // 2. Check all horizontal rows across adjacent columns
+    int maxRows = 0;
+    for (final col in _columns) {
+      if (col.length > maxRows) maxRows = col.length;
+    }
+
+    final Map<String, ScrambleTile> gridMap = {};
+    for (final col in _columns) {
+      for (final tile in col) {
+        if (!tile.isSolved) {
+          gridMap['${tile.row}_${tile.col}'] = tile;
+        }
+      }
+    }
+
+    for (int r = 0; r < maxRows; r++) {
+      for (int startCol = 0; startCol <= _columns.length - len; startCol++) {
+        // Left to right:
+        bool match = true;
+        final List<ScrambleTile> candidate = [];
+        for (int i = 0; i < len; i++) {
+          final tile = gridMap['${r}_${startCol + i}'];
+          if (tile == null || tile.letter.toUpperCase() != word[i].toUpperCase()) {
+            match = false;
+            break;
+          }
+          candidate.add(tile);
+        }
+        if (match) return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  /// Progressive Hint:
+  /// - ONLY hints words that are CURRENTLY PLAYABLE on the board (no blocked/buried words).
+  /// - 1st Hint: Highlights 1st letter of the playable word (stays permanently on).
+  /// - 2nd Hint: Highlights 2nd letter of that same word (1st & 2nd both stay on).
+  /// - 3rd / 4th Hint: Progressively reveals subsequent letters until entire word is illuminated!
+  /// - Highlight never turns off automatically; it remains until the word is solved.
   void _useHint({bool useCoins = true}) async {
     final coinProvider = Provider.of<CoinProvider>(context, listen: false);
     if (useCoins && coinProvider.coins < 10) {
@@ -1087,53 +1222,86 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       return;
     }
 
-    String? unsolvedWord;
-    for (final w in _levelData.targetWords) {
-      if (!_solvedWords.contains(w)) {
-        unsolvedWord = w;
-        break;
-      }
-    }
-
-    if (unsolvedWord == null) {
+    final remainingWords =
+        _levelData.targetWords.where((w) => !_solvedWords.contains(w)).toList();
+    if (remainingWords.isEmpty) {
       Fluttertoast.showToast(msg: "All words already solved!");
       return;
     }
 
-    // Find the first letter of this unsolved word currently available on the board
-    final firstChar = unsolvedWord[0];
-    ScrambleTile? hintTile;
-    for (final col in _columns) {
-      for (final tile in col) {
-        if (!tile.isSolved && tile.letter == firstChar) {
-          hintTile = tile;
+    // Check if the currently hinted word is still valid and playable on the active board
+    List<ScrambleTile>? playableTiles;
+    if (_currentHintWord != null && !_solvedWords.contains(_currentHintWord)) {
+      playableTiles = _findPlayableWordTiles(_currentHintWord!);
+    }
+
+    // If no active hint word or current one is no longer directly playable, pick the first playable word
+    if (playableTiles == null || _currentHintWord == null) {
+      for (final w in remainingWords) {
+        final tiles = _findPlayableWordTiles(w);
+        if (tiles != null) {
+          _currentHintWord = w;
+          playableTiles = tiles;
+          _hintLetterCount = 0;
+          _hintedTileIds.clear();
           break;
         }
       }
-      if (hintTile != null) break;
     }
 
-    // Fallback: any letter of the unsolved word currently on the board
-    if (hintTile == null) {
-      for (final char in unsolvedWord.split('')) {
-        for (final col in _columns) {
-          for (final tile in col) {
-            if (!tile.isSolved && tile.letter == char) {
-              hintTile = tile;
-              break;
-            }
+    // Edge case fallback: if no strictly contiguous word found, find first letter of any remaining word
+    if (playableTiles == null) {
+      _currentHintWord = remainingWords.first;
+      _hintLetterCount = 0;
+      _hintedTileIds.clear();
+      final firstChar = _currentHintWord![0];
+      for (final col in _columns) {
+        for (final t in col) {
+          if (!t.isSolved && t.letter.toUpperCase() == firstChar.toUpperCase()) {
+            playableTiles = [t];
+            break;
           }
-          if (hintTile != null) break;
         }
-        if (hintTile != null) break;
+        if (playableTiles != null) break;
       }
     }
 
-    if (hintTile == null) {
-      Fluttertoast.showToast(msg: "Clear other tiles to reveal '$unsolvedWord'!");
+    if (playableTiles == null || playableTiles.isEmpty) {
+      Fluttertoast.showToast(msg: "No hints currently available!");
       return;
     }
 
+    // If all letters of current word are ALREADY highlighted:
+    if (_hintLetterCount >= playableTiles.length) {
+      // Find the next playable unsolved word
+      String? nextWord;
+      List<ScrambleTile>? nextTiles;
+      for (final w in remainingWords) {
+        if (w != _currentHintWord) {
+          final t = _findPlayableWordTiles(w);
+          if (t != null) {
+            nextWord = w;
+            nextTiles = t;
+            break;
+          }
+        }
+      }
+
+      if (nextWord != null && nextTiles != null) {
+        _currentHintWord = nextWord;
+        playableTiles = nextTiles;
+        _hintLetterCount = 0;
+        _hintedTileIds.clear();
+      } else {
+        Fluttertoast.showToast(
+          msg: "Word '$_currentHintWord' is fully highlighted! Swipe to solve!",
+          gravity: ToastGravity.CENTER,
+        );
+        return;
+      }
+    }
+
+    // Deduct coins only when hint actually reveals a new letter
     if (useCoins) {
       await coinProvider.undoCoins(10);
       AudioHelper().playMoneySound();
@@ -1147,25 +1315,47 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     AudioHelper().playHintSound();
     HapticFeedback.mediumImpact();
 
-    // Highlight only this starting letter with pulsing gold/emerald glow!
+    // Increment hint letter count and persist tile IDs in _hintedTileIds
+    _hintLetterCount++;
     setState(() {
-      _hintedTileId = hintTile!.id;
-    });
-    _hintPulseController.repeat(reverse: true);
-
-    _hintTimer?.cancel();
-    _hintTimer = Timer(const Duration(seconds: 6), () {
-      if (mounted && _hintedTileId != null) {
-        setState(() {
-          _hintedTileId = null;
-        });
-        _hintPulseController.stop();
-        _hintPulseController.reset();
+      for (int i = 0; i < _hintLetterCount && i < playableTiles!.length; i++) {
+        _hintedTileIds.add(playableTiles[i].id);
       }
     });
+
+    _hintPulseController.repeat(reverse: true);
+
+    final charRevealed = playableTiles[_hintLetterCount - 1].letter;
+    Fluttertoast.showToast(
+      msg: "Hint ($_hintLetterCount/${playableTiles.length}): '$charRevealed'",
+      gravity: ToastGravity.BOTTOM,
+    );
+  }
+
+  String _getBoardSignature(List<List<ScrambleTile>> cols) {
+    return cols
+        .where((c) => c.isNotEmpty)
+        .map((col) => col.map((t) => t.letter).join(''))
+        .join('|');
+  }
+
+  void _updateShuffleAvailability() {
+    final remainingWords =
+        _levelData.targetWords.where((w) => !_solvedWords.contains(w)).toList();
+    // Shuffle is possible whenever there are 2 or more words remaining to rearrange!
+    _isShuffleAvailable = remainingWords.length > 1;
   }
 
   void _onShuffleTapped() {
+    if (!_isShuffleAvailable) {
+      HapticFeedback.lightImpact();
+      Fluttertoast.showToast(
+        msg: "Shuffle not possible!",
+        gravity: ToastGravity.BOTTOM,
+      );
+      return;
+    }
+
     if (_remainingShuffles > 0) {
       _performShuffle(useCoins: false);
     } else {
@@ -1177,7 +1367,41 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     final remainingWords =
         _levelData.targetWords.where((w) => !_solvedWords.contains(w)).toList();
 
-    if (remainingWords.isEmpty) return;
+    if (remainingWords.length <= 1) {
+      setState(() => _isShuffleAvailable = false);
+      Fluttertoast.showToast(msg: "Shuffle not possible!");
+      return;
+    }
+
+    final currentSig = _getBoardSignature(_columns);
+    List<List<ScrambleTile>>? newCols;
+    for (int i = 0; i < 40; i++) {
+      final candidate = ScramblePuzzleEngine.repackRemainingWords(
+        remainingWords: remainingWords,
+        cols: _levelData.cols,
+        seed: _levelData.level * 1000 +
+            _remainingShuffles * 47 +
+            DateTime.now().millisecond +
+            i * 41,
+      );
+      if (candidate.any((c) => c.isNotEmpty) &&
+          _getBoardSignature(candidate) != currentSig) {
+        newCols = candidate;
+        break;
+      }
+    }
+
+    newCols ??= ScramblePuzzleEngine.repackRemainingWords(
+      remainingWords: remainingWords,
+      cols: _levelData.cols,
+      seed: DateTime.now().microsecondsSinceEpoch,
+    );
+
+    if (newCols.isEmpty || !newCols.any((c) => c.isNotEmpty)) {
+      setState(() => _isShuffleAvailable = false);
+      Fluttertoast.showToast(msg: "Shuffle not possible!");
+      return;
+    }
 
     if (useCoins) {
       final coinProvider = Provider.of<CoinProvider>(context, listen: false);
@@ -1189,6 +1413,11 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       AudioHelper().playMoneySound();
     }
 
+    DailyService().updateTaskProgress(
+      taskKey: 'use_hint',
+      increment: 1,
+      gameName: 'Scramble',
+    );
     AudioHelper().playScrambleShuffle();
     _shuffleAnimController.forward(from: 0.0);
     HapticFeedback.lightImpact();
@@ -1199,18 +1428,19 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
         _remainingShuffles--;
       }
 
-      // Re-pack remaining unsolved words into a fresh, 100% verified solvable layout!
-      _columns = ScramblePuzzleEngine.repackRemainingWords(
-        remainingWords: remainingWords,
-        cols: _columns.length,
-        seed: widget.level * 1000 +
-            _remainingShuffles * 47 +
-            DateTime.now().millisecond,
-      );
-
+      newCols!.removeWhere((col) => col.isEmpty);
+      _columns = newCols;
       _selectedTiles.clear();
       _currentFormedWord = '';
       _dragDirection = null;
+
+      _currentHintWord = null;
+      _hintLetterCount = 0;
+      _hintedTileIds.clear();
+      _hintPulseController.stop();
+      _hintPulseController.reset();
+
+      _updateShuffleAvailability();
     });
 
     Fluttertoast.showToast(msg: "Board shuffled!");
@@ -1407,23 +1637,30 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   }
 
   Widget _buildShuffleButton() {
+    final isAvailable = _isShuffleAvailable;
+
     return GestureDetector(
       onTap: _onShuffleTapped,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
         height: 42,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFAB47BC), Color(0xFF7B1FA2)],
+          gradient: LinearGradient(
+            colors: isAvailable
+                ? const [Color(0xFFAB47BC), Color(0xFF7B1FA2)]
+                : const [Color(0xFF616161), Color(0xFF424242)],
           ),
           borderRadius: BorderRadius.circular(21),
           border: Border.all(
-            color: const Color(0xFFCE93D8),
+            color: isAvailable ? const Color(0xFFCE93D8) : const Color(0xFF757575),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF7B1FA2).withValues(alpha: 0.4),
+              color: isAvailable
+                  ? const Color(0xFF7B1FA2).withValues(alpha: 0.4)
+                  : Colors.black.withValues(alpha: 0.2),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1434,9 +1671,9 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
           children: [
             RotationTransition(
               turns: _shuffleAnimation,
-              child: const Icon(
+              child: Icon(
                 Icons.shuffle_rounded,
-                color: Colors.white,
+                color: isAvailable ? Colors.white : Colors.white38,
                 size: 18,
               ),
             ),
@@ -1445,7 +1682,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
               Text(
                 '$_remainingShuffles',
                 style: GoogleFonts.fredoka(
-                  color: Colors.white,
+                  color: isAvailable ? Colors.white : Colors.white38,
                   fontWeight: FontWeight.w800,
                   fontSize: 14,
                 ),
@@ -1454,12 +1691,15 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Image.asset('assets/coin.png', width: 14, height: 14),
+                  Opacity(
+                    opacity: isAvailable ? 1.0 : 0.35,
+                    child: Image.asset('assets/coin.png', width: 14, height: 14),
+                  ),
                   const SizedBox(width: 2),
                   Text(
                     '5',
                     style: GoogleFonts.fredoka(
-                      color: Colors.white,
+                      color: isAvailable ? Colors.white : Colors.white38,
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
                     ),
@@ -2000,7 +2240,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     final double top = row * step;
 
     final bool isSelected = tile.isSelected;
-    final bool isHinted = (_hintedTileId == tile.id);
+    final bool isHinted = _hintedTileIds.contains(tile.id);
 
     // 2.5D Physical Depth & Corner Chamfer
     final double depth = 5.0.h;
@@ -2229,10 +2469,22 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
           ),
         );
       },
-      child: Container(
-        width: 44.w,
-        height: 44.w,
-        decoration: BoxDecoration(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() => _kittyMood = 'happy');
+          AudioHelper().playScrambleKitty();
+          _kittyAnimController.forward(from: 0.0);
+          Future.delayed(const Duration(milliseconds: 1400), () {
+            if (mounted && _kittyMood == 'happy') {
+              setState(() => _kittyMood = 'idle');
+            }
+          });
+        },
+        child: Container(
+          width: 44.w,
+          height: 44.w,
+          decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -2269,6 +2521,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
           ),
         ),
       ),
+    )
     );
   }
 

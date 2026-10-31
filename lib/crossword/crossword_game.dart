@@ -146,6 +146,11 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
     _isShuffling = true;
     _hasShuffledThisSpin = false;
     HapticFeedback.mediumImpact();
+    DailyService().updateTaskProgress(
+      taskKey: 'use_hint',
+      increment: 1,
+      gameName: 'Crossword',
+    );
     CrosswordAudioHelper().playShuffle();
 
     _shuffleController.forward(from: 0.0).then((_) {
@@ -557,8 +562,10 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => Dialog(
           backgroundColor: Colors.transparent,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(30),
@@ -715,6 +722,7 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
           ),
         ),
       ),
+    ),
     ).then((_) {
       _isGameOverDialogShowing = false;
     });
@@ -815,9 +823,22 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
     final radius = calculateWheelRadius(wheelSize.width, count);
     final nodeSize = calculateNodeSize(wheelSize.width, count);
 
+    // Keep visual drag trail cleanly contained inside the wheel circle
+    final maxWheelRadius = (wheelSize.width / 2) + 24.0;
+    final distFromCenter = (localPos - center).distance;
+    Offset boundedPos = localPos;
+    if (distFromCenter > maxWheelRadius && distFromCenter > 0) {
+      boundedPos = center + (localPos - center) * (maxWheelRadius / distFromCenter);
+    }
+
     setState(() {
-      _currentDragPoint = localPos;
+      _currentDragPoint = boundedPos;
     });
+
+    // If finger is dragged too far outside the wheel, ignore letter selections
+    if (distFromCenter > maxWheelRadius + 20.0) {
+      return;
+    }
 
     for (int i = 0; i < count; i++) {
       final angle = (i * 2 * math.pi / count) - (math.pi / 2);

@@ -15,6 +15,8 @@ import 'package:word_puzzle/widget/coin_service.dart';
 import 'package:word_puzzle/widget/floating_words_background.dart';
 import 'package:word_puzzle/widget/get_level.dart';
 import 'crossword/crossword_level_service.dart';
+import 'scramble/scramble_level_service.dart';
+import 'balloon_rescue/balloon_level_service.dart';
 import 'Widget/base_url.dart';
 
 final GoogleSignIn _googleSignIn = GoogleSignIn(
@@ -104,6 +106,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               coinProvider.getCoin(),
               gameLevelProvider.refresh(),
               CrosswordLevelService.fetchLevel(),
+              ScrambleLevelService.fetchLevel(),
+              BalloonLevelService.fetchLevel(),
             ]);
           }
 
@@ -190,6 +194,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             coinProvider.getCoin(),
             gameLevelProvider.refresh(),
             CrosswordLevelService.fetchLevel(),
+            ScrambleLevelService.fetchLevel(),
+            BalloonLevelService.fetchLevel(),
           ]);
         }
 

@@ -63,7 +63,6 @@ class CrosswordAudioHelper {
       _hint = await _safeLoad('assets/music/crossword/cw_hint.wav');
       _winner = await _safeLoad('assets/music/crossword/cw_winner.wav');
       _coin = await _safeLoad('assets/music/crossword/cw_coin.wav');
-      // _button = await _safeLoad('assets/music/crossword/cw_button.wav');
       _button = await _safeLoad('assets/music/button.mp3');
       _countdown = await _safeLoad('assets/music/crossword/cw_countdown.wav');
       _gameOver = await _safeLoad('assets/music/crossword/cw_game_over.wav');
