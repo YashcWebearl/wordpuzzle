@@ -46,6 +46,7 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
   late final AnimationController _flyAnimController;
   List<_FlyingCoinParticle> _particles = [];
   bool _isCoinFlying = false;
+  bool _isShowingDialog = false;
 
   @override
   void initState() {
@@ -66,16 +67,22 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
   Future<void> showReward({
     required int coins,
     String source = 'Ad Reward',
+    String? title,
+    String? subtitle,
+    int? newWalletBalance,
+    Future<void> Function()? onCoinsDelivered,
   }) async {
-    if (!mounted) return;
+    if (!mounted || _isShowingDialog || _isCoinFlying) return;
+    _isShowingDialog = true;
 
     AudioHelper().playMoneySound();
     widget.confettiController.play();
 
-    await showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) {
+    try {
+      await showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) {
         return Stack(
           alignment: Alignment.center,
           children: [
@@ -162,7 +169,7 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
                             ),
                             border: Border.all(
                               color: const Color(0xFFFFD54F)
-                                  .withValues(alpha: 0.65),
+                                    .withValues(alpha: 0.65),
                               width: 2,
                             ),
                             boxShadow: [
@@ -189,6 +196,20 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
                         ),
                         const SizedBox(height: 16),
 
+                        if (title != null && title.isNotEmpty) ...[
+                          Text(
+                            title,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.dynaPuff(
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+
                         // Reward Amount
                         Text(
                           '+$coins COINS',
@@ -213,7 +234,7 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
                         const SizedBox(height: 6),
 
                         Text(
-                          'Coins added to your balance!',
+                          subtitle ?? 'Coins added to your balance!',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.outfit(
                             fontSize: 13.5.sp,
@@ -253,12 +274,24 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
         );
       },
     );
-
-    if (!mounted) return;
-    _triggerFlyingCoins(coins);
+  } finally {
+    _isShowingDialog = false;
   }
 
-  void _triggerFlyingCoins(int coins) {
+    if (!mounted) return;
+    _triggerFlyingCoins(
+      coins: coins,
+      newWalletBalance: newWalletBalance,
+      onCoinsDelivered: onCoinsDelivered,
+    );
+  }
+
+  void _triggerFlyingCoins({
+    required int coins,
+    int? newWalletBalance,
+    Future<void> Function()? onCoinsDelivered,
+  }) {
+    if (_isCoinFlying) return;
     final RenderBox? coinBox =
         widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
     final screenSize = MediaQuery.of(context).size;
@@ -291,7 +324,15 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
       if (!mounted) return;
       HapticFeedback.heavyImpact();
       final coinProvider = Provider.of<CoinProvider>(context, listen: false);
-      await coinProvider.addCoins(coins);
+
+      if (onCoinsDelivered != null) {
+        await onCoinsDelivered();
+      } else if (newWalletBalance != null && newWalletBalance > 0) {
+        await coinProvider.setCoins(newWalletBalance);
+      } else {
+        await coinProvider.addCoins(coins);
+      }
+
       widget.confettiController.play();
       setState(() {
         _isCoinFlying = false;

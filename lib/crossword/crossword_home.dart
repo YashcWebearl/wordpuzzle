@@ -50,7 +50,7 @@ class _CrosswordHomeScreenState extends State<CrosswordHomeScreen> {
     return CommonGameHomeScreen(
       gameTagline: 'WOODLAND ODYSSEY',
       gameSubtitle: 'Connect letters to uncover crossword secrets',
-      logoWidget: const CrosswordLogo(size: 135),
+      logoWidget: const CrosswordLogo(size: 145),
       background: const CrosswordNatureBackground(),
       currentLevel: _currentLevel,
       primaryColor: const Color(0xFF00E676),

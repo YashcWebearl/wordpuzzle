@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -274,8 +273,8 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       _wordSlotKeys[word] = GlobalKey();
     }
 
-    _timeLeft = 90;
-    _totalMoves = math.max(12, _levelData.targetWords.length * 3 + 4);
+    _timeLeft = math.max(75, _levelData.targetWords.length * 15 + 15);
+    _totalMoves = math.max(10, _levelData.targetWords.length * 3 + 2);
     _remainingMoves = _totalMoves;
     _remainingShuffles = 5;
     _currentHintWord = null;
@@ -1134,7 +1133,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   }
 
   /// Scans the active board to locate an unbroken, contiguous line of tiles matching [word]
-  /// that can currently be swiped by the player (vertical top-to-bottom/bottom-to-top or horizontal).
+  /// that can currently be swiped by the player (vertical top-to-bottom/bottom-to-top or horizontal left-to-right/right-to-left).
   List<ScrambleTile>? _findPlayableWordTiles(String word) {
     final int len = word.length;
 
@@ -1181,21 +1180,39 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     }
 
     final Map<String, ScrambleTile> gridMap = {};
-    for (final col in _columns) {
-      for (final tile in col) {
+    for (int c = 0; c < _columns.length; c++) {
+      final col = _columns[c];
+      for (int k = 0; k < col.length; k++) {
+        final tile = col[k];
         if (!tile.isSolved) {
-          gridMap['${tile.row}_${tile.col}'] = tile;
+          final row = maxRows - 1 - k;
+          gridMap['${row}_$c'] = tile;
         }
       }
     }
 
     for (int r = 0; r < maxRows; r++) {
+      // Horizontal: Left to right
       for (int startCol = 0; startCol <= _columns.length - len; startCol++) {
-        // Left to right:
         bool match = true;
         final List<ScrambleTile> candidate = [];
         for (int i = 0; i < len; i++) {
           final tile = gridMap['${r}_${startCol + i}'];
+          if (tile == null || tile.letter.toUpperCase() != word[i].toUpperCase()) {
+            match = false;
+            break;
+          }
+          candidate.add(tile);
+        }
+        if (match) return candidate;
+      }
+
+      // Horizontal: Right to left (e.g. board has "N I A P", swiping right to left forms "P A I N")
+      for (int startCol = _columns.length - 1; startCol >= len - 1; startCol--) {
+        bool match = true;
+        final List<ScrambleTile> candidate = [];
+        for (int i = 0; i < len; i++) {
+          final tile = gridMap['${r}_${startCol - i}'];
           if (tile == null || tile.letter.toUpperCase() != word[i].toUpperCase()) {
             match = false;
             break;
@@ -1249,20 +1266,56 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       }
     }
 
-    // Edge case fallback: if no strictly contiguous word found, find first letter of any remaining word
+    // Edge case fallback: if no strictly contiguous straight line found,
+    // collect tiles matching the letters of the word so progressive hint reveals each letter in order
     if (playableTiles == null) {
-      _currentHintWord = remainingWords.first;
-      _hintLetterCount = 0;
-      _hintedTileIds.clear();
-      final firstChar = _currentHintWord![0];
-      for (final col in _columns) {
-        for (final t in col) {
-          if (!t.isSolved && t.letter.toUpperCase() == firstChar.toUpperCase()) {
-            playableTiles = [t];
+      String? fallbackWord;
+      List<ScrambleTile>? fallbackTiles;
+
+      final wordsToTry = (_currentHintWord != null && remainingWords.contains(_currentHintWord))
+          ? [_currentHintWord!, ...remainingWords.where((w) => w != _currentHintWord)]
+          : remainingWords;
+
+      for (final w in wordsToTry) {
+        final List<ScrambleTile> matched = [];
+        final Set<String> usedTileIds = {};
+
+        for (int i = 0; i < w.length; i++) {
+          final ch = w[i].toUpperCase();
+          ScrambleTile? foundTile;
+          for (final col in _columns) {
+            for (final t in col) {
+              if (!t.isSolved &&
+                  !usedTileIds.contains(t.id) &&
+                  t.letter.toUpperCase() == ch) {
+                foundTile = t;
+                break;
+              }
+            }
+            if (foundTile != null) break;
+          }
+          if (foundTile != null) {
+            matched.add(foundTile);
+            usedTileIds.add(foundTile.id);
+          } else {
             break;
           }
         }
-        if (playableTiles != null) break;
+
+        if (matched.length == w.length) {
+          fallbackWord = w;
+          fallbackTiles = matched;
+          break;
+        }
+      }
+
+      if (fallbackWord != null && fallbackTiles != null) {
+        if (_currentHintWord != fallbackWord) {
+          _currentHintWord = fallbackWord;
+          _hintLetterCount = 0;
+          _hintedTileIds.clear();
+        }
+        playableTiles = fallbackTiles;
       }
     }
 
@@ -1829,7 +1882,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   _buildFloatingPreviewPill(),
-                                  SizedBox(height: 6.h),
+                                  const SizedBox(height: 6),
                                   _buildLetterBlockStack(
                                     maxAvailableHeight: availableHeight,
                                   ),
@@ -1843,9 +1896,9 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
 
                     // 5. Bottom Overlay: Timer on Left, Shuffle in Center, Moves on Right
                     Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16.w,
-                        vertical: 10.h,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1895,14 +1948,14 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     );
   }
 
-  /// Top Clue & Word Slots Box (matching Image 1, 3, 4)
+  /// Top Clue & Word Slots Box (matching Image 1, 3, 4 - compact & elegant, zero squeeze)
   Widget _buildTopClueArea() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 3.h),
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
         color: const Color(0xFF180833).withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(24.r),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.15),
           width: 1.5,
@@ -1923,7 +1976,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _buildKittyMascotWidget(),
-              SizedBox(width: 12.w),
+              const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -1931,12 +1984,12 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(_levelData.emoji, style: TextStyle(fontSize: 17.sp)),
-                      SizedBox(width: 6.w),
+                      Text(_levelData.emoji, style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 6),
                       Text(
                         _levelData.themeTitle,
                         style: GoogleFonts.fredoka(
-                          fontSize: 18.sp,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                           letterSpacing: 0.5,
@@ -1944,11 +1997,11 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                       ),
                     ],
                   ),
-                  Text(
-                    'Find all  hidden words',
+                  const Text(
+                    'Find all hidden words',
                     style: TextStyle(
-                      fontSize: 11.5.sp,
-                      color: const Color(0xFFCE93D8),
+                      fontSize: 11,
+                      color: Color(0xFFCE93D8),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1956,12 +2009,12 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
               ),
             ],
           ),
-          SizedBox(height: 8.h),
+          const SizedBox(height: 6),
 
           // Word slots: Dot circles for unsolved, vibrant blue pills for solved!
           Wrap(
-            spacing: 12.w,
-            runSpacing: 10.h,
+            spacing: 8,
+            runSpacing: 5,
             alignment: WrapAlignment.center,
             children: _levelData.targetWords.map((word) {
               final isSolved = _solvedWords.contains(word);
@@ -1978,13 +2031,13 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     );
   }
 
-  /// Dot slots for hidden word (Image 1)
+  /// Dot slots for hidden word (Image 1 - compact dots that fit gracefully side-by-side)
   Widget _buildUnsolvedWordDots(String word) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
         color: const Color(0xFF28104E).withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.1),
           width: 1,
@@ -1994,9 +2047,9 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
         mainAxisSize: MainAxisSize.min,
         children: List.generate(word.length, (index) {
           return Container(
-            width: 14.w,
-            height: 14.w,
-            margin: EdgeInsets.symmetric(horizontal: 2.5.w),
+            width: 10,
+            height: 10,
+            margin: const EdgeInsets.symmetric(horizontal: 1.5),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: const Color(0xFF3F1B78),
@@ -2017,7 +2070,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   /// Solved vibrant Blue 3D Pill (Image 3 & 4)
   Widget _buildSolvedWordPill(String word) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 5.h),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
@@ -2027,20 +2080,20 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
             Color(0xFF0288D1),
           ],
         ),
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: const Color(0xFFE1F5FE),
-          width: 1.5,
+          width: 1.2,
         ),
         boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF01579B),
-            offset: const Offset(0, 3),
+          const BoxShadow(
+            color: Color(0xFF01579B),
+            offset: Offset(0, 2),
             blurRadius: 0,
           ),
           BoxShadow(
             color: const Color(0xFF0288D1).withValues(alpha: 0.45),
-            blurRadius: 10,
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -2048,10 +2101,10 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       child: Text(
         word,
         style: GoogleFonts.fredoka(
-          fontSize: 16.sp,
+          fontSize: 13.5,
           fontWeight: FontWeight.w900,
           color: Colors.white,
-          letterSpacing: 1.5,
+          letterSpacing: 1.2,
           shadows: [
             Shadow(
               color: Colors.black.withValues(alpha: 0.35),
@@ -2076,7 +2129,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
         duration: const Duration(milliseconds: 150),
         opacity: _currentFormedWord.isNotEmpty ? 1.0 : 0.0,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 8.h),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
@@ -2087,15 +2140,15 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                 Color(0xFF7C4DFF),
               ],
             ),
-            borderRadius: BorderRadius.circular(22.r),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(
               color: const Color(0xFFF3E5F5),
               width: 2,
             ),
             boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF38006B),
-                offset: const Offset(0, 4),
+              const BoxShadow(
+                color: Color(0xFF38006B),
+                offset: Offset(0, 4),
                 blurRadius: 0,
               ),
               BoxShadow(
@@ -2108,7 +2161,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
           child: Text(
             _currentFormedWord,
             style: GoogleFonts.fredoka(
-              fontSize: 22.sp,
+              fontSize: 22,
               fontWeight: FontWeight.w900,
               color: Colors.white,
               letterSpacing: 2.0,
@@ -2136,16 +2189,17 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     if (maxRows == 0) return const SizedBox.shrink();
 
     // Dynamically calculate tileSize to guarantee it fits inside available vertical & horizontal space
-    final double spacing = 2.0.w;
+    final double spacing = 2.0;
+    final double screenW = MediaQuery.of(context).size.width;
     final double maxGridH = (maxAvailableHeight != null && maxAvailableHeight > 100)
-        ? (maxAvailableHeight - 52.h)
-        : (MediaQuery.of(context).size.height * 0.42);
+        ? (maxAvailableHeight - 40)
+        : (MediaQuery.of(context).size.height * 0.45);
     final double maxTileFromHeight =
         (maxGridH - ((maxRows - 1) * spacing)) / maxRows;
     final double desiredWidthTile =
-        (numCols >= 6 ? 48.w : numCols == 5 ? 52.w : 58.w);
+        ((screenW - 32) - ((numCols - 1) * spacing)) / numCols;
     final double tileSize =
-        math.min(desiredWidthTile, maxTileFromHeight).clamp(32.0, 58.0);
+        math.min(desiredWidthTile, maxTileFromHeight).clamp(38.0, 58.0);
     final step = tileSize + spacing;
 
     final totalWidth = numCols * step - spacing;
@@ -2176,14 +2230,14 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
             children: [
               // Subtle grounded shelf/shadow beneath the block structure
               Positioned(
-                bottom: -5.h,
-                left: -3.w,
-                right: -3.w,
+                bottom: -5,
+                left: -3,
+                right: -3,
                 child: Container(
-                  height: 8.h,
+                  height: 8,
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(4.r),
+                    borderRadius: BorderRadius.circular(4),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.4),
@@ -2243,8 +2297,8 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     final bool isHinted = _hintedTileIds.contains(tile.id);
 
     // 2.5D Physical Depth & Corner Chamfer
-    final double depth = 5.0.h;
-    final double cornerRadius = 8.0.r;
+    const double depth = 5.0;
+    const double cornerRadius = 8.0;
 
     return AnimatedPositioned(
       key: ValueKey(tile.id),
@@ -2353,25 +2407,25 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                   children: [
                     // Top highlight bevel line
                     Positioned(
-                      top: 2.h,
-                      left: 5.w,
-                      right: 5.w,
+                      top: 2,
+                      left: 5,
+                      right: 5,
                       child: Container(
-                        height: 3.h,
+                        height: 3,
                         decoration: BoxDecoration(
                           color: isSelected
                               ? Colors.white.withValues(alpha: 0.7)
                               : (isHinted
                                   ? Colors.white.withValues(alpha: 0.85)
                                   : const Color(0xFFB9FF8F).withValues(alpha: 0.75)),
-                          borderRadius: BorderRadius.circular(2.r),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                     Text(
                       tile.letter,
                       style: GoogleFonts.fredoka(
-                        fontSize: 29.sp,
+                        fontSize: (tileSize * 0.52).clamp(18.0, 30.0),
                         fontWeight: FontWeight.w900,
                         color: (isSelected || isHinted)
                             ? const Color(0xFF00332C)
@@ -2413,17 +2467,17 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
         final scale = 1.15 - (0.25 * progress);
 
         return Positioned(
-          left: curX - 50.w,
-          top: curY - 20.h,
+          left: curX - 50,
+          top: curY - 20,
           child: Transform.scale(
             scale: scale,
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 7.h),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFF29B6F6), Color(0xFF0288D1)],
                 ),
-                borderRadius: BorderRadius.circular(20.r),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.white, width: 2),
                 boxShadow: [
                   BoxShadow(
@@ -2436,7 +2490,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
               child: Text(
                 _flyingWordText,
                 style: GoogleFonts.fredoka(
-                  fontSize: 18.sp,
+                  fontSize: 18,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
                   letterSpacing: 2,
@@ -2482,8 +2536,8 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
           });
         },
         child: Container(
-          width: 44.w,
-          height: 44.w,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
@@ -2497,7 +2551,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
           ),
           border: Border.all(
             color: Colors.white,
-            width: 2.0,
+            width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
@@ -2505,7 +2559,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                       ? const Color(0xFFFF4081)
                       : const Color(0xFFFF9800))
                   .withValues(alpha: 0.5),
-              blurRadius: 10,
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
@@ -2517,7 +2571,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                 : _kittyMood == 'sad'
                     ? '😿'
                     : '🐱',
-            style: TextStyle(fontSize: 24.sp),
+            style: const TextStyle(fontSize: 20),
           ),
         ),
       ),
@@ -2541,7 +2595,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
             child: Opacity(
               opacity: _praiseOpacityAnimation.value.clamp(0.0, 1.0),
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 10.h),
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [
@@ -2550,7 +2604,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                       Color(0xFFFF5722),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(28.r),
+                  borderRadius: BorderRadius.circular(28),
                   border: Border.all(color: Colors.white, width: 2.5),
                   boxShadow: [
                     BoxShadow(
@@ -2563,7 +2617,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                 child: Text(
                   _currentPraiseText ?? '',
                   style: GoogleFonts.fredoka(
-                    fontSize: 22.sp,
+                    fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
                     letterSpacing: 1.5,

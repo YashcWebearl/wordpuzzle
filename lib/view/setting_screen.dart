@@ -2,10 +2,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:word_puzzle/view/welcome_screen.dart';
 import 'package:word_puzzle/widget/app_3d_button.dart';
 import 'package:word_puzzle/widget/bg_container.dart';
+import 'package:word_puzzle/widget/coin_service.dart';
 import 'package:word_puzzle/widget/floating_words_background.dart';
 import 'package:word_puzzle/widget/sound.dart';
 
@@ -181,6 +183,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               }
 
                               if (context.mounted) {
+                                Provider.of<CoinProvider>(context, listen: false).reset();
                                 Navigator.pushAndRemoveUntil(
                                   context,
                                   MaterialPageRoute(

@@ -125,6 +125,9 @@ class _CommonGameSuccessScreenState extends State<CommonGameSuccessScreen>
   }
 
   void _triggerFlyingCoinsAnimation() {
+    if (_coinsAwarded) return;
+    _coinsAwarded = true; // Guard immediately to prevent duplicate rewards on rebuilds or double frames
+
     final RenderBox? coinBox =
         _topCoinKey.currentContext?.findRenderObject() as RenderBox?;
     final RenderBox? badgeBox =

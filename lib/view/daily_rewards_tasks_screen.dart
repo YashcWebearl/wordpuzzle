@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,6 +15,7 @@ import 'package:word_puzzle/widget/app_3d_button.dart';
 import 'package:word_puzzle/widget/coin_service.dart';
 import 'package:word_puzzle/widget/sound.dart';
 import 'package:word_puzzle/widget/floating_words_background.dart';
+import 'package:word_puzzle/widget/coin_grant_dialog.dart';
 import 'package:word_puzzle/wordix/home_screen.dart';
 
 /// 🎮 Word Puzzle Hub - Daily Rewards, Tactical Tasks & Lucky Spin Wheel Screen
@@ -37,6 +39,10 @@ class DailyRewardsTasksScreen extends StatefulWidget {
 
 class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     with TickerProviderStateMixin {
+  final GlobalKey<CoinGrantOverlayState> _coinGrantKey =
+      GlobalKey<CoinGrantOverlayState>();
+  final GlobalKey _topCoinKey = GlobalKey();
+
   late final TabController _tabController;
   late final ConfettiController _confettiController;
   late final AnimationController _pulseController;
@@ -44,6 +50,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
   // ── Wheel Spin Controller & State ──
   late final AnimationController _wheelController;
+  late final AnimationController _fastSpinController;
   Animation<double>? _wheelAnimation;
   double _currentWheelAngle = 0.0;
   String? _spinningButton; // null | 'free' | 'ad' | 'coin'
@@ -296,21 +303,21 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     },
     {
       'label': '250',
-      'icon': '💎',
+      'icon': '🪙',
       'coins': 250,
       'color': const Color(0xFFE040FB),
       'type': 'coins',
     },
     {
       'label': '400',
-      'icon': '💰',
+      'icon': '🪙',
       'coins': 400,
       'color': const Color(0xFF00E676),
       'type': 'coins',
     },
     {
       'label': '600',
-      'icon': '🏆',
+      'icon': '🪙',
       'coins': 600,
       'color': const Color(0xFFFF9100),
       'type': 'coins',
@@ -353,9 +360,14 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
     _wheelController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 4000),
+      duration: const Duration(milliseconds: 2200),
     );
-    _wheelAnimation = Tween<double>(begin: 0.0, end: 0.0).animate(_wheelController);
+    _fastSpinController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _wheelAnimation =
+        Tween<double>(begin: 0.0, end: 0.0).animate(_wheelController);
 
     _initAndLoadData();
   }
@@ -463,7 +475,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
             task['isCompleted'] = true;
           }
         } else {
-          task['isCompleted'] = (task['isCompleted'] == true) || (rawProg >= total);
+          task['isCompleted'] =
+              (task['isCompleted'] == true) || (rawProg >= total);
         }
 
         task['total'] = total;
@@ -529,6 +542,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
   @override
   void dispose() {
+    _fastSpinController.dispose();
     _tabController.dispose();
     _confettiController.dispose();
     _pulseController.dispose();
@@ -557,29 +571,20 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       final data = res['data'] ?? {};
       final rewardCoins = (data['coinsAwarded'] as int?) ??
           _streakRewards[(_currentStreak - 1).clamp(0, 6)]['coins'] as int;
-      final serverWallet = (data['newWalletBalance'] as int?);
-
-      // Set wallet balance directly or add locally without duplicate server increment
-      final coinProvider = Provider.of<CoinProvider>(context, listen: false);
-      if (serverWallet != null) {
-        await coinProvider.setCoins(serverWallet);
-      } else {
-        await coinProvider.addCoins(rewardCoins, instant: true, syncServer: false);
-      }
+      final newBalance = (data['newWalletBalance'] as num?)?.toInt();
 
       setState(() {
         _isTodayClaimed = true;
         _streakRewards[(_currentStreak - 1).clamp(0, 6)]['status'] = 'claimed';
       });
 
-      AudioHelper().playMoneySound();
-      _confettiController.play();
-
-      _showRewardCelebrationDialog(
+      // Show unified reward dialog with COLLECT button and flying coins animation
+      await _coinGrantKey.currentState?.showReward(
+        coins: rewardCoins,
+        source: 'Daily Streak',
         title: "DAY $_currentStreak STREAK CLAIMED!",
         subtitle: "You've earned +$rewardCoins bonus coins!",
-        coins: rewardCoins,
-        iconEmoji: "🔥",
+        newWalletBalance: newBalance,
       );
 
       _loadData();
@@ -619,28 +624,20 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
     if (res['success'] == true) {
       final data = res['data'] ?? {};
-      final serverWallet = (data['newWalletBalance'] as int?);
-
-      // Set wallet balance directly or add locally without duplicate server increment
-      final coinProvider = Provider.of<CoinProvider>(context, listen: false);
-      if (serverWallet != null) {
-        await coinProvider.setCoins(serverWallet);
-      } else {
-        await coinProvider.addCoins(rewardCoins, instant: true, syncServer: false);
-      }
+      final actualCoins = (data['coinsAwarded'] as int?) ?? rewardCoins;
+      final newBalance = (data['newWalletBalance'] as num?)?.toInt();
 
       setState(() {
         task['isClaimed'] = true;
       });
 
-      AudioHelper().playMoneySound();
-      _confettiController.play();
-
-      _showRewardCelebrationDialog(
-        title: "TASK REWARD CLAIMED!",
-        subtitle: "${task['title']}: +$rewardCoins Coins added!",
-        coins: rewardCoins,
-        iconEmoji: "🎯",
+      // Show unified reward dialog with COLLECT button and flying coins animation
+      await _coinGrantKey.currentState?.showReward(
+        coins: actualCoins,
+        source: 'Daily Quest',
+        title: "QUEST COMPLETED!",
+        subtitle: "${task['title']}: +$actualCoins Coins added!",
+        newWalletBalance: newBalance,
       );
 
       _loadData();
@@ -660,21 +657,27 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       );
     }
     // 2. Crossword tasks: Wheel Weaver (play_crossword) & Crossword Maestro (win_crossword)
-    else if (key == 'play_crossword' || key == 'win_crossword' || scope == 'crossword') {
+    else if (key == 'play_crossword' ||
+        key == 'win_crossword' ||
+        scope == 'crossword') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const CrosswordSplashScreen()),
       );
     }
     // 3. Word Scramble tasks: Letter Unscrambler (play_scramble) & Master Speller (win_scramble)
-    else if (key == 'play_scramble' || key == 'win_scramble' || scope == 'scramble') {
+    else if (key == 'play_scramble' ||
+        key == 'win_scramble' ||
+        scope == 'scramble') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ScrambleHomeScreen()),
       );
     }
     // 4. Balloon Rescue tasks: Balloon Savior (play_balloon) & Sky Guardian (win_balloon)
-    else if (key == 'play_balloon' || key == 'win_balloon' || scope == 'balloon') {
+    else if (key == 'play_balloon' ||
+        key == 'win_balloon' ||
+        scope == 'balloon') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const BalloonHomeScreen()),
@@ -691,8 +694,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
         (t) => t['taskKey'] == 'win_wordix',
         orElse: () => <String, dynamic>{},
       );
-      final wordixPlayed = (((wordixPlayTask['progress'] as num?)?.toInt() ?? 0) > 0) ||
-                           (((wordixWinTask['progress'] as num?)?.toInt() ?? 0) > 0);
+      final wordixPlayed =
+          (((wordixPlayTask['progress'] as num?)?.toInt() ?? 0) > 0) ||
+              (((wordixWinTask['progress'] as num?)?.toInt() ?? 0) > 0);
 
       final crossPlayTask = _dailyTasks.firstWhere(
         (t) => t['taskKey'] == 'play_crossword',
@@ -702,8 +706,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
         (t) => t['taskKey'] == 'win_crossword',
         orElse: () => <String, dynamic>{},
       );
-      final crossPlayed = (((crossPlayTask['progress'] as num?)?.toInt() ?? 0) > 0) ||
-                          (((crossWinTask['progress'] as num?)?.toInt() ?? 0) > 0);
+      final crossPlayed =
+          (((crossPlayTask['progress'] as num?)?.toInt() ?? 0) > 0) ||
+              (((crossWinTask['progress'] as num?)?.toInt() ?? 0) > 0);
 
       if (!wordixPlayed) {
         Navigator.push(
@@ -752,6 +757,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       MaterialPageRoute(
         builder: (_) => AdPlaybackPage(
           isRewardAd: true,
+          updateWatchAdTask: true,
           onAdComplete: () async {
             if (!mounted) return;
             _loadData();
@@ -788,8 +794,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
         );
         return;
       }
-      // INSTANT COIN DEDUCTION (tarat cut thay jay)
-      await coinProvider.undoCoins(100, instant: true);
+      // Instant optimistic coin deduction (non-blocking in background)
+      coinProvider.undoCoins(100, instant: true);
       _executeWheelSpin('coin');
       return;
     }
@@ -827,11 +833,30 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       }
     });
 
-    // 1. Request spin outcome from backend API
-    final spinRes = await DailyService().spinWheel(
+    // 🚀 INSTANT 0ms SPIN: Wheel starts fast spinning immediately!
+    _fastSpinController.repeat();
+
+    // Concurrently request spin outcome from backend API in background
+    final spinFuture = DailyService().spinWheel(
       spinType: buttonType == 'coin' ? 'coins' : buttonType,
       gameName: widget.gameName,
     );
+
+    // Guarantee at least 1200ms of fast spin so it looks natural & exciting
+    final results = await Future.wait([
+      spinFuture,
+      Future.delayed(const Duration(milliseconds: 1200)),
+    ]);
+
+    // Freeze current angle at the exact moment fast spin transitions to deceleration
+    _currentWheelAngle =
+        (_currentWheelAngle + _fastSpinController.value * 2 * math.pi) %
+            (2 * math.pi);
+    _fastSpinController.stop();
+    _fastSpinController.reset();
+
+    final spinRes = results[0] as Map<String, dynamic>;
+    debugPrint('🎡 [SpinWheel] Backend response: $spinRes');
 
     int targetIndex = 1;
     int winCoins = 100;
@@ -840,7 +865,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       targetIndex = (data['sliceIndex'] as int?)?.clamp(0, 7) ?? 1;
       winCoins = (data['coinsAwarded'] as int?) ??
           (_wheelSectors[targetIndex]['coins'] as int);
+      debugPrint('🎡 [SpinWheel] Server decided slice $targetIndex ($winCoins coins)');
     } else {
+      debugPrint('🎡 [SpinWheel] Server error or offline, fallback to local RNG');
       // Local fallback weighted RNG
       final rand = math.Random();
       final p = rand.nextDouble() * 100;
@@ -869,9 +896,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     final double targetSectorMid = targetIndex * sweep + (sweep / 2.0);
 
     // Top needle is at 12 o'clock, which in Canvas coordinates is 3*pi/2 (270 degrees).
-    // When wheel rotates by totalRotation clockwise, slice at targetSectorMid moves to
-    // (targetSectorMid + totalRotation). We want that to land at 3*pi/2.
-    double desiredFinalMod = (3 * math.pi / 2 - targetSectorMid) % (2 * math.pi);
+    double desiredFinalMod =
+        (3 * math.pi / 2 - targetSectorMid) % (2 * math.pi);
     if (desiredFinalMod < 0) desiredFinalMod += 2 * math.pi;
 
     double currentMod = _currentWheelAngle % (2 * math.pi);
@@ -880,8 +906,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     double additionalAngle = (desiredFinalMod - currentMod) % (2 * math.pi);
     if (additionalAngle < 0) additionalAngle += 2 * math.pi;
 
-    final rand = math.Random();
-    final double extraRotations = (5 + rand.nextInt(3)) * 2 * math.pi;
+    // Add 3 full rotations for a beautiful, smooth deceleration
+    const double extraRotations = 3 * 2 * math.pi;
     final double totalRotation = extraRotations + additionalAngle;
 
     _wheelAnimation = Tween<double>(
@@ -901,13 +927,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       final winningSector = _wheelSectors[targetIndex];
 
       if (!mounted) return;
-      final coinProvider = Provider.of<CoinProvider>(context, listen: false);
-      final serverWallet = (spinRes['data']?['newWalletBalance'] as int?);
-      if (serverWallet != null) {
-        await coinProvider.setCoins(serverWallet);
-      } else {
-        await coinProvider.addCoins(winCoins, instant: true, syncServer: false);
-      }
+      if (!mounted) return;
+      final spinData = spinRes['data'] as Map<String, dynamic>? ?? {};
+      final newBalance = (spinData['newWalletBalance'] as num?)?.toInt();
 
       // Report spin wheel task completion
       await DailyService().updateTaskProgress(
@@ -916,20 +938,19 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
         gameName: widget.gameName,
       );
 
-      AudioHelper().playMoneySound();
-      _confettiController.play();
-
       setState(() {
         _spinningButton = null;
       });
 
-      _showRewardCelebrationDialog(
+      // Show unified reward dialog with COLLECT button and flying coins animation
+      await _coinGrantKey.currentState?.showReward(
+        coins: winCoins,
+        source: targetIndex == 7 ? 'Mega Jackpot' : 'Lucky Wheel',
         title: targetIndex == 7 ? "🏆 MEGA JACKPOT!" : "YOU WON!",
         subtitle: winningSector['type'] == 'hint'
             ? "2 Free In-Game Hints + $winCoins Coins!"
             : "+$winCoins Coins added to your wallet!",
-        coins: winCoins,
-        iconEmoji: targetIndex == 7 ? "👑" : "🎡",
+        newWalletBalance: newBalance,
       );
 
       _loadData();
@@ -941,139 +962,14 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     required String subtitle,
     required int coins,
     required String iconEmoji,
+    int? newWalletBalance,
   }) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF220845), Color(0xFF0F0221)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: const Color(0xFFFFD54F),
-                width: 2.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFFD54F).withValues(alpha: 0.35),
-                  blurRadius: 28,
-                  spreadRadius: 2,
-                ),
-                const BoxShadow(
-                  color: Colors.black,
-                  offset: Offset(0, 12),
-                  blurRadius: 18,
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Floating Emoji / Badge
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.amber.withValues(alpha: 0.5),
-                        blurRadius: 18,
-                      ),
-                    ],
-                    border: Border.all(color: Colors.white, width: 2.5),
-                  ),
-                  child: Center(
-                    child: Text(
-                      iconEmoji,
-                      style: const TextStyle(fontSize: 38),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 18),
-
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.dynaPuff(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                Text(
-                  subtitle,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Coins Amount Chip
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFFFFD54F).withValues(alpha: 0.7),
-                      width: 1.4,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('🪙', style: TextStyle(fontSize: 24)),
-                      const SizedBox(width: 8),
-                      Text(
-                        '+$coins COINS',
-                        style: GoogleFonts.dynaPuff(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFFFFD54F),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                App3DButton.amber(
-                  text: 'AWESOME!',
-                  width: double.infinity,
-                  height: 48,
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    _coinGrantKey.currentState?.showReward(
+      coins: coins,
+      source: 'Reward',
+      title: title,
+      subtitle: subtitle,
+      newWalletBalance: newWalletBalance,
     );
   }
 
@@ -1146,6 +1042,15 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                 Colors.white,
               ],
               numberOfParticles: 40,
+            ),
+          ),
+
+          // 4. Coin Grant & Flying Coins Overlay
+          Positioned.fill(
+            child: CoinGrantOverlay(
+              key: _coinGrantKey,
+              targetKey: _topCoinKey,
+              confettiController: _confettiController,
             ),
           ),
         ],
@@ -1302,6 +1207,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
           Consumer<CoinProvider>(
             builder: (context, coinProvider, _) {
               return Container(
+                key: _topCoinKey,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
@@ -1411,7 +1317,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
   Widget _buildStreakRewardsTab() {
     final currentDayCoins =
-        _streakRewards[(_currentStreak - 1).clamp(0, 6)]['coins'] as int? ?? 100;
+        _streakRewards[(_currentStreak - 1).clamp(0, 6)]['coins'] as int? ??
+            100;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -1490,7 +1397,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFD54F).withValues(alpha: 0.2),
+                              color: const Color(0xFFFFD54F)
+                                  .withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: const Color(0xFFFFD54F),
@@ -1641,15 +1549,15 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       case 1:
         return '🪙';
       case 2:
-        return '💰';
+        return '🪙';
       case 3:
-        return '💎';
+        return '🪙';
       case 4:
-        return '🎁';
+        return '🪙';
       case 5:
-        return '🏆';
+        return '🪙';
       case 6:
-        return '🧰';
+        return '🪙';
       case 7:
         return '👑';
       default:
@@ -1679,13 +1587,15 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
           _claimStreakReward();
         } else if (isTomorrow) {
           Fluttertoast.showToast(
-            msg: "🔒 Day $day unlocks tomorrow! Come back to claim +$coins Coins!",
+            msg:
+                "🔒 Day $day unlocks tomorrow! Come back to claim +$coins Coins!",
             toastLength: Toast.LENGTH_SHORT,
             gravity: ToastGravity.BOTTOM,
           );
         } else if (isLocked) {
           Fluttertoast.showToast(
-            msg: "🔒 Day $day reward: +$coins Coins! Keep your daily streak going!",
+            msg:
+                "🔒 Day $day reward: +$coins Coins! Keep your daily streak going!",
             toastLength: Toast.LENGTH_SHORT,
             gravity: ToastGravity.BOTTOM,
           );
@@ -1831,12 +1741,18 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                         decoration: BoxDecoration(
                           gradient: isTomorrow
                               ? const LinearGradient(
-                                  colors: [Color(0xFF00E5FF), Color(0xFF0091EA)],
+                                  colors: [
+                                    Color(0xFF00E5FF),
+                                    Color(0xFF0091EA)
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 )
                               : const LinearGradient(
-                                  colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                                  colors: [
+                                    Color(0xFFFFD54F),
+                                    Color(0xFFFF8F00)
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
@@ -1847,7 +1763,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: (isTomorrow ? const Color(0xFF00E5FF) : Colors.amber)
+                              color: (isTomorrow
+                                      ? const Color(0xFF00E5FF)
+                                      : Colors.amber)
                                   .withValues(alpha: 0.5),
                               blurRadius: 6,
                             ),
@@ -1857,7 +1775,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                           child: Icon(
                             Icons.lock_rounded,
                             size: 11,
-                            color: isTomorrow ? Colors.black : const Color(0xFF2E1500),
+                            color: isTomorrow
+                                ? Colors.black
+                                : const Color(0xFF2E1500),
                           ),
                         ),
                       ),
@@ -1938,9 +1858,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: isTomorrow
-              ? const Color(0xFF00E5FF)
-              : const Color(0xFFFFD700),
+          color: isTomorrow ? const Color(0xFF00E5FF) : const Color(0xFFFFD700),
           width: 2.0,
         ),
         boxShadow: [
@@ -2008,7 +1926,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                             : Colors.red.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: isTomorrow ? const Color(0xFF00E5FF) : Colors.redAccent,
+                          color: isTomorrow
+                              ? const Color(0xFF00E5FF)
+                              : Colors.redAccent,
                           width: 1,
                         ),
                       ),
@@ -2017,7 +1937,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                         style: GoogleFonts.dynaPuff(
                           fontSize: 8.5,
                           fontWeight: FontWeight.w900,
-                          color: isTomorrow ? const Color(0xFF00E5FF) : Colors.redAccent,
+                          color: isTomorrow
+                              ? const Color(0xFF00E5FF)
+                              : Colors.redAccent,
                         ),
                       ),
                     ),
@@ -2223,8 +2145,13 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     final int coins = task['coins'] as int;
     final Color iconColor = task['iconColor'] as Color;
 
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenWidth < 360;
+    final double titleFontSize = isSmallScreen ? 11.5 : 12.5;
+    final double buttonWidth = isSmallScreen ? 76 : 82;
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(18),
@@ -2241,17 +2168,17 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
         children: [
           // Icon Box
           Container(
-            width: 44,
-            height: 44,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: iconColor.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(13),
               border: Border.all(color: iconColor, width: 1.4),
             ),
-            child: Icon(task['icon'] as IconData, color: iconColor, size: 22),
+            child: Icon(task['icon'] as IconData, color: iconColor, size: 20),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
           // Details
           Expanded(
@@ -2263,22 +2190,27 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                     Expanded(
                       child: Text(
                         task['title'] as String,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
                         style: GoogleFonts.dynaPuff(
-                          fontSize: 13.5,
+                          fontSize: titleFontSize,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
+                          height: 1.15,
                         ),
                       ),
                     ),
+                    const SizedBox(width: 4),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('🪙', style: TextStyle(fontSize: 12)),
-                        const SizedBox(width: 4),
+                        const Text('🪙', style: TextStyle(fontSize: 11)),
+                        const SizedBox(width: 3),
                         Text(
                           '+$coins',
                           style: GoogleFonts.dynaPuff(
-                            fontSize: 12.5,
+                            fontSize: isSmallScreen ? 11 : 12,
                             fontWeight: FontWeight.w900,
                             color: const Color(0xFFFFD54F),
                           ),
@@ -2290,9 +2222,12 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                 const SizedBox(height: 3),
                 Text(
                   task['description'] as String,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.outfit(
-                    fontSize: 11,
+                    fontSize: isSmallScreen ? 10 : 11,
                     color: Colors.white.withValues(alpha: 0.7),
+                    height: 1.2,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -2329,11 +2264,11 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
             ),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
-          // Action Button with Fixed Width to prevent shrinking when loading
+          // Action Button with Responsive Width
           SizedBox(
-            width: 96,
+            width: buttonWidth,
             height: 36,
             child: isClaimed
                 ? Container(
@@ -2349,13 +2284,13 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                         const Icon(
                           Icons.check_circle_rounded,
                           color: Color(0xFF00E676),
-                          size: 15,
+                          size: 14,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 3),
                         Text(
                           'CLAIMED',
                           style: GoogleFonts.dynaPuff(
-                            fontSize: 10,
+                            fontSize: 9.5,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF00E676),
                           ),
@@ -2367,8 +2302,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                     ? App3DButton.amber(
                         text: 'CLAIM',
                         icon: Icons.card_giftcard_rounded,
-                        width: 96,
-                        fontSize: 11,
+                        width: buttonWidth,
+                        fontSize: isSmallScreen ? 10 : 10.5,
                         height: 36,
                         isLoading: _claimingTaskId == task['taskKey'],
                         onPressed: (_claimingTaskId != null || _isSpinning)
@@ -2378,7 +2313,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                     : App3DButton.cyan(
                         text: 'GO',
                         icon: Icons.play_arrow_rounded,
-                        width: 96,
+                        width: buttonWidth,
                         fontSize: 11,
                         height: 36,
                         onPressed: () => _handleTaskNavigation(task),
@@ -2458,12 +2393,19 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   children: [
                     // Wheel Rotation
                     AnimatedBuilder(
-                      animation: _wheelController,
+                      animation: Listenable.merge(
+                          [_wheelController, _fastSpinController]),
                       builder: (context, _) {
-                        final angle = (_wheelController.isAnimating &&
-                                _wheelAnimation != null)
-                            ? _wheelAnimation!.value
-                            : _currentWheelAngle;
+                        final double angle;
+                        if (_wheelController.isAnimating &&
+                            _wheelAnimation != null) {
+                          angle = _wheelAnimation!.value;
+                        } else if (_fastSpinController.isAnimating) {
+                          angle = _currentWheelAngle +
+                              _fastSpinController.value * 2 * math.pi;
+                        } else {
+                          angle = _currentWheelAngle;
+                        }
 
                         return Transform.rotate(
                           angle: angle,
@@ -2477,69 +2419,69 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                       },
                     ),
 
-                // Center Spin Medallion with Rotary Icon
-                GestureDetector(
-                  onTap: _isSpinning
-                      ? null
-                      : () => _spinWheel(
-                            buttonType: _hasFreeSpinToday ? 'free' : 'ad',
+                    // Center Spin Medallion with Rotary Icon
+                    GestureDetector(
+                      onTap: _isSpinning
+                          ? null
+                          : () => _spinWheel(
+                                buttonType: _hasFreeSpinToday ? 'free' : 'ad',
+                              ),
+                      child: Container(
+                        width: 62,
+                        height: 62,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const RadialGradient(
+                            colors: [
+                              Color(0xFFFFFDE7),
+                              Color(0xFFFFD54F),
+                              Color(0xFFFF8F00),
+                            ],
                           ),
-                  child: Container(
-                    width: 62,
-                    height: 62,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const RadialGradient(
-                        colors: [
-                          Color(0xFFFFFDE7),
-                          Color(0xFFFFD54F),
-                          Color(0xFFFF8F00),
-                        ],
-                      ),
-                      border: Border.all(color: Colors.white, width: 2.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.rotate_right_rounded,
-                            size: 19,
-                            color: Color(0xFF2E1500),
-                          ),
-                          Text(
-                            'SPIN',
-                            style: GoogleFonts.dynaPuff(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF2E1500),
+                          border: Border.all(color: Colors.white, width: 2.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              blurRadius: 10,
                             ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.rotate_right_rounded,
+                                size: 19,
+                                color: Color(0xFF2E1500),
+                              ),
+                              Text(
+                                'SPIN',
+                                style: GoogleFonts.dynaPuff(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  color: const Color(0xFF2E1500),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
 
-                // Top Pointer Needle
-                Positioned(
-                  top: 0,
-                  child: CustomPaint(
-                    size: const Size(24, 28),
-                    painter: _WheelPointerPainter(),
-                  ),
+                    // Top Pointer Needle
+                    Positioned(
+                      top: 0,
+                      child: CustomPaint(
+                        size: const Size(24, 28),
+                        painter: _WheelPointerPainter(),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
 
           const SizedBox(height: 20),
 
@@ -2582,9 +2524,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   height: 48,
                   fontSize: 12.5,
                   isLoading: _spinningButton == 'coin',
-                  onPressed: _isSpinning
-                      ? null
-                      : () => _spinWheel(buttonType: 'coin'),
+                  onPressed:
+                      _isSpinning ? null : () => _spinWheel(buttonType: 'coin'),
                 ),
               ),
             ],
@@ -2607,7 +2548,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                 Container(width: 1, height: 16, color: Colors.white24),
                 _buildPrizeChip(icon: '💡', label: 'Free Hints'),
                 Container(width: 1, height: 16, color: Colors.white24),
-                _buildPrizeChip(icon: '👑', label: '1,200 Jackpot', isGold: true),
+                _buildPrizeChip(
+                    icon: '👑', label: '1,200 Jackpot', isGold: true),
               ],
             ),
           ),

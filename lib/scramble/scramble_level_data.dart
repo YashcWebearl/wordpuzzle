@@ -73,58 +73,26 @@ class ScramblePuzzleEngine {
         .map((w) => w.toString().toUpperCase().trim())
         .toList();
 
-    // Deterministic 1:1 match for Level 1 (Exact Flagship Reference from User Image!)
-    if (level == 1) {
-      final List<List<String>> level1Cols = [
-        ['L', 'F', 'O'],
-        ['H', 'G', 'N', 'U', 'A', 'L'],
-        ['O', 'N', 'I', 'I', 'B'],
-        ['S', 'I', 'O', 'L', 'O'],
-        ['S', 'A', 'N', 'M', 'O'],
-        ['P', 'K'],
-      ];
-      int maxRows = 6;
-      final List<List<ScrambleTile>> initialColumns = List.generate(6, (_) => []);
-      final List<ScrambleTile> allTiles = [];
-      int tileCounter = 0;
-
-      for (int c = 0; c < 6; c++) {
-        final colList = level1Cols[c];
-        for (int k = 0; k < colList.length; k++) {
-          final row = maxRows - 1 - k;
-          final tile = ScrambleTile(
-            id: 'tile_1_${tileCounter++}',
-            letter: colList[k],
-            row: row,
-            col: c,
-          );
-          initialColumns[c].add(tile);
-          allTiles.add(tile);
-        }
-      }
-
-      return ScrambleLevelData(
-        level: 1,
-        themeTitle: themeTitle,
-        emoji: emoji,
-        targetWords: words,
-        rows: maxRows,
-        cols: 6,
-        tiles: allTiles,
-        initialColumns: initialColumns,
-      );
-    }
-
-    // Determine grid columns based on word lengths
+    // Determine grid columns based on word lengths and count to prevent vertical squeeze
     final int maxWordLen = words.map((w) => w.length).reduce(math.max);
     final int totalLetters =
         words.map((w) => w.length).reduce((a, b) => a + b);
 
-    int cols = math.max(maxWordLen, 3);
-    if (totalLetters >= 12 && cols < 4) cols = 4;
-    if (totalLetters >= 18 && cols < 5) cols = 5;
-    if (totalLetters >= 24 && cols < 6) cols = 6;
-    if (cols > 6) cols = 6;
+    int cols = math.max(maxWordLen, 4);
+    if (words.length <= 3) {
+      cols = math.max(maxWordLen, 4);
+      if (cols > 5) cols = 5;
+    } else if (words.length <= 4) {
+      cols = math.max(maxWordLen, 4);
+      if (totalLetters >= 16 && cols < 5) cols = 5;
+      if (cols > 5) cols = 5;
+    } else if (words.length <= 5) {
+      cols = math.max(maxWordLen, 5);
+      if (totalLetters >= 22 && cols < 6) cols = 6;
+      if (cols > 6) cols = 6;
+    } else {
+      cols = 6;
+    }
 
     // Build the solvable columns layout
     final colStrings = _buildSolvableBoard(words, cols, level * 107 + 13);
@@ -309,7 +277,9 @@ class ScramblePuzzleEngine {
       for (final col in colStrings) {
         if (col.length > maxH) maxH = col.length;
       }
-      if (maxH > 10) continue;
+      // Never allow vertical towers higher than 6 rows (prevents UI squeeze)
+      final int targetMaxH = words.length <= 3 ? 4 : (words.length <= 4 ? 5 : 6);
+      if (maxH > targetMaxH) continue;
 
       // Validate trap-free solvability: EVERY available move must lead to a winning path!
       if (_isBoardFullyTrapFree(colStrings, words)) {
@@ -436,7 +406,8 @@ class ScramblePuzzleEngine {
     return false;
   }
 
-  /// Finds if a word is currently contiguous on the board in natural reading order (horizontal L->R or vertical T->B)
+  /// Finds if a word is currently contiguous on the board in any playable straight line:
+  /// horizontal (L->R or R->L) or vertical (T->B or B->T).
   static List<math.Point<int>>? _findWordOnBoard(
       List<List<String>> cols, String word) {
     final int len = word.length;
@@ -446,8 +417,9 @@ class ScramblePuzzleEngine {
       if (col.length > maxH) maxH = col.length;
     }
 
-    // 1. Check Horizontal lines at every height H (strictly Left to Right)
+    // 1. Check Horizontal lines at every height H (both Left-to-Right and Right-to-Left)
     for (int h = 0; h < maxH; h++) {
+      // Left to Right:
       for (int startCol = 0; startCol <= cols.length - len; startCol++) {
         bool allColsHaveH = true;
         final chars = <String>[];
@@ -463,20 +435,39 @@ class ScramblePuzzleEngine {
           coords.add(math.Point(colIdx, h));
         }
 
-        if (allColsHaveH) {
-          final formed = chars.join('');
-          if (formed == word) {
-            return coords;
+        if (allColsHaveH && chars.join('') == word) {
+          return coords;
+        }
+      }
+
+      // Right to Left:
+      for (int startCol = cols.length - 1; startCol >= len - 1; startCol--) {
+        bool allColsHaveH = true;
+        final chars = <String>[];
+        final coords = <math.Point<int>>[];
+
+        for (int c = 0; c < len; c++) {
+          final colIdx = startCol - c;
+          if (h >= cols[colIdx].length) {
+            allColsHaveH = false;
+            break;
           }
+          chars.add(cols[colIdx][h]);
+          coords.add(math.Point(colIdx, h));
+        }
+
+        if (allColsHaveH && chars.join('') == word) {
+          return coords;
         }
       }
     }
 
-    // 2. Check Vertical lines in every column (strictly Top to Bottom)
+    // 2. Check Vertical lines in every column (both Top-to-Bottom and Bottom-to-Top)
     for (int c = 0; c < cols.length; c++) {
       final colList = cols[c];
       if (colList.length < len) continue;
 
+      // Top to Bottom:
       for (int startK = 0; startK <= colList.length - len; startK++) {
         final chars = <String>[];
         final coords = <math.Point<int>>[];
@@ -488,8 +479,23 @@ class ScramblePuzzleEngine {
           coords.add(math.Point(c, k));
         }
 
-        final formed = chars.join('');
-        if (formed == word) {
+        if (chars.join('') == word) {
+          return coords;
+        }
+      }
+
+      // Bottom to Top:
+      for (int startK = 0; startK <= colList.length - len; startK++) {
+        final chars = <String>[];
+        final coords = <math.Point<int>>[];
+
+        for (int i = 0; i < len; i++) {
+          final k = startK + i;
+          chars.add(colList[k]);
+          coords.add(math.Point(c, k));
+        }
+
+        if (chars.join('') == word) {
           return coords;
         }
       }
@@ -502,244 +508,319 @@ class ScramblePuzzleEngine {
 /// Catalog of 60+ Curated Themes with Infinite Procedural Progression
 class ScrambleLevelCatalog {
   static final List<Map<String, dynamic>> _curatedThemes = [
-    // --- Level 1: Flagship Real Game Master Level (Matching User Screenshot Exactly!) ---
+    // --- Levels 1 - 10: Easy (3 to 4 words, 3-5 letters, 4 columns, zero squeeze) ---
     {
       'theme': 'Makes you cry',
       'emoji': '🧅',
-      'words': ['ONION', 'LAUGH', 'LOSS', 'PAIN', 'FILM', 'BOOK'],
-    },
-    // --- Levels 2 - 10: Smooth Onboarding (2-3 words, progressive collapse) ---
-    {
-      'theme': 'PET ANIMALS',
-      'emoji': '🐱',
-      'words': ['CAT', 'DOG'],
+      'words': ['ONION', 'TEAR', 'CRY'],
     },
     {
-      'theme': 'BRIGHT COLORS',
+      'theme': 'Pet Animals',
+      'emoji': '🐶',
+      'words': ['PUPPY', 'CAT', 'BIRD'],
+    },
+    {
+      'theme': 'Vibrant Colors',
       'emoji': '🎨',
-      'words': ['RED', 'BLUE'],
+      'words': ['BLUE', 'PINK', 'GOLD'],
     },
     {
-      'theme': 'SWEET FRUITS',
-      'emoji': '🍎',
-      'words': ['FIG', 'PEACH'],
+      'theme': 'Sweet Treats',
+      'emoji': '🍬',
+      'words': ['CANDY', 'CAKE', 'PIE'],
     },
     {
-      'theme': 'SKY & WEATHER',
+      'theme': 'Sky & Stars',
       'emoji': '☀️',
-      'words': ['SUN', 'RAIN', 'WIND'],
+      'words': ['SUN', 'MOON', 'STAR'],
     },
     {
-      'theme': 'ON THE FARM',
-      'emoji': '🐮',
-      'words': ['COW', 'PIG', 'HEN'],
+      'theme': 'Fresh Fruits',
+      'emoji': '🍎',
+      'words': ['APPLE', 'MANGO', 'PEACH', 'LIME'],
     },
     {
-      'theme': 'IN THE TOYBOX',
-      'emoji': '🧸',
-      'words': ['TOY', 'BALL', 'DOLL'],
-    },
-    {
-      'theme': 'OCEAN FRIENDS',
-      'emoji': '🐬',
-      'words': ['FISH', 'SEAL', 'CRAB'],
-    },
-    {
-      'theme': 'BODY PARTS',
-      'emoji': '👀',
-      'words': ['EYE', 'EAR', 'NOSE'],
-    },
-    {
-      'theme': 'SWEET TREATS',
-      'emoji': '🧁',
-      'words': ['CAKE', 'PIE', 'JAM'],
-    },
-
-    // --- Levels 11 - 25: 3-4 Words per level, 4-5 letters (Moderate Collapse) ---
-    {
-      'theme': 'GO VEHICLES',
-      'emoji': '🚗',
-      'words': ['BUS', 'CAR', 'VAN', 'TRAIN'],
-    },
-    {
-      'theme': 'WILD SAFARI',
-      'emoji': '🦁',
-      'words': ['LION', 'BEAR', 'WOLF'],
-    },
-    {
-      'theme': 'GARDEN BLOOM',
-      'emoji': '🌻',
-      'words': ['ROSE', 'LEAF', 'TREE'],
-    },
-    {
-      'theme': 'SPACE VOYAGE',
-      'emoji': '🚀',
-      'words': ['MOON', 'STAR', 'MARS'],
-    },
-    {
-      'theme': 'FRUIT BASKET',
-      'emoji': '🍌',
-      'words': ['PEAR', 'PLUM', 'LIME'],
-    },
-    {
-      'theme': 'SCHOOL DAYS',
-      'emoji': '🎒',
-      'words': ['BOOK', 'DESK', 'PEN', 'RULER'],
-    },
-    {
-      'theme': 'HAPPY BIRDS',
-      'emoji': '🦜',
-      'words': ['OWL', 'DUCK', 'SWAN', 'HAWK'],
-    },
-    {
-      'theme': 'COZY BEDROOM',
-      'emoji': '🛏️',
-      'words': ['BED', 'LAMP', 'RUG', 'PILLOW'],
-    },
-    {
-      'theme': 'WARM CLOTHES',
-      'emoji': '🧤',
-      'words': ['HAT', 'SOCK', 'COAT', 'GLOVE'],
-    },
-    {
-      'theme': 'WATER SPLASH',
+      'theme': 'Ocean Life',
       'emoji': '🌊',
-      'words': ['BOAT', 'SHIP', 'WAVE', 'RIVER'],
+      'words': ['FISH', 'CRAB', 'SHARK', 'SEAL'],
     },
     {
-      'theme': 'MUSIC BEATS',
-      'emoji': '🎵',
-      'words': ['DRUM', 'BELL', 'SONG', 'FLUTE'],
-    },
-    {
-      'theme': 'JUNGLE BIRDS',
-      'emoji': '🦚',
-      'words': ['PARROT', 'CROW', 'EAGLE'],
-    },
-    {
-      'theme': 'YUMMY BREAKFAST',
-      'emoji': '🥞',
-      'words': ['MILK', 'TOAST', 'BREAD'],
-    },
-    {
-      'theme': 'DEEP SEA',
-      'emoji': '🦈',
-      'words': ['SHARK', 'WHALE', 'SQUID'],
-    },
-    {
-      'theme': 'INSECT WORLD',
-      'emoji': '🐞',
-      'words': ['BEETLE', 'MOTH', 'WASP'],
-    },
-
-    // --- Levels 26 - 45: 3-4 Words per level, 4-6 letters (Challenging Multi-drop) ---
-    {
-      'theme': 'FROZEN WINTER',
-      'emoji': '❄️',
-      'words': ['SNOW', 'FROST', 'GLACIER'],
-    },
-    {
-      'theme': 'SPORTS ARENA',
-      'emoji': '⚽',
-      'words': ['SOCCER', 'TENNIS', 'HOCKEY'],
-    },
-    {
-      'theme': 'RAINBOW COLORS',
-      'emoji': '🌈',
-      'words': ['PURPLE', 'YELLOW', 'ORANGE'],
-    },
-    {
-      'theme': 'KITCHEN CHEF',
+      'theme': 'Kitchen Dining',
       'emoji': '🍳',
-      'words': ['KNIFE', 'SPOON', 'PAN', 'PLATE'],
+      'words': ['FORK', 'SPOON', 'PLATE', 'KNIFE'],
     },
     {
-      'theme': 'FAST WHEELS',
-      'emoji': '🏎️',
-      'words': ['MOTOR', 'RACER', 'TRUCK'],
+      'theme': 'Musical Sounds',
+      'emoji': '🎵',
+      'words': ['DRUM', 'PIANO', 'FLUTE', 'BELL'],
     },
     {
-      'theme': 'CAMPING TRIP',
-      'emoji': '⛺',
-      'words': ['CABIN', 'FLAME', 'TORCH'],
-    },
-    {
-      'theme': 'NIGHT SKY',
-      'emoji': '🌌',
-      'words': ['GALAXY', 'PLANET', 'METEOR'],
-    },
-    {
-      'theme': 'FUNNY MONKEYS',
-      'emoji': '🐒',
-      'words': ['BABOON', 'GORILLA', 'CHIMP'],
-    },
-    {
-      'theme': 'MAGIC KINGDOM',
-      'emoji': '🏰',
-      'words': ['CASTLE', 'WIZARD', 'SHIELD'],
-    },
-    {
-      'theme': 'JUICY MELONS',
-      'emoji': '🍉',
-      'words': ['PAPAYA', 'CHERRY', 'BANANA'],
-    },
-    {
-      'theme': 'WOODLAND ANIMALS',
-      'emoji': '🦊',
-      'words': ['BADGER', 'RABBIT', 'BEAVER'],
-    },
-    {
-      'theme': 'BEACH VACATION',
-      'emoji': '🏖️',
-      'words': ['ISLAND', 'CORAL', 'BREEZE'],
-    },
-    {
-      'theme': 'DINOSAUR PARK',
-      'emoji': '🦖',
-      'words': ['FOSSIL', 'RAPTOR', 'JURASSIC'],
-    },
-    {
-      'theme': 'SUPER HERO',
-      'emoji': '🦸',
-      'words': ['HEROIC', 'FLIGHT', 'ENERGY'],
-    },
-    {
-      'theme': 'SWEET DESSERTS',
-      'emoji': '🍩',
-      'words': ['WAFFLE', 'COOKIE', 'MUFFIN'],
+      'theme': 'Weather Days',
+      'emoji': '⛅',
+      'words': ['RAIN', 'WIND', 'SNOW', 'STORM'],
     },
 
-    // --- Levels 46 - 60+: Master Cascades ---
+    // --- Levels 11 - 20: Medium (4 to 5 words, 4-6 letters, 5 columns) ---
     {
-      'theme': 'PIRATE ADVENTURE',
-      'emoji': '🏴‍☠️',
-      'words': ['CANNON', 'SAILOR', 'TREASURE'],
+      'theme': 'Bakery Shop',
+      'emoji': '🧁',
+      'words': ['BREAD', 'DONUT', 'COOKIE', 'WAFFLE'],
     },
     {
-      'theme': 'ANCIENT EGYPT',
+      'theme': 'Ancient Castle',
+      'emoji': '🏰',
+      'words': ['SWORD', 'CROWN', 'KNIGHT', 'SHIELD'],
+    },
+    {
+      'theme': 'Camping Trip',
+      'emoji': '⛺',
+      'words': ['CABIN', 'TENT', 'FIRE', 'FOREST'],
+    },
+    {
+      'theme': 'Sports Game',
+      'emoji': '⚽',
+      'words': ['SOCCER', 'TENNIS', 'BOXING', 'MEDAL'],
+    },
+    {
+      'theme': 'Magic Spells',
+      'emoji': '🔮',
+      'words': ['WAND', 'SPELL', 'WIZARD', 'POTION'],
+    },
+    {
+      'theme': 'Garden Flowers',
+      'emoji': '🌸',
+      'words': ['ROSE', 'TULIP', 'DAISY', 'LOTUS', 'BLOOM'],
+    },
+    {
+      'theme': 'Tech Gadgets',
+      'emoji': '💻',
+      'words': ['PHONE', 'MOUSE', 'SCREEN', 'ROBOT', 'CHIP'],
+    },
+    {
+      'theme': 'Arctic Animals',
+      'emoji': '❄️',
+      'words': ['POLAR', 'IGLOO', 'FROST', 'WALRUS', 'WOLF'],
+    },
+    {
+      'theme': 'Fast Vehicles',
+      'emoji': '🏎️',
+      'words': ['TRAIN', 'PLANE', 'TRUCK', 'ROCKET', 'RACER'],
+    },
+    {
+      'theme': 'Night Dreams',
+      'emoji': '🌙',
+      'words': ['SLEEP', 'DREAM', 'CLOUD', 'NIGHT', 'STARRY'],
+    },
+
+    // --- Levels 21 - 35: Hard Part 1 (5 words, 4-6 letters, 6 columns) ---
+    {
+      'theme': 'Pirate Gold',
+      'emoji': '💰',
+      'words': ['COINS', 'CHEST', 'SWORD', 'PIRATE', 'SILVER'],
+    },
+    {
+      'theme': 'Desert Sands',
+      'emoji': '🏜️',
+      'words': ['DUNES', 'CAMEL', 'MIRAGE', 'OASIS', 'SCORP'],
+    },
+    {
+      'theme': 'Deep Jungle',
+      'emoji': '🌴',
+      'words': ['TIGER', 'MONKEY', 'SNAKE', 'PARROT', 'JUNGLE'],
+    },
+    {
+      'theme': 'Winter Sports',
+      'emoji': '⛷️',
+      'words': ['SKIING', 'SKATE', 'HOCKEY', 'FROST', 'SLEDGE'],
+    },
+    {
+      'theme': 'Breakfast Time',
+      'emoji': '🥞',
+      'words': ['TOAST', 'BACON', 'BUTTER', 'JUICE', 'COFFEE'],
+    },
+
+    // --- Levels 26 - 35: Hard Part 1 Continued (5 words, 4-6 letters, 6 columns) ---
+    {
+      'theme': 'Space Voyage',
+      'emoji': '🚀',
+      'words': ['PLANET', 'ORBIT', 'METEOR', 'COMET', 'GALAXY'],
+    },
+    {
+      'theme': 'Detective Clues',
+      'emoji': '🕵️',
+      'words': ['SOLVE', 'TRAIL', 'AGENT', 'SECRET', 'SHADOW'],
+    },
+    {
+      'theme': 'Reef Wonders',
+      'emoji': '🐠',
+      'words': ['CORAL', 'SHELL', 'TURTLE', 'CLOWN', 'DIVER'],
+    },
+    {
+      'theme': 'Farm Animals',
+      'emoji': '🚜',
+      'words': ['SHEEP', 'HORSE', 'RABBIT', 'DONKEY', 'CHICK'],
+    },
+    {
+      'theme': 'Carnival Fun',
+      'emoji': '🎪',
+      'words': ['CIRCUS', 'CLOWN', 'PARADE', 'RIDE', 'WHEEL'],
+    },
+    {
+      'theme': 'Doctor Clinic',
+      'emoji': '🩺',
+      'words': ['PULSE', 'HEART', 'MEDIC', 'NURSE', 'FEVER'],
+    },
+    {
+      'theme': 'Art Studio',
+      'emoji': '🖌️',
+      'words': ['CANVAS', 'BRUSH', 'PAINT', 'SKETCH', 'EASEL'],
+    },
+    {
+      'theme': 'Wild Forest',
+      'emoji': '🌲',
+      'words': ['EAGLE', 'BADGER', 'FALCON', 'BEAVER', 'TIMBER'],
+    },
+    {
+      'theme': 'City Streets',
+      'emoji': '🏙️',
+      'words': ['BRIDGE', 'AVENUE', 'METRO', 'TRAFFIC', 'TOWER'],
+    },
+    {
+      'theme': 'Prehistoric Beasts',
+      'emoji': '🦖',
+      'words': ['FOSSIL', 'RAPTOR', 'BONES', 'AMBER', 'BEAST'],
+    },
+
+    // --- Levels 36 - 60: Hard Part 2 (Strictly 6 words, MAX 6 words, 4-6 letters) ---
+    {
+      'theme': 'Mythical Beasts',
+      'emoji': '🐉',
+      'words': ['DRAGON', 'HYDRA', 'GRIFF', 'TITAN', 'BEAST', 'PHOEN'],
+    },
+    {
+      'theme': 'Royal Palace',
+      'emoji': '👑',
+      'words': ['PRINCE', 'QUEEN', 'THRONE', 'PALACE', 'SCEPT', 'REGAL'],
+    },
+    {
+      'theme': 'Volcano Island',
+      'emoji': '🌋',
+      'words': ['MAGMA', 'CRATER', 'LAVA', 'SMOKE', 'ASHES', 'ISLAND'],
+    },
+    {
+      'theme': 'Deep Ocean',
+      'emoji': '🐋',
+      'words': ['WHALE', 'DOLPH', 'CORAL', 'TRENCH', 'ABYSS', 'SHARK'],
+    },
+    {
+      'theme': 'Super Heroes',
+      'emoji': '🦸',
+      'words': ['HERO', 'POWER', 'SHIELD', 'FLYING', 'CAPE', 'BRAVE'],
+    },
+    {
+      'theme': 'Ancient Egypt',
       'emoji': '🏺',
-      'words': ['PHARAOH', 'PYRAMID', 'SPHINX'],
+      'words': ['SPHINX', 'TOMB', 'DESERT', 'ANUBIS', 'GOLDEN', 'RULER'],
     },
     {
-      'theme': 'WEATHER WONDERS',
-      'emoji': '🌪️',
-      'words': ['THUNDER', 'STORM', 'TYPHOON'],
+      'theme': 'School Days',
+      'emoji': '🎒',
+      'words': ['PENCIL', 'RULER', 'ERASER', 'LESSON', 'CHALK', 'STUDY'],
     },
     {
-      'theme': 'MUSICAL INSTRUMENTS',
-      'emoji': '🎷',
-      'words': ['GUITAR', 'VIOLIN', 'PIANO'],
+      'theme': 'Pizza Feast',
+      'emoji': '🍕',
+      'words': ['CHEESE', 'TOMATO', 'CRUST', 'OLIVE', 'PEPPER', 'SAUCE'],
     },
     {
-      'theme': 'SAVANNA WILDLIFE',
-      'emoji': '🦒',
-      'words': ['GIRAFFE', 'ZEBRA', 'CHEETAH'],
+      'theme': 'Wild West',
+      'emoji': '🤠',
+      'words': ['COWBOY', 'SADDLE', 'BOOTS', 'PISTOL', 'SALOON', 'CANYON'],
+    },
+    {
+      'theme': 'Space Station',
+      'emoji': '🛰️',
+      'words': ['ROCKET', 'SENSOR', 'AIRLOCK', 'MODULE', 'SOLAR', 'ORBIT'],
+    },
+    {
+      'theme': 'Music Concert',
+      'emoji': '🎸',
+      'words': ['GUITAR', 'VIOLIN', 'SINGER', 'STAGE', 'CHORUS', 'TEMPO'],
+    },
+    {
+      'theme': 'Summer Beach',
+      'emoji': '🏖️',
+      'words': ['SURF', 'SANDAL', 'BREEZE', 'ISLAND', 'SUNNY', 'COAST'],
+    },
+    {
+      'theme': 'Secret Agent',
+      'emoji': '🕶️',
+      'words': ['SPY', 'BADGE', 'PISTOL', 'CIPHER', 'RADAR', 'SHADOW'],
+    },
+    {
+      'theme': 'Fall Harvest',
+      'emoji': '🎃',
+      'words': ['ACORN', 'LEAVES', 'PUMPK', 'CORN', 'AUTUMN', 'ORANGE'],
+    },
+    {
+      'theme': 'Cozy Living',
+      'emoji': '🛋️',
+      'words': ['CARPET', 'HEATER', 'CANDLE', 'PILLOW', 'SOFA', 'WARMTH'],
+    },
+    {
+      'theme': 'Fairytale Castle',
+      'emoji': '🧚',
+      'words': ['FAIRY', 'PRINCE', 'CASTLE', 'CHARM', 'MAGIC', 'GOBLIN'],
+    },
+    {
+      'theme': 'Diamond Heist',
+      'emoji': '💎',
+      'words': ['VAULT', 'LASER', 'ALARM', 'JEWEL', 'GUARDS', 'ESCAPE'],
+    },
+    {
+      'theme': 'Speed Racing',
+      'emoji': '🏁',
+      'words': ['DRIVER', 'CIRCUIT', 'HELMET', 'ENGINE', 'TURBO', 'FINISH'],
+    },
+    {
+      'theme': 'Alpine Heights',
+      'emoji': '🏔️',
+      'words': ['SUMMIT', 'PEAK', 'VALLEY', 'CLIFF', 'TRAIL', 'ALPINE'],
+    },
+    {
+      'theme': 'Sweet Desserts',
+      'emoji': '🍨',
+      'words': ['SUNDAE', 'CREAM', 'CHERRY', 'WAFER', 'SYRUP', 'PASTRY'],
+    },
+    {
+      'theme': 'Science Lab',
+      'emoji': '🧪',
+      'words': ['FLASK', 'ATOM', 'FUSION', 'ENERGY', 'CARBON', 'GENES'],
+    },
+    {
+      'theme': 'Airport Terminal',
+      'emoji': '🛫',
+      'words': ['TICKET', 'RUNWAY', 'LUGGAGE', 'HANGAR', 'PILOT', 'RADAR'],
+    },
+    {
+      'theme': 'Enchanted Woods',
+      'emoji': '🍄',
+      'words': ['MOSS', 'STREAM', 'FOREST', 'NATURE', 'HOLLOW', 'SHADOW'],
+    },
+    {
+      'theme': 'Gold Kingdom',
+      'emoji': '🏆',
+      'words': ['CROWN', 'CHEST', 'LEGEND', 'VICTOR', 'TROPHY', 'GLORY'],
+    },
+    {
+      'theme': 'Master Mind',
+      'emoji': '🧠',
+      'words': ['PUZZLE', 'GENIUS', 'RIDDLE', 'SOLVER', 'CLEVER', 'MASTER'],
     },
   ];
 
   /// Procedural theme generator for infinite level progression (> 60)
-  /// Incorporates ~0.5% incremental difficulty scaling:
-  /// Higher levels introduce more words, slightly longer words, and richer cascades!
+  /// Strictly capped at MAX 6 words anywhere!
   static Map<String, dynamic> getThemeForLevel(int level) {
     if (level <= _curatedThemes.length) {
       return _curatedThemes[level - 1];
@@ -757,11 +838,16 @@ class ScrambleLevelCatalog {
       'PEAK', 'DAWN', 'ROAR', 'ZOOM', 'FIRE', 'MINT', 'WILD', 'CALM',
     ];
 
-    if (loop >= 2 && baseWords.length < 4) {
+    if (loop >= 2 && baseWords.length < 5) {
       baseWords.add(extraVocabularyPool[(level * 3) % extraVocabularyPool.length]);
     }
-    if (loop >= 3 && baseWords.length < 5) {
+    if (loop >= 3 && baseWords.length < 6) {
       baseWords.add(extraVocabularyPool[(level * 7) % extraVocabularyPool.length]);
+    }
+
+    // STRICT GUARANTEE: Never exceed 6 words anywhere in Scramble!
+    while (baseWords.length > 6) {
+      baseWords.removeLast();
     }
 
     return {

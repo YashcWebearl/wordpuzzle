@@ -6,11 +6,13 @@ import 'package:word_puzzle/services/daily_service.dart';
 class AdPlaybackPage extends StatefulWidget {
   final VoidCallback onAdComplete;
   final bool isRewardAd;
+  final bool updateWatchAdTask;
 
   const AdPlaybackPage({
     super.key,
     required this.onAdComplete,
     this.isRewardAd = false,
+    this.updateWatchAdTask = false,
   });
 
   @override
@@ -29,7 +31,7 @@ class _AdPlaybackPageState extends State<AdPlaybackPage> {
     _loadAndShowAd();
   }
 
-  void _finishAndClose({bool isError = false}) {
+  void _finishAndClose({bool isError = false}) async {
     if (_hasClosed) return;
     _hasClosed = true;
 
@@ -39,11 +41,13 @@ class _AdPlaybackPageState extends State<AdPlaybackPage> {
 
     if (widget.isRewardAd) {
       if (_isRewardEarned) {
-        DailyService().updateTaskProgress(
-          taskKey: 'watch_ad',
-          increment: 1,
-          gameName: 'Wordix',
-        );
+        if (widget.updateWatchAdTask) {
+          await DailyService().updateTaskProgress(
+            taskKey: 'watch_ad',
+            increment: 1,
+            gameName: 'Wordix',
+          );
+        }
         widget.onAdComplete();
       } else if (!isError) {
         ScaffoldMessenger.of(context).showSnackBar(

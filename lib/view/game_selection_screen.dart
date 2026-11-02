@@ -88,6 +88,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
   late final PageController _pageController;
   late final ConfettiController _confettiController;
   late final AnimationController _floatingWordsAnimController;
+  final ScrollController _tabsScrollController = ScrollController();
 
   int _currentPage = 0;
   String _userName = 'Puzzle Master';
@@ -296,6 +297,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
   @override
   void dispose() {
     _pageController.dispose();
+    _tabsScrollController.dispose();
     _confettiController.dispose();
     _floatingWordsAnimController.dispose();
     super.dispose();
@@ -749,6 +751,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                               }
 
                               if (context.mounted) {
+                                Provider.of<CoinProvider>(context, listen: false).reset();
                                 Navigator.pushAndRemoveUntil(
                                   context,
                                   MaterialPageRoute(
@@ -1505,13 +1508,24 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
     );
   }
 
+  void _scrollToTab(int index) {
+    if (!_tabsScrollController.hasClients) return;
+    const double itemApproxWidth = 110.0;
+    final double targetOffset = (index * itemApproxWidth) - 40;
+    _tabsScrollController.animateTo(
+      targetOffset.clamp(0.0, _tabsScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   Widget _buildGameQuickTabs() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Column(
-        children: [
-          // Header Text (XOXO style)
-          Row(
+    return Column(
+      children: [
+        // Header Text with balanced horizontal padding
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
@@ -1547,77 +1561,102 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
               ),
             ],
           ),
+        ),
 
-          const SizedBox(height: 8),
+        const SizedBox(height: 8),
 
-          // 3+ Interactive Tabs (100% Overflow-Proof matching XOXO)
-          Row(
+        // Full edge-to-edge scrollable slider (No outer padding gap cutting it off at the right edge)
+        SingleChildScrollView(
+          controller: _tabsScrollController,
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Row(
             children: List.generate(_games.length, (index) {
               final game = _games[index];
               final isSelected = _currentPage == index;
 
-              String label;
+              String emoji;
+              String title;
               if (game.id == 'wordix') {
-                label = '🔤 WORDIX';
+                emoji = '🔤';
+                title = 'WORDIX';
               } else if (game.id == 'crossword') {
-                label = '🧩 CROSS';
+                emoji = '🧩';
+                title = 'CROSS';
               } else if (game.id == 'scramble') {
-                label = '🐱 SCRAMBLE';
+                emoji = '🐱';
+                title = 'SCRAMBLE';
               } else if (game.id == 'balloon' || game.id == 'balloon_pop') {
-                label = '🎈 BALLOON';
+                emoji = '🎈';
+                title = 'BALLOON';
               } else {
-                label = game.title;
+                emoji = '🎮';
+                title = game.title.toUpperCase();
               }
 
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: index == _games.length - 1 ? 0 : 8,
-                  ),
-                  child: GestureDetector(
-                    onTap: () {
-                      AudioHelper().playButtonSound();
-                      _pageController.animateToPage(
-                        index,
-                        duration: const Duration(milliseconds: 350),
-                        curve: Curves.easeOutCubic,
-                      );
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
+              return Padding(
+                padding: EdgeInsets.only(
+                  right: index == _games.length - 1 ? 0 : 8,
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    AudioHelper().playButtonSound();
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.easeOutCubic,
+                    );
+                    _scrollToTab(index);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? game.primaryColor.withValues(alpha: 0.22)
+                          : Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
                         color: isSelected
-                            ? game.primaryColor.withValues(alpha: 0.22)
-                            : Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isSelected
-                              ? game.primaryColor
-                              : Colors.white.withValues(alpha: 0.12),
-                          width: isSelected ? 1.8 : 1.0,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: game.primaryColor.withValues(alpha: 0.35),
-                                  blurRadius: 8,
-                                ),
-                              ]
-                            : null,
+                            ? game.primaryColor
+                            : Colors.white.withValues(alpha: 0.12),
+                        width: isSelected ? 1.8 : 1.0,
                       ),
-                      child: Center(
-                        child: Text(
-                          label,
-                          style: GoogleFonts.outfit(
-                            color: isSelected ? Colors.white : Colors.white60,
-                            fontSize: 11.5.sp,
-                            fontWeight:
-                                isSelected ? FontWeight.w900 : FontWeight.w600,
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: game.primaryColor.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 12),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          const SizedBox(width: 4),
+                          Text(
+                            title,
+                            style: GoogleFonts.outfit(
+                              color: isSelected ? Colors.white : Colors.white60,
+                              fontSize: 11.5.sp,
+                              fontWeight: isSelected
+                                  ? FontWeight.w900
+                                  : FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                            maxLines: 1,
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1625,8 +1664,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
               );
             }),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1636,6 +1675,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       itemCount: _games.length,
       onPageChanged: (index) {
         setState(() => _currentPage = index);
+        _scrollToTab(index);
       },
       itemBuilder: (context, index) {
         final game = _games[index];
@@ -1883,7 +1923,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
   Widget _buildGameHeroArt(_GameItemModel game) {
     if (game.id == 'crossword') {
       return const CrosswordLogo(
-        size: 130,
+        size: 135,
         animate: true,
       );
     }

@@ -48,14 +48,16 @@ class _CrosswordLogoState extends State<CrosswordLogo>
 
   @override
   Widget build(BuildContext context) {
-    // 5 tiles across with 3px spacing between each tile
-    // Total width required = 5 * tileSize + 4 * 3.
-    // Setting tileSize to size * 0.14 ensures total width is 0.70 * size + 12, well within the disc.
-    final double tileSize = widget.size * 0.14;
-    const double tileGap = 3.0;
+    // 5 tiles across with dynamic proportional spacing
+    // Setting tileSize to size * 0.142 ensures total width is well proportioned within the disc.
+    final double tileSize = widget.size * 0.142;
+    final double tileGap = (tileSize * 0.12).clamp(2.5, 4.2);
+    final double leafBadgeSize = (widget.size * 0.12).clamp(16.0, 28.0);
+    final double leafFontSize = leafBadgeSize * 0.58;
 
     return ScaleTransition(
-      scale: widget.animate ? _scaleAnimation : const AlwaysStoppedAnimation(1.0),
+      scale:
+          widget.animate ? _scaleAnimation : const AlwaysStoppedAnimation(1.0),
       child: SizedBox(
         width: widget.size,
         height: widget.size,
@@ -123,24 +125,24 @@ class _CrosswordLogoState extends State<CrosswordLogo>
                         SizedBox(width: tileSize * 2 + tileGap * 2),
                       ],
                     ),
-                    const SizedBox(height: tileGap),
+                     SizedBox(height: tileGap),
 
                     // Middle row: C R O S S
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _build3DTile('C', tileSize),
-                        const SizedBox(width: tileGap),
+                         SizedBox(width: tileGap),
                         _build3DTile('R', tileSize),
-                        const SizedBox(width: tileGap),
+                         SizedBox(width: tileGap),
                         _build3DTile('O', tileSize, isGold: true),
-                        const SizedBox(width: tileGap),
+                         SizedBox(width: tileGap),
                         _build3DTile('S', tileSize),
-                        const SizedBox(width: tileGap),
+                         SizedBox(width: tileGap),
                         _build3DTile('S', tileSize),
                       ],
                     ),
-                    const SizedBox(height: tileGap),
+                     SizedBox(height: tileGap),
 
                     // Row below: R
                     Row(
@@ -151,7 +153,7 @@ class _CrosswordLogoState extends State<CrosswordLogo>
                         SizedBox(width: tileSize * 2 + tileGap * 2),
                       ],
                     ),
-                    const SizedBox(height: tileGap),
+                     SizedBox(height: tileGap),
 
                     // Bottom row: D
                     Row(
@@ -165,23 +167,40 @@ class _CrosswordLogoState extends State<CrosswordLogo>
                   ],
                 ),
 
-                // Autumn Leaf Emblem in Corner (🍃)
+                // Autumn Leaf Emblem in Upper Corner (🍃)
+                // Positioned with ample breathing room from the tiles so it never looks crowded
                 Positioned(
-                  right: widget.size * 0.15,
-                  top: widget.size * 0.14,
+                  right: widget.size * 0.13,
+                  top: widget.size * 0.09,
                   child: Transform.rotate(
                     angle: -0.25,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      width: leafBadgeSize,
+                      height: leafBadgeSize,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: Colors.white.withValues(alpha: 0.22),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.4),
-                          width: 1,
+                          color: Colors.white.withValues(alpha: 0.45),
+                          width: (leafBadgeSize * 0.05).clamp(0.8, 1.5),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          '🍃',
+                          style: TextStyle(
+                            fontSize: leafFontSize,
+                            height: 1.0,
+                          ),
                         ),
                       ),
-                      child: const Text('🍃', style: TextStyle(fontSize: 14)),
                     ),
                   ),
                 ),
@@ -207,6 +226,9 @@ class _CrosswordLogoState extends State<CrosswordLogo>
             ? const Color(0xFF1B5E20)
             : const Color(0xFF0B532E);
 
+    final double depth = (size * 0.10).clamp(1.8, 3.5);
+    final double borderWidth = (size * 0.045).clamp(0.9, 1.4);
+
     return Container(
       width: size,
       height: size,
@@ -218,21 +240,21 @@ class _CrosswordLogoState extends State<CrosswordLogo>
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.6),
-          width: 1.4,
+          color: Colors.white.withValues(alpha: 0.65),
+          width: borderWidth,
         ),
         boxShadow: [
           // 3D bottom bevel depth
           BoxShadow(
             color: shadowColor,
-            offset: const Offset(0, 3.5),
+            offset: Offset(0, depth),
             blurRadius: 0,
           ),
           // Ambient soft glow
           BoxShadow(
-            color: gradientColors.first.withValues(alpha: 0.45),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: gradientColors.first.withValues(alpha: 0.35),
+            blurRadius: size * 0.20,
+            offset: Offset(0, depth * 0.8),
           ),
         ],
       ),
@@ -241,13 +263,13 @@ class _CrosswordLogoState extends State<CrosswordLogo>
           letter,
           style: TextStyle(
             color: isGold ? const Color(0xFF201000) : Colors.white,
-            fontSize: size * 0.62,
+            fontSize: size * 0.58,
             fontWeight: FontWeight.w900,
             height: 1.0,
             shadows: [
               Shadow(
-                color: Colors.black.withValues(alpha: 0.45),
-                offset: const Offset(0, 1.5),
+                color: Colors.black.withValues(alpha: 0.40),
+                offset: Offset(0, depth * 0.4),
                 blurRadius: 2,
               ),
             ],

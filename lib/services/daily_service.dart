@@ -563,13 +563,6 @@ class DailyService {
           if (spinType == 'free') {
             await prefs.setString('daily_last_spin_date_$userId', todayStr);
           }
-          if (decoded['data'] != null) {
-            final serverWallet = (decoded['data']['newWalletBalance'] as int?);
-            if (serverWallet != null) {
-              await prefs.setInt('user_coins_$userId', serverWallet);
-              await prefs.setInt('user_coins', serverWallet);
-            }
-          }
           return decoded;
         }
       }

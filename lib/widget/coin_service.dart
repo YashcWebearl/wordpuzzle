@@ -6,8 +6,13 @@ import 'base_url.dart'; // for LURL
 
 class CoinProvider extends ChangeNotifier {
   int _coins = 0;
-  int get coins => _coins;
+  bool _isInitialized = false;
+  bool _isUpdating = false; // Flag to track pending updates
   String? _errorMessage;
+
+  bool get isInitialized => _isInitialized;
+  int get coins => _coins;
+  String? get errorMessage => _errorMessage;
 
   Future<String> _getCoinKey() async {
     final prefs = await SharedPreferences.getInstance();
@@ -20,12 +25,18 @@ class CoinProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final key = await _getCoinKey();
     _coins = prefs.getInt(key) ?? prefs.getInt('user_coins') ?? 0;
-    notifyListeners(); // Notify after setting initial value
+    notifyListeners();
 
-    await getCoin(); // Fetch updated coins from server
+    await getCoin();
+    _isInitialized = true;
+    notifyListeners();
   }
 
   Future<void> getCoin() async {
+    if (_isUpdating) {
+      print('Skipping getCoin due to pending update');
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
     final coinKey = await _getCoinKey();
@@ -45,8 +56,8 @@ class CoinProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
-          _coins = data['coins'] ?? 0; // Update coins from response
-          await prefs.setInt(coinKey, _coins); // Save to user-scoped SharedPreferences
+          _coins = data['coins'] ?? 0;
+          await prefs.setInt(coinKey, _coins);
           await prefs.setInt('user_coins', _coins);
         } else {
           _errorMessage =
@@ -65,15 +76,33 @@ class CoinProvider extends ChangeNotifier {
     }
   }
 
-  /// Directly set coins balance (e.g. from backend response newWalletBalance)
-  /// without triggering a duplicate /api/coin/add request!
-  Future<void> setCoins(int newCoins) async {
-    _coins = newCoins;
-    notifyListeners();
+  /// Sets balance directly without calling /api/coin/add (used when backend API already credited coins e.g. streak/task claims)
+  Future<void> setCoins(int newBalance) async {
+    _coins = newBalance;
     final prefs = await SharedPreferences.getInstance();
     final coinKey = await _getCoinKey();
     await prefs.setInt(coinKey, _coins);
     await prefs.setInt('user_coins', _coins);
+    notifyListeners();
+  }
+
+  /// Locally increments coins without calling /api/coin/add
+  Future<void> creditCoinsLocally(int amount) async {
+    final prefs = await SharedPreferences.getInstance();
+    final coinKey = await _getCoinKey();
+    final newBalance = _coins + amount;
+    _coins = newBalance;
+    await prefs.setInt(coinKey, newBalance);
+    await prefs.setInt('user_coins', newBalance);
+    notifyListeners();
+  }
+
+  /// Resets coins in memory and state on logout
+  Future<void> reset() async {
+    _coins = 0;
+    _isInitialized = false;
+    _isUpdating = false;
+    notifyListeners();
   }
 
   Future<void> addCoins(
@@ -82,6 +111,11 @@ class CoinProvider extends ChangeNotifier {
     bool instant = false,
     bool syncServer = true,
   }) async {
+    if (_isUpdating) {
+      print('Skipping addCoins due to pending update');
+      return;
+    }
+    _isUpdating = true;
     try {
       final prefs = await SharedPreferences.getInstance();
       final coinKey = await _getCoinKey();
@@ -93,23 +127,22 @@ class CoinProvider extends ChangeNotifier {
         for (int i = 1; i <= amount; i++) {
           _coins = currentCoins + i;
           notifyListeners();
-          await Future.delayed(const Duration(milliseconds: 25)); // Smooth & faster
+          await Future.delayed(const Duration(milliseconds: 25));
         }
       } else {
-        // Instantly add coins
         _coins = newCoins;
         notifyListeners();
       }
+
       await prefs.setInt(coinKey, newCoins);
       await prefs.setInt('user_coins', newCoins);
 
       if (!syncServer) {
-        // Backend endpoint already credited this amount; do NOT call /api/coin/add again!
         return;
       }
 
       final token = prefs.getString('auth_token');
-      if (token == null) throw Exception('No auth token');
+      if (token == null || token.isEmpty) throw Exception('No auth token');
 
       // Sync with server
       final url = Uri.parse('$LURL/api/coin/add');
@@ -124,31 +157,58 @@ class CoinProvider extends ChangeNotifier {
         body: jsonEncode({'coin': amount, "gameName": "Wordix"}),
       ).timeout(const Duration(seconds: 8));
 
-      if (response.statusCode != 200) {
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final bool isSuccess = data['success'] == true ||
+            data.containsKey('coins') ||
+            (data.containsKey('message') &&
+                (data['message'] == 'Coins added' ||
+                    data['message'] == 'Coin data updated'));
+
+        if (isSuccess) {
+          _coins = data['coins'] ?? newCoins;
+          await prefs.setInt(coinKey, _coins);
+          await prefs.setInt('user_coins', _coins);
+        } else {
+          _coins = currentCoins;
+          await prefs.setInt(coinKey, currentCoins);
+          await prefs.setInt('user_coins', currentCoins);
+        }
+      } else {
         // Rollback if sync fails
         _coins = currentCoins;
         await prefs.setInt(coinKey, currentCoins);
         await prefs.setInt('user_coins', currentCoins);
-        notifyListeners();
       }
     } catch (e) {
+      final prefs = await SharedPreferences.getInstance();
+      final coinKey = await _getCoinKey();
       print('Error adding coins: $e');
+      _coins = prefs.getInt(coinKey) ?? prefs.getInt('user_coins') ?? _coins;
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
     }
   }
 
   Future<void> undoCoins(int amount, {bool instant = true}) async {
+    int attempts = 0;
+    while (_isUpdating && attempts < 25) {
+      await Future.delayed(const Duration(milliseconds: 80));
+      attempts++;
+    }
+    _isUpdating = true;
     try {
       final prefs = await SharedPreferences.getInstance();
       final coinKey = await _getCoinKey();
       final token = prefs.getString('auth_token');
-      if (token == null) throw Exception('No auth token');
+      if (token == null || token.isEmpty) throw Exception('No auth token');
 
       final currentCoins = _coins;
       final newCoins =
           (currentCoins - amount).clamp(0, double.infinity).toInt();
 
       if (instant) {
-        // Optimistically deduct immediately for instant responsive UI
         _coins = newCoins;
         await prefs.setInt(coinKey, _coins);
         await prefs.setInt('user_coins', _coins);
@@ -169,22 +229,13 @@ class CoinProvider extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final serverCoins = data['coins'] as int? ?? newCoins;
-
-        if (!instant && currentCoins > serverCoins) {
-          for (int i = currentCoins - 1; i >= serverCoins; i--) {
-            _coins = i;
-            notifyListeners();
-            await Future.delayed(const Duration(milliseconds: 20));
-          }
-        }
-
+        final serverCoins =
+            data['coins'] ?? (_coins - amount).clamp(0, double.infinity).toInt();
         _coins = serverCoins;
         await prefs.setInt(coinKey, _coins);
         await prefs.setInt('user_coins', _coins);
-        notifyListeners();
       } else {
-        // Rollback if failed
+        // Rollback if sync failed on server
         if (instant) {
           _coins = currentCoins;
           await prefs.setInt(coinKey, currentCoins);
@@ -195,6 +246,9 @@ class CoinProvider extends ChangeNotifier {
       }
     } catch (e) {
       print('Error undoing coins: $e');
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
     }
   }
 }

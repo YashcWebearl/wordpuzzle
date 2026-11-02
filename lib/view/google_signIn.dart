@@ -120,7 +120,6 @@ class _LoginScreenState extends State<LoginScreen> {
           await coinProvider.initialize();
 
           await Future.wait([
-            coinProvider.getCoin(),
             gameLevelProvider.refresh(),
             CrosswordLevelService.fetchLevel(),
             ScrambleLevelService.fetchLevel(),
@@ -222,7 +221,6 @@ class _LoginScreenState extends State<LoginScreen> {
           await coinProvider.initialize();
 
           await Future.wait([
-            coinProvider.getCoin(),
             gameLevelProvider.refresh(),
             CrosswordLevelService.fetchLevel(),
             ScrambleLevelService.fetchLevel(),

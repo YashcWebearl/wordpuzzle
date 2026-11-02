@@ -103,7 +103,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             await coinProvider.initialize();
 
             await Future.wait([
-              coinProvider.getCoin(),
               gameLevelProvider.refresh(),
               CrosswordLevelService.fetchLevel(),
               ScrambleLevelService.fetchLevel(),
@@ -191,7 +190,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           await coinProvider.initialize();
 
           await Future.wait([
-            coinProvider.getCoin(),
             gameLevelProvider.refresh(),
             CrosswordLevelService.fetchLevel(),
             ScrambleLevelService.fetchLevel(),

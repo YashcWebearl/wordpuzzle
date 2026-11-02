@@ -1272,12 +1272,6 @@ class WordSearchPageState extends State<WordSearchPage>
       increment: 1,
       gameName: 'Wordix',
     );
-    try {
-      Provider.of<GameLevelProvider>(context, listen: false)
-          .updateGameLevel(level + 1, gridSize);
-    } catch (e) {
-      print('Wordix updateGameLevel error: $e');
-    }
     Navigator.push(
       context,
       MaterialPageRoute(
