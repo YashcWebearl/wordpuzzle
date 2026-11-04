@@ -72,6 +72,7 @@ class _CrosswordHomeScreenState extends State<CrosswordHomeScreen> {
       playButtonShadow: const Color(0xFF004D40),
       playButtonTextColor: Colors.white,
       onPlay: () {
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(

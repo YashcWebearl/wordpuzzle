@@ -89,6 +89,8 @@ class WordSearchPageState extends State<WordSearchPage>
   final GlobalKey _stackKey = GlobalKey();
   bool _isDialogShowing = false;
   bool _isWatchingAd = false;
+  bool _isGameOver = false;
+  bool _isLevelCompleted = false;
   Timer? _timer;
   Timer? _hintTimer;
   List<Offset>? _hintedPath;
@@ -724,6 +726,8 @@ class WordSearchPageState extends State<WordSearchPage>
         setState(() {
           moveCount = 0;
           maxMoves = _currentWords.length + 2;
+          _isGameOver = false;
+          _isLevelCompleted = false;
           _foundWordPaths.clear();
           _currentDragPath.clear();
           _flyingLetters.clear();
@@ -787,6 +791,8 @@ class WordSearchPageState extends State<WordSearchPage>
       setState(() {
         timeLeft = 90;
         moveCount = 0;
+        _isGameOver = false;
+        _isLevelCompleted = false;
         _lastSecondSoundPlayed = false;
       });
     }
@@ -815,17 +821,21 @@ class WordSearchPageState extends State<WordSearchPage>
   List<String> _generateDynamicWords() {
     final availableWords = _wordBank.values
         .expand((words) => words)
+        .toSet()
         .where((word) => word.length <= gridSize && !_usedWords.contains(word))
         .toList();
     if (availableWords.length < 5 + level) {
       _usedWords.clear(); // Clear kariye
-      availableWords.addAll(_wordBank.values.expand((words) => words).where(
-          (word) => word.length <= gridSize && !_usedWords.contains(word)));
+      availableWords.addAll(_wordBank.values
+          .expand((words) => words)
+          .toSet()
+          .where((word) => word.length <= gridSize && !_usedWords.contains(word)));
     }
     availableWords.shuffle(_random);
     final selectedWords = availableWords
         .take(min(availableWords.length, 4 + gridSize ~/ 2))
         .map((word) => word.toUpperCase())
+        .toSet()
         .toList();
     _usedWords.addAll(selectedWords);
     return selectedWords;
@@ -847,7 +857,10 @@ class WordSearchPageState extends State<WordSearchPage>
         if (timeLeft <= 0) {
           t.cancel();
           AudioHelper().stopLastSecond();
-          if (!_isDialogShowing) _showGameOverDialog(reason: 'time');
+          if (!_isDialogShowing && !_isLevelCompleted && !_isGameOver) {
+            _isGameOver = true;
+            _showGameOverDialog(reason: 'time');
+          }
         }
       });
     });
@@ -982,6 +995,7 @@ class WordSearchPageState extends State<WordSearchPage>
   }
 
   void _handleDragStart(DragStartDetails details, double cellSize) {
+    if (_isGameOver || _isLevelCompleted || _isDialogShowing) return;
     final col =
         (details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
     final row =
@@ -993,6 +1007,7 @@ class WordSearchPageState extends State<WordSearchPage>
   }
 
   void _handleDragUpdate(DragUpdateDetails details, double cellSize) {
+    if (_isGameOver || _isLevelCompleted || _isDialogShowing) return;
     final col =
         (details.localPosition.dx / cellSize).floor().clamp(0, gridSize - 1);
     final row =
@@ -1038,6 +1053,7 @@ class WordSearchPageState extends State<WordSearchPage>
   }
 
   Future<void> _handleDragEnd() async {
+    if (_isGameOver || _isLevelCompleted || _isDialogShowing) return;
     if (_start != null && _end != null) {
       final forwardWord = _getSelectedWord(_start!, _end!);
       String? matchedWord;
@@ -1060,9 +1076,11 @@ class WordSearchPageState extends State<WordSearchPage>
       }
       moveCount++;
       if (moveCount >= (maxMoves ?? 0) &&
-          _foundWordPaths.length < _currentWords.length) {
+          _foundWordPaths.length < _currentWords.length &&
+          !_isLevelCompleted) {
         _timer?.cancel();
         AudioHelper().stopLastSecond();
+        _isGameOver = true;
         _showGameOverDialog(reason: 'moves');
       }
     }
@@ -1141,10 +1159,13 @@ class WordSearchPageState extends State<WordSearchPage>
         _flyingLetters = [];
       });
 
-      if (_foundWordPaths.length == _currentWords.length) {
+      if (_foundWordPaths.length == _currentWords.length &&
+          _currentWords.isNotEmpty &&
+          !_isGameOver) {
+        _isLevelCompleted = true;
         _timer?.cancel();
         Future.delayed(const Duration(milliseconds: 800), () async {
-          if (!mounted) return;
+          if (!mounted || _isGameOver) return;
           await Prefs.saveMaxLevel(gridSize, level + 1);
           _showSuccessDialog();
         });
@@ -1531,15 +1552,9 @@ class WordSearchPageState extends State<WordSearchPage>
                                         );
 
                                         if (!dialogContext.mounted) return;
+                                        _isDialogShowing = false;
                                         Navigator.pop(dialogContext);
-                                        setState(() {
-                                          if (reason == 'time') {
-                                            timeLeft = 45;
-                                          } else {
-                                            maxMoves = (maxMoves ?? 0) + 5;
-                                          }
-                                        });
-                                        _startTimer();
+                                        _restartLevel();
                                       } catch (e) {
                                         if (dialogContext.mounted) {
                                           setDialogState(

@@ -80,18 +80,13 @@ class ScramblePuzzleEngine {
 
     int cols = math.max(maxWordLen, 4);
     if (words.length <= 3) {
-      cols = math.max(maxWordLen, 4);
-      if (cols > 5) cols = 5;
+      cols = math.max(maxWordLen, 4).clamp(4, 6);
     } else if (words.length <= 4) {
-      cols = math.max(maxWordLen, 4);
-      if (totalLetters >= 16 && cols < 5) cols = 5;
-      if (cols > 5) cols = 5;
+      cols = math.max(maxWordLen, totalLetters >= 16 ? 5 : 4).clamp(4, 6);
     } else if (words.length <= 5) {
-      cols = math.max(maxWordLen, 5);
-      if (totalLetters >= 22 && cols < 6) cols = 6;
-      if (cols > 6) cols = 6;
+      cols = math.max(maxWordLen, totalLetters >= 22 ? 6 : 5).clamp(5, 6);
     } else {
-      cols = 6;
+      cols = math.max(maxWordLen, 6).clamp(6, 6);
     }
 
     // Build the solvable columns layout
@@ -147,7 +142,11 @@ class ScramblePuzzleEngine {
 
     final cleanWords =
         remainingWords.map((w) => w.toUpperCase().trim()).toList();
-    final colStrings = _buildSolvableBoard(cleanWords, cols, seed);
+    final int maxWordLen =
+        cleanWords.map((w) => w.length).reduce(math.max);
+    final effectiveCols = math.max(cols, maxWordLen).clamp(3, 6);
+
+    final colStrings = _buildSolvableBoard(cleanWords, effectiveCols, seed);
 
     int maxRows = 0;
     for (final col in colStrings) {
@@ -156,10 +155,10 @@ class ScramblePuzzleEngine {
     if (maxRows < 2) maxRows = 2;
 
     final List<List<ScrambleTile>> newColumns =
-        List.generate(cols, (_) => []);
+        List.generate(effectiveCols, (_) => []);
     int tileCounter = 0;
 
-    for (int c = 0; c < cols; c++) {
+    for (int c = 0; c < effectiveCols; c++) {
       final colList = colStrings[c];
       for (int k = 0; k < colList.length; k++) {
         final row = maxRows - 1 - k;
@@ -185,6 +184,12 @@ class ScramblePuzzleEngine {
     List<List<String>>? bestBoard;
     int bestScore = -1;
 
+    final int maxWordLen =
+        words.map((w) => w.length).reduce(math.max);
+    // Ideal max height to stop early:
+    final int idealMaxH =
+        math.max(maxWordLen, words.length <= 3 ? 5 : 6);
+
     // Try multiple attempts with seed variations to find a rich cascading interlocked layout
     for (int attempt = 0; attempt < 80; attempt++) {
       final math.Random random = math.Random(baseSeed + (attempt * 101));
@@ -194,9 +199,22 @@ class ScramblePuzzleEngine {
       // Words placed in reverse order: solving goes W0 -> W1 -> W2, so we place W2 -> W1 -> W0
       final reversedWords = List<String>.from(words)..shuffle(random);
 
-      // Force a real mix: whenever there are 2+ words, guarantee at least 1 Vertical and at least 1 Horizontal!
+      // Vary layout strategy across attempts to guarantee variety and solvability
       final List<bool> isHorizontal = [];
-      if (reversedWords.length >= 2) {
+      final int mode = attempt % 4;
+
+      if (mode == 0 && reversedWords.every((w) => w.length <= cols)) {
+        // Mode 0: All horizontal rows
+        for (int i = 0; i < reversedWords.length; i++) {
+          isHorizontal.add(true);
+        }
+      } else if (mode == 1 && reversedWords.length <= cols) {
+        // Mode 1: All vertical columns
+        for (int i = 0; i < reversedWords.length; i++) {
+          isHorizontal.add(false);
+        }
+      } else if (reversedWords.length >= 2) {
+        // Mode 2 & 3: Mixed vertical & horizontal
         final vIdx = random.nextInt(reversedWords.length);
         final hCandidates = [
           for (int i = 0; i < reversedWords.length; i++)
@@ -209,11 +227,10 @@ class ScramblePuzzleEngine {
         for (int i = 0; i < reversedWords.length; i++) {
           final len = reversedWords[i].length;
           if (i == vIdx) {
-            isHorizontal.add(false); // Guaranteed Vertical!
+            isHorizontal.add(false); // Vertical
           } else if (i == hIdx) {
-            isHorizontal.add(true); // Guaranteed Horizontal!
+            isHorizontal.add(true); // Horizontal
           } else {
-            // Mixed for remaining words
             isHorizontal.add(len <= cols && random.nextBool());
           }
         }
@@ -226,7 +243,7 @@ class ScramblePuzzleEngine {
         final len = word.length;
         final bool isHoriz = isHorizontal[wIdx];
 
-        if (isHoriz) {
+        if (isHoriz && len <= cols) {
           // Horizontal word MUST be placed across columns of uniform height (flat surface)
           final validStarts = <int>[];
           for (int startCol = 0; startCol <= cols - len; startCol++) {
@@ -247,23 +264,35 @@ class ScramblePuzzleEngine {
               colStrings[startCol + c].add(word[c]);
             }
           } else {
-            // If no flat position available across columns, place flat at max start
-            final maxStart = cols - len;
-            final startCol = maxStart > 0 ? random.nextInt(maxStart + 1) : 0;
-            for (int c = 0; c < len; c++) {
-              colStrings[startCol + c].add(word[c]);
+            // No flat position across columns for horizontal word: place vertically
+            int minColH = colStrings[0].length;
+            for (int c = 1; c < cols; c++) {
+              if (colStrings[c].length < minColH) {
+                minColH = colStrings[c].length;
+              }
+            }
+            final minCols = [
+              for (int c = 0; c < cols; c++)
+                if (colStrings[c].length == minColH) c
+            ];
+            final colIdx = minCols[random.nextInt(minCols.length)];
+            for (int i = len - 1; i >= 0; i--) {
+              colStrings[colIdx].add(word[i]);
             }
           }
         } else {
-          // Vertical placement: place in column with minimum height to balance board
-          int colIdx = 0;
+          // Vertical placement: place in column with minimum height (randomize ties)
           int minColH = colStrings[0].length;
           for (int c = 1; c < cols; c++) {
             if (colStrings[c].length < minColH) {
               minColH = colStrings[c].length;
-              colIdx = c;
             }
           }
+          final minCols = [
+            for (int c = 0; c < cols; c++)
+              if (colStrings[c].length == minColH) c
+          ];
+          final colIdx = minCols[random.nextInt(minCols.length)];
 
           // Top-to-bottom reading: word[len - 1] at bottom, word[0] at top
           for (int i = len - 1; i >= 0; i--) {
@@ -272,14 +301,12 @@ class ScramblePuzzleEngine {
         }
       }
 
-
       int maxH = 0;
       for (final col in colStrings) {
         if (col.length > maxH) maxH = col.length;
       }
-      // Never allow vertical towers higher than 6 rows (prevents UI squeeze)
-      final int targetMaxH = words.length <= 3 ? 4 : (words.length <= 4 ? 5 : 6);
-      if (maxH > targetMaxH) continue;
+      // Never allow vertical towers higher than 8 rows to prevent UI squeeze
+      if (maxH > 8) continue;
 
       // Validate trap-free solvability: EVERY available move must lead to a winning path!
       if (_isBoardFullyTrapFree(colStrings, words)) {
@@ -287,7 +314,9 @@ class ScramblePuzzleEngine {
         if (score > bestScore) {
           bestScore = score;
           bestBoard = colStrings;
-          break;
+          if (maxH <= idealMaxH) {
+            break;
+          }
         }
       }
     }
@@ -296,37 +325,40 @@ class ScramblePuzzleEngine {
       return bestBoard;
     }
 
-    // Deterministic 100% trap-free fallback:
-    return _buildDeterministicFallback(words, cols);
+    // Solvable fallback with seed:
+    return _buildDeterministicFallback(words, cols, baseSeed);
   }
 
   /// Fallback: Guarantees 100% solvable arrangement with ZERO traps
   static List<List<String>> _buildDeterministicFallback(
-      List<String> words, int cols) {
+      List<String> words, int cols, [int seed = 0]) {
+    final math.Random random = math.Random(seed != 0 ? seed : 12345);
     final List<List<String>> colStrings =
         List.generate(cols, (_) => <String>[]);
 
+    final shuffledWords = List<String>.from(words)..shuffle(random);
     final horizWords = <String>[];
     final vertWords = <String>[];
 
-    for (int i = 0; i < words.length; i++) {
-      if (words[i].length <= cols && horizWords.length <= vertWords.length) {
-        horizWords.add(words[i]);
+    for (int i = 0; i < shuffledWords.length; i++) {
+      if (shuffledWords[i].length <= cols && horizWords.length <= vertWords.length) {
+        horizWords.add(shuffledWords[i]);
       } else {
-        vertWords.add(words[i]);
+        vertWords.add(shuffledWords[i]);
       }
     }
 
     // Ensure at least one horizontal word if fits
-    if (horizWords.isEmpty && words.any((w) => w.length <= cols)) {
-      final w = words.firstWhere((w) => w.length <= cols);
+    if (horizWords.isEmpty && shuffledWords.any((w) => w.length <= cols)) {
+      final w = shuffledWords.firstWhere((w) => w.length <= cols);
       vertWords.remove(w);
       horizWords.add(w);
     }
 
     // 1. Place horizontal words first at bottom (each forms a complete, flat row)
     for (final word in horizWords) {
-      final startCol = (cols - word.length) ~/ 2;
+      final maxStart = cols - word.length;
+      final startCol = maxStart > 0 ? random.nextInt(maxStart + 1) : 0;
       for (int c = 0; c < word.length; c++) {
         colStrings[startCol + c].add(word[c]);
       }
@@ -334,21 +366,23 @@ class ScramblePuzzleEngine {
 
     // 2. Place vertical words on top, distributed across columns
     for (final word in vertWords) {
-      int minCol = 0;
       int minH = colStrings[0].length;
       for (int c = 1; c < cols; c++) {
         if (colStrings[c].length < minH) {
           minH = colStrings[c].length;
-          minCol = c;
         }
       }
+      final tiedCols = [
+        for (int c = 0; c < cols; c++)
+          if (colStrings[c].length == minH) c
+      ];
+      final minCol = tiedCols[random.nextInt(tiedCols.length)];
       for (int l = word.length - 1; l >= 0; l--) {
         colStrings[minCol].add(word[l]);
       }
     }
 
     return colStrings;
-    
   }
 
   /// Validates that from the current board, EVERY currently visible word leads to a winning path!

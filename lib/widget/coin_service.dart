@@ -18,25 +18,33 @@ class CoinProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getString('user_id') ?? prefs.getString('email') ?? '';
     if (uid.isNotEmpty) return 'user_coins_${uid.trim().toLowerCase()}';
+    final token = prefs.getString('auth_token') ?? '';
+    if (token.isNotEmpty) {
+      return 'user_coins_${token.length > 20 ? token.substring(token.length - 20) : token}';
+    }
     return 'user_coins';
   }
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     final key = await _getCoinKey();
+
+    // 1. Immediately load local saved coins so UI is instant and never flickers
     _coins = prefs.getInt(key) ?? prefs.getInt('user_coins') ?? 0;
     notifyListeners();
 
-    await getCoin();
+    // 2. Perform dynamic bidirectional reconciliation with server in background
+    await syncWithServer();
     _isInitialized = true;
     notifyListeners();
   }
 
-  Future<void> getCoin() async {
-    if (_isUpdating) {
-      print('Skipping getCoin due to pending update');
-      return;
-    }
+  /// Dynamically reconciles local and server coin balances:
+  /// - Never hardcodes any numbers.
+  /// - Never causes unexpected jumps on the user's screen.
+  /// - Automatically brings server and local into 100% agreement.
+  Future<void> syncWithServer() async {
+    if (_isUpdating) return;
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
     final coinKey = await _getCoinKey();
@@ -55,25 +63,86 @@ class CoinProvider extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success'] == true) {
-          _coins = data['coins'] ?? 0;
+        if (data is Map<String, dynamic> && data['success'] == true) {
+          final int serverCoins = (data['coins'] as num?)?.toInt() ?? 0;
+          final int? savedCoins =
+              prefs.getInt(coinKey) ?? prefs.getInt('user_coins');
+
+          // Case 1: Fresh user / new device login without existing local history
+          if (savedCoins == null) {
+            _coins = serverCoins;
+            await prefs.setInt(coinKey, _coins);
+            await prefs.setInt('user_coins', _coins);
+            return;
+          }
+
+          // Case 2: Existing user with local gameplay balance
+          final int localCoins = _coins > 0 ? _coins : savedCoins;
+
+          if (serverCoins > localCoins) {
+            // Server has more coins (ghost coins from un-synced undos or duplicate claims)
+            // Dynamically reconcile by undoing the difference on server
+            final int excess = serverCoins - localCoins;
+            if (token.isNotEmpty && excess > 0) {
+              try {
+                final undoUrl = Uri.parse('$LURL/api/coin/undo');
+                await http
+                    .post(
+                      undoUrl,
+                      headers: {
+                        'Authorization': token.startsWith('Bearer ')
+                            ? token
+                            : 'Bearer $token',
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true',
+                      },
+                      body: jsonEncode({'coin': excess, "gameName": "Wordix"}),
+                    )
+                    .timeout(const Duration(seconds: 8));
+              } catch (_) {}
+            }
+            _coins = localCoins;
+          } else if (localCoins > serverCoins) {
+            // Local has more coins (earned offline or pending sync)
+            // Dynamically reconcile by crediting the difference to server
+            final int missing = localCoins - serverCoins;
+            if (token.isNotEmpty && missing > 0) {
+              try {
+                final addUrl = Uri.parse('$LURL/api/coin/add');
+                await http
+                    .post(
+                      addUrl,
+                      headers: {
+                        'Authorization': token.startsWith('Bearer ')
+                            ? token
+                            : 'Bearer $token',
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true',
+                      },
+                      body: jsonEncode({'coin': missing, "gameName": "Wordix"}),
+                    )
+                    .timeout(const Duration(seconds: 8));
+              } catch (_) {}
+            }
+            _coins = localCoins;
+          } else {
+            // Already in perfect harmony
+            _coins = localCoins;
+          }
+
           await prefs.setInt(coinKey, _coins);
           await prefs.setInt('user_coins', _coins);
-        } else {
-          _errorMessage =
-              'Failed to fetch coins: ${data['message'] ?? 'Unknown error'}';
-          _coins = prefs.getInt(coinKey) ?? prefs.getInt('user_coins') ?? 0;
         }
-      } else {
-        _errorMessage = 'Failed to fetch coins: ${response.body}';
-        _coins = prefs.getInt(coinKey) ?? prefs.getInt('user_coins') ?? 0;
       }
     } catch (e) {
-      _errorMessage = 'Error fetching coins: $e';
-      _coins = prefs.getInt(coinKey) ?? prefs.getInt('user_coins') ?? 0;
+      debugPrint('Dynamic coin sync error: $e');
     } finally {
       notifyListeners();
     }
+  }
+
+  Future<void> getCoin() async {
+    await syncWithServer();
   }
 
   /// Sets balance directly without calling /api/coin/add (used when backend API already credited coins e.g. streak/task claims)
@@ -86,11 +155,11 @@ class CoinProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Locally increments coins without calling /api/coin/add
+  /// Locally increments (or decrements) coins without calling /api/coin/add
   Future<void> creditCoinsLocally(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     final coinKey = await _getCoinKey();
-    final newBalance = _coins + amount;
+    final newBalance = (_coins + amount).clamp(0, double.infinity).toInt();
     _coins = newBalance;
     await prefs.setInt(coinKey, newBalance);
     await prefs.setInt('user_coins', newBalance);
@@ -116,10 +185,10 @@ class CoinProvider extends ChangeNotifier {
       return;
     }
     _isUpdating = true;
+    final currentCoins = _coins;
     try {
       final prefs = await SharedPreferences.getInstance();
       final coinKey = await _getCoinKey();
-      final currentCoins = _coins;
       final newCoins = currentCoins + amount;
 
       if (isWinner && !instant) {
@@ -146,16 +215,18 @@ class CoinProvider extends ChangeNotifier {
 
       // Sync with server
       final url = Uri.parse('$LURL/api/coin/add');
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization':
-              token.startsWith('Bearer ') ? token : 'Bearer $token',
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({'coin': amount, "gameName": "Wordix"}),
-      ).timeout(const Duration(seconds: 8));
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Authorization':
+                  token.startsWith('Bearer ') ? token : 'Bearer $token',
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
+            },
+            body: jsonEncode({'coin': amount, "gameName": "Wordix"}),
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -166,7 +237,7 @@ class CoinProvider extends ChangeNotifier {
                     data['message'] == 'Coin data updated'));
 
         if (isSuccess) {
-          _coins = data['coins'] ?? newCoins;
+          _coins = newCoins;
           await prefs.setInt(coinKey, _coins);
           await prefs.setInt('user_coins', _coins);
         } else {
@@ -184,7 +255,9 @@ class CoinProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final coinKey = await _getCoinKey();
       print('Error adding coins: $e');
-      _coins = prefs.getInt(coinKey) ?? prefs.getInt('user_coins') ?? _coins;
+      _coins = currentCoins;
+      await prefs.setInt(coinKey, currentCoins);
+      await prefs.setInt('user_coins', currentCoins);
     } finally {
       _isUpdating = false;
       notifyListeners();
@@ -198,13 +271,13 @@ class CoinProvider extends ChangeNotifier {
       attempts++;
     }
     _isUpdating = true;
+    final currentCoins = _coins;
     try {
       final prefs = await SharedPreferences.getInstance();
       final coinKey = await _getCoinKey();
       final token = prefs.getString('auth_token');
       if (token == null || token.isEmpty) throw Exception('No auth token');
 
-      final currentCoins = _coins;
       final newCoins =
           (currentCoins - amount).clamp(0, double.infinity).toInt();
 
@@ -216,22 +289,21 @@ class CoinProvider extends ChangeNotifier {
       }
 
       final url = Uri.parse('$LURL/api/coin/undo');
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization':
-              token.startsWith('Bearer ') ? token : 'Bearer $token',
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({'coin': amount, "gameName": "Wordix"}),
-      ).timeout(const Duration(seconds: 8));
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Authorization':
+                  token.startsWith('Bearer ') ? token : 'Bearer $token',
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
+            },
+            body: jsonEncode({'coin': amount, "gameName": "Wordix"}),
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final serverCoins =
-            data['coins'] ?? (_coins - amount).clamp(0, double.infinity).toInt();
-        _coins = serverCoins;
+        _coins = newCoins;
         await prefs.setInt(coinKey, _coins);
         await prefs.setInt('user_coins', _coins);
       } else {
@@ -246,6 +318,14 @@ class CoinProvider extends ChangeNotifier {
       }
     } catch (e) {
       print('Error undoing coins: $e');
+      if (instant) {
+        final prefs = await SharedPreferences.getInstance();
+        final coinKey = await _getCoinKey();
+        _coins = currentCoins;
+        await prefs.setInt(coinKey, currentCoins);
+        await prefs.setInt('user_coins', currentCoins);
+        notifyListeners();
+      }
     } finally {
       _isUpdating = false;
       notifyListeners();

@@ -73,6 +73,7 @@ class _BalloonHomeScreenState extends State<BalloonHomeScreen> {
       playButtonShadow: const Color(0xFFE65100),
       playButtonTextColor: const Color(0xFF3E2723),
       onPlay: () {
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(

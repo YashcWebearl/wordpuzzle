@@ -160,6 +160,14 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
     if (mounted) {
       _dangerPulseController.stop();
       _dangerPulseController.reset();
+      _praiseController.stop();
+      _praiseController.reset();
+      _praiseText = null;
+      _shakeController.stop();
+      _shakeController.reset();
+      _shakingTileIndex = null;
+      _confettiController.stop();
+      _confettiController.reset();
     }
     _boyExpression = 'idle';
     _isGameOver = false;
@@ -583,9 +591,7 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
                                         if (!dialogContext.mounted) return;
                                         Navigator.pop(dialogContext);
                                         setState(() {
-                                          _balloonsRemaining = 2;
-                                          _boyExpression = 'idle';
-                                          _isGameOver = false;
+                                          _loadPuzzle();
                                         });
                                       } catch (e) {
                                         if (dialogContext.mounted) {

@@ -172,15 +172,30 @@ class DailyService {
     try {
       final headers = await _getHeaders();
       final url = Uri.parse('$LURL/api/daily/status?gameName=$gameName');
+      debugPrint('🔄 [DailyService] getDailyStatus URL: $url | userId: $userId');
+      
       final response = await http
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 8));
 
+      debugPrint('📥 [DailyService] getDailyStatus [${response.statusCode}] response: ${response.body}');
+
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
-        if (decoded is Map<String, dynamic> && decoded['success'] == true) {
-          final remoteTasks = decoded['dailyTasks'] as List<dynamic>?;
-          if (remoteTasks != null) {
+        if (decoded is Map<String, dynamic> &&
+            (decoded['success'] == true || decoded['data'] != null)) {
+          // Normalize root map to handle both `{ "success": true, "data": { ... } }` and `{ "success": true, ... }`
+          final Map<String, dynamic> root =
+              (decoded['data'] is Map<String, dynamic>)
+                  ? Map<String, dynamic>.from(decoded['data'] as Map)
+                  : Map<String, dynamic>.from(decoded);
+
+          final rawTasks = (root['dailyTasks'] ??
+              root['tasks'] ??
+              decoded['dailyTasks'] ??
+              decoded['tasks']) as List<dynamic>?;
+
+          if (rawTasks != null) {
             // First pass: gather actual Wordix & Crossword activity
             int wordixPlayedCount = (prefs.getInt(
                         'task_progress_${userId}_${todayStr}_play_wordix') ??
@@ -195,16 +210,18 @@ class DailyService {
                         'task_progress_${userId}_${todayStr}_win_crossword') ??
                     0);
 
-            for (var t in remoteTasks) {
+            for (var t in rawTasks) {
               if (t is Map) {
-                final key = t['taskKey']?.toString() ?? '';
+                final key = (t['taskKey'] ?? t['key'])?.toString() ?? '';
                 final remoteProg = (t['progress'] as num?)?.toInt() ?? 0;
                 if (key == 'play_wordix' || key == 'win_wordix') {
-                  if (remoteProg > wordixPlayedCount)
+                  if (remoteProg > wordixPlayedCount) {
                     wordixPlayedCount = remoteProg;
+                  }
                 } else if (key == 'play_crossword' || key == 'win_crossword') {
-                  if (remoteProg > crosswordPlayedCount)
+                  if (remoteProg > crosswordPlayedCount) {
                     crosswordPlayedCount = remoteProg;
+                  }
                 }
               }
             }
@@ -214,19 +231,31 @@ class DailyService {
             final int trueDuoProg = (hasWordix ? 1 : 0) + (hasCross ? 1 : 0);
             final bool trueDuoCompleted = trueDuoProg >= 2;
 
-            for (var t in remoteTasks) {
+            final List<Map<String, dynamic>> processedTasks = [];
+
+            for (var t in rawTasks) {
               if (t is Map) {
-                final key = t['taskKey']?.toString() ?? '';
-                int remoteProg = (t['progress'] as num?)?.toInt() ?? 0;
-                final total = (t['total'] as num?)?.toInt() ?? 1;
-                final isClaimed = t['isClaimed'] == true;
-                bool isCompleted =
-                    (t['isCompleted'] == true) || (remoteProg >= total);
+                final taskMap = Map<String, dynamic>.from(t);
+                final key = (taskMap['taskKey'] ?? taskMap['key'])?.toString() ?? '';
+                taskMap['taskKey'] = key;
+
+                final int total = (taskMap['total'] as num?)?.toInt() ??
+                    (taskMap['target'] as num?)?.toInt() ??
+                    1;
+                final isClaimed = taskMap['isClaimed'] == true || taskMap['claimed'] == true;
+                int remoteProg = (taskMap['progress'] as num?)?.toInt() ?? 0;
+
+                // When already claimed, progress MUST equal total and completed MUST be true
+                if (isClaimed) {
+                  remoteProg = total;
+                }
+
+                bool isCompleted = isClaimed ||
+                    (taskMap['isCompleted'] == true) ||
+                    (taskMap['completed'] == true) ||
+                    (remoteProg >= total);
 
                 // Strictly enforce Dual Scholar (word_master_duo) rule:
-                // Playing Wordix (regardless of how many levels) counts as 1.
-                // Playing Crossword (regardless of how many levels) counts as 1.
-                // Both must be played for progress to reach 2/2 and complete.
                 if (key == 'word_master_duo') {
                   if (!isClaimed) {
                     remoteProg = trueDuoProg;
@@ -237,14 +266,15 @@ class DailyService {
                   }
                 }
 
-                t['progress'] = remoteProg;
-                t['total'] = total;
-                t['isCompleted'] = isCompleted;
-                t['isClaimed'] = isClaimed;
+                taskMap['progress'] = math.min<int>(remoteProg, total);
+                taskMap['total'] = total;
+                taskMap['target'] = total;
+                taskMap['isCompleted'] = isCompleted;
+                taskMap['isClaimed'] = isClaimed;
 
                 // Sync to user-and-day scoped local cache
                 await prefs.setInt(
-                    'task_progress_${userId}_${todayStr}_$key', remoteProg);
+                    'task_progress_${userId}_${todayStr}_$key', taskMap['progress'] as int);
                 await prefs.setBool(
                     'task_claimed_${userId}_${todayStr}_$key', isClaimed);
 
@@ -254,16 +284,47 @@ class DailyService {
                       'task_top_notified_${userId}_${todayStr}_$key', true);
                   TopTaskSnackBar.markNotified(key, todayStr);
                 } else if (key == 'word_master_duo') {
-                  // Not completed yet, ensure flag is cleared so notification can fire when actually completed
                   await prefs.setBool(
                       'task_top_notified_${userId}_${todayStr}_$key', false);
                 }
+
+                processedTasks.add(taskMap);
               }
             }
+
+            // Ensure all 12 standard tasks are present in root['dailyTasks']
+            for (var def in defaultDailyTasks) {
+              final defKey = def['taskKey'];
+              if (!processedTasks.any((p) => p['taskKey'] == defKey)) {
+                final defMap = Map<String, dynamic>.from(def);
+                final p = prefs.getInt('task_progress_${userId}_${todayStr}_$defKey') ?? 0;
+                final c = prefs.getBool('task_claimed_${userId}_${todayStr}_$defKey') ?? false;
+                final int tot = (defMap['total'] as num?)?.toInt() ?? 1;
+                defMap['progress'] = c ? tot : math.min<int>(p, tot);
+                defMap['isClaimed'] = c;
+                defMap['isCompleted'] = c || (defMap['progress'] as int) >= tot;
+                processedTasks.add(defMap);
+              }
+            }
+
+            root['dailyTasks'] = processedTasks;
           }
-          await _cacheBackendStatus(decoded,
+
+          // Ensure streak, spin, and rewardsCatalog are present in root
+          if (root['streak'] == null && decoded['streak'] != null) {
+            root['streak'] = decoded['streak'];
+          }
+          if (root['spin'] == null && decoded['spin'] != null) {
+            root['spin'] = decoded['spin'];
+          }
+          if (root['rewardsCatalog'] == null && decoded['rewardsCatalog'] != null) {
+            root['rewardsCatalog'] = decoded['rewardsCatalog'];
+          }
+          root['success'] = true;
+
+          await _cacheBackendStatus(root,
               userId: userId, todayStr: todayStr);
-          return decoded;
+          return root;
         }
       }
     } catch (e) {
@@ -297,14 +358,6 @@ class DailyService {
           final coinsAwarded = (data['coinsAwarded'] as int?) ??
               defaultRewardsConfig[(claimedDay - 1).clamp(0, 6)];
 
-          final serverWallet = (data['newWalletBalance'] as int?);
-          final updatedCoins = serverWallet ??
-              ((prefs.getInt('user_coins_$userId') ??
-                      prefs.getInt('user_coins') ??
-                      0) +
-                  coinsAwarded);
-          await prefs.setInt('user_coins_$userId', updatedCoins);
-          await prefs.setInt('user_coins', updatedCoins);
           await prefs.setString('daily_streak_claimed_date_$userId', todayStr);
           await prefs.setInt('daily_streak_current_day_$userId',
               claimedDay >= 7 ? 1 : claimedDay + 1);
@@ -501,19 +554,16 @@ class DailyService {
         'gameName': gameName,
       });
 
+      debugPrint('🔄 [DailyService] claimTask: $taskKey -> $url');
       final response = await http
           .post(url, headers: headers, body: body)
           .timeout(const Duration(seconds: 8));
 
+      debugPrint(
+          '📥 [DailyService] claimTask [$taskKey] code: ${response.statusCode}, body: ${response.body}');
+
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
-        if (decoded is Map<String, dynamic> && decoded['data'] != null) {
-          final serverWallet = (decoded['data']['newWalletBalance'] as int?);
-          if (serverWallet != null) {
-            await prefs.setInt('user_coins_$userId', serverWallet);
-            await prefs.setInt('user_coins', serverWallet);
-          }
-        }
         return decoded;
       }
     } catch (e) {
@@ -603,7 +653,17 @@ class DailyService {
     required String todayStr,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final streak = data['streak'] as Map<String, dynamic>?;
+
+    // Cache the entire decoded map for instant offline / cold-start loading
+    try {
+      await prefs.setString(
+          'daily_status_full_cache_${userId}_$todayStr', json.encode(data));
+    } catch (e) {
+      debugPrint('DailyService: Error caching full status: $e');
+    }
+
+    final streak = (data['streak'] ??
+        (data['data'] is Map ? data['data']['streak'] : null)) as Map<String, dynamic>?;
     if (streak != null) {
       final currentDay = (streak['currentDay'] as num?)?.toInt() ?? 1;
       final isClaimed = streak['isTodayClaimed'] == true;
@@ -621,7 +681,21 @@ class DailyService {
 
   Future<Map<String, dynamic>> getLocalCachedStatus() async {
     final userId = await _getUserId();
-    return _getLocalDailyStatus(_getTodayString(), userId: userId);
+    final todayStr = _getTodayString();
+    final prefs = await SharedPreferences.getInstance();
+
+    final cachedStr =
+        prefs.getString('daily_status_full_cache_${userId}_$todayStr');
+    if (cachedStr != null && cachedStr.isNotEmpty) {
+      try {
+        final decoded = json.decode(cachedStr);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+      } catch (_) {}
+    }
+
+    return _getLocalDailyStatus(todayStr, userId: userId);
   }
 
   Future<Map<String, dynamic>> _getLocalDailyStatus(

@@ -37,11 +37,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _toggleSound(bool value) async {
-    HapticFeedback.lightImpact();
     setState(() {
       isSoundOn = value;
     });
-    await AudioHelper().toggleSound();
+    await AudioHelper().setSound(value);
+    if (value) {
+      // ONLY play sound when turned ON
+      AudioHelper().playButtonSound();
+    }
   }
 
   void _showLogoutConfirmationDialog(BuildContext context) {
@@ -183,7 +186,9 @@ class _SettingsPageState extends State<SettingsPage> {
                               }
 
                               if (context.mounted) {
-                                Provider.of<CoinProvider>(context, listen: false).reset();
+                                Provider.of<CoinProvider>(context,
+                                        listen: false)
+                                    .reset();
                                 Navigator.pushAndRemoveUntil(
                                   context,
                                   MaterialPageRoute(
@@ -298,7 +303,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   // Center Settings Card
                   Center(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 380),
                         child: ClipRRect(
@@ -307,8 +312,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 26,
-                                vertical: 32,
+                                horizontal: 20,
+                                vertical: 28,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.55),
@@ -394,15 +399,16 @@ class _SettingsPageState extends State<SettingsPage> {
                                   // Sound Toggle Row with 3D tactile switch
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 18,
-                                      vertical: 14,
+                                      horizontal: 14,
+                                      vertical: 12,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.06),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.06),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.12),
+                                        color: Colors.white
+                                            .withValues(alpha: 0.12),
                                         width: 1.2,
                                       ),
                                     ),
@@ -411,13 +417,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                           MainAxisAlignment.spaceBetween,
                                       children: [
                                         Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Container(
-                                              padding: const EdgeInsets.all(8),
+                                              padding: const EdgeInsets.all(7),
                                               decoration: BoxDecoration(
                                                 shape: BoxShape.circle,
                                                 color: (isSoundOn
-                                                        ? const Color(0xFF00E5FF)
+                                                        ? const Color(
+                                                            0xFF00E5FF)
                                                         : Colors.grey)
                                                     .withValues(alpha: 0.2),
                                               ),
@@ -428,21 +436,22 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 color: isSoundOn
                                                     ? const Color(0xFF00E5FF)
                                                     : Colors.white70,
-                                                size: 24,
+                                                size: 22,
                                               ),
                                             ),
-                                            const SizedBox(width: 14),
-                                            Text(
+                                            const SizedBox(width: 10),
+                                            const Text(
                                               'Sound Effects',
                                               style: TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 16,
+                                                fontSize: 15,
                                                 fontWeight: FontWeight.w700,
-                                                letterSpacing: 0.3,
+                                                letterSpacing: 0.2,
                                               ),
                                             ),
                                           ],
                                         ),
+                                        const SizedBox(width: 10),
                                         _build3DToggleSwitch(
                                           value: isSoundOn,
                                           onChanged: _toggleSound,
@@ -497,15 +506,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }) {
     return GestureDetector(
       onTap: () {
-        AudioHelper().playButtonSound();
         onChanged(!value);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeInOut,
-        width: 66,
-        height: 36,
-        padding: const EdgeInsets.all(4),
+        width: 58,
+        height: 32,
+        padding: const EdgeInsets.all(3.5),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
@@ -541,8 +549,8 @@ class _SettingsPageState extends State<SettingsPage> {
           curve: Curves.easeOutBack,
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
-            width: 28,
-            height: 28,
+            width: 25,
+            height: 25,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -564,7 +572,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Icon(
                 value ? Icons.check_rounded : Icons.close_rounded,
                 color: value ? const Color(0xFF021B2D) : Colors.white70,
-                size: 16,
+                size: 15,
               ),
             ),
           ),

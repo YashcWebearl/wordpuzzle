@@ -69,9 +69,23 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
   final GlobalKey<CoinGrantOverlayState> _coinGrantKey = GlobalKey();
   final GlobalKey _topCoinKey = GlobalKey();
   bool _isPlayButtonTapped = false;
+  bool _isNavigating = false;
+  int _currentPlaySession = 0;
+  bool _isReturnHubDialogShowing = false;
+
+  void _cancelPendingPlay() {
+    _currentPlaySession++;
+    if (_isPlayButtonTapped && mounted) {
+      setState(() {
+        _isPlayButtonTapped = false;
+        _isNavigating = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
+    _cancelPendingPlay();
     _confettiController.dispose();
     super.dispose();
   }
@@ -112,6 +126,7 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
       await _coinGrantKey.currentState?.showReward(
         coins: coins,
         source: source,
+        syncServer: true,
       );
     } catch (e) {
       debugPrint("Error in addCoins: $e");
@@ -119,6 +134,10 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
   }
 
   void _showReturnToHubDialog() {
+    _cancelPendingPlay();
+    if (_isReturnHubDialogShowing) return;
+    _isReturnHubDialogShowing = true;
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -250,7 +269,11 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
           ),
         );
       },
-    );
+    ).then((_) {
+      if (mounted) {
+        _isReturnHubDialogShowing = false;
+      }
+    });
   }
 
   void _showInsufficientCoinsDialog() {
@@ -403,40 +426,62 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
   }
 
   void _handlePlayButton() async {
-    if (_isPlayButtonTapped) return;
+    if (_isPlayButtonTapped || _isNavigating) return;
+
+    final int sessionId = ++_currentPlaySession;
     setState(() => _isPlayButtonTapped = true);
 
     try {
       final connectivity = await Connectivity().checkConnectivity();
-      if (!mounted) return;
+      if (!mounted || sessionId != _currentPlaySession) return;
       if (connectivity.contains(ConnectivityResult.none)) {
         Fluttertoast.showToast(msg: "You're offline");
-        setState(() => _isPlayButtonTapped = false);
+        if (mounted && sessionId == _currentPlaySession) {
+          setState(() => _isPlayButtonTapped = false);
+        }
         return;
       }
 
       final coinProvider = Provider.of<CoinProvider>(context, listen: false);
       if (coinProvider.coins < widget.requiredCoins) {
-        setState(() => _isPlayButtonTapped = false);
-        _showInsufficientCoinsDialog();
+        if (mounted && sessionId == _currentPlaySession) {
+          setState(() => _isPlayButtonTapped = false);
+          _showInsufficientCoinsDialog();
+        }
         return;
       }
 
       // Smooth spinner delay
       await Future.delayed(const Duration(milliseconds: 350));
+      if (!mounted || sessionId != _currentPlaySession) return;
+
       await coinProvider.undoCoins(widget.requiredCoins);
+      if (!mounted || sessionId != _currentPlaySession) return;
+
       AudioHelper().playMoneySound();
       Fluttertoast.showToast(
           msg: "${widget.requiredCoins} coins deducted to start the game");
 
-      if (mounted) {
+      if (mounted && sessionId == _currentPlaySession) {
+        setState(() {
+          _isPlayButtonTapped = false;
+          _isNavigating = true;
+        });
         widget.onPlay();
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          if (mounted && sessionId == _currentPlaySession) {
+            setState(() => _isNavigating = false);
+          }
+        });
       }
     } catch (e) {
       debugPrint("Error starting game: $e");
     } finally {
-      if (mounted) {
-        setState(() => _isPlayButtonTapped = false);
+      if (mounted && sessionId == _currentPlaySession) {
+        setState(() {
+          _isPlayButtonTapped = false;
+          _isNavigating = false;
+        });
       }
     }
   }
@@ -691,100 +736,131 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
                           SizedBox(height: isCompact ? 20.0 : 32.0),
                           SizedBox(height: 25),
 
-                          // 1. PLAY NOW (3D Pill Button)
-                          App3DButton(
-                            text: 'PLAY NOW',
-                            icon: Icons.play_arrow_rounded,
-                            isLoading: _isPlayButtonTapped,
-                            height: 52,
-                            fontSize: 17,
-                            borderRadius: 26.0,
-                            width: double.infinity,
-                            gradientColors: widget.playButtonGradient ??
-                                [
-                                  widget.accentColor,
-                                  widget.primaryColor,
-                                ],
-                            shadowColor: widget.playButtonShadow ??
-                                widget.primaryColor.withValues(alpha: 0.6),
-                            glowColor: widget.accentColor,
-                            textColor:
-                                widget.playButtonTextColor ?? Colors.white,
-                            iconColor:
-                                widget.playButtonTextColor ?? Colors.white,
-                            onPressed: _handlePlayButton,
-                          ),
-
-                          const SizedBox(height: 14.0),
-
-                          // 2. WATCH & EARN (3D Pill Button with Coin)
-                          App3DButton.amber(
-                            text: 'WATCH & EARN',
-                            icon: Icons.play_circle_fill_rounded,
-                            coinBadge: true,
-                            height: 50,
-                            fontSize: 15,
-                            width: double.infinity,
-                            borderRadius: 25.0,
-                            onPressed: () {
-                              checkInternetAndProceed(context, () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => AdPlaybackPage(
-                                      isRewardAd: true,
-                                      onAdComplete: () =>
-                                          _addCoins(5, 'Ad Reward'),
-                                    ),
-                                  ),
-                                );
-                              });
-                            },
-                          ),
-
-                          const SizedBox(height: 14.0),
-
-                          // 3. SETTINGS (3D Pill Button with Cog)
-                          App3DButton(
-                            text: 'SETTINGS',
-                            icon: Icons.settings_rounded,
-                            height: 48,
-                            fontSize: 14.5,
-                            width: double.infinity,
-                            borderRadius: 24.0,
-                            gradientColors: _effectiveSettingsGradient,
-                            shadowColor: _effectiveSettingsShadow,
-                            textColor: Colors.white,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const SettingsPage(),
+                          // Action Buttons (Wrapped in IgnorePointer to block taps during loading/navigation)
+                          IgnorePointer(
+                            ignoring: _isPlayButtonTapped || _isNavigating,
+                            child: Column(
+                              children: [
+                                // 1. PLAY NOW (3D Pill Button)
+                                App3DButton(
+                                  text: 'PLAY NOW',
+                                  icon: Icons.play_arrow_rounded,
+                                  isLoading: _isPlayButtonTapped,
+                                  height: 52,
+                                  fontSize: 17,
+                                  borderRadius: 26.0,
+                                  width: double.infinity,
+                                  gradientColors: widget.playButtonGradient ??
+                                      [
+                                        widget.accentColor,
+                                        widget.primaryColor,
+                                      ],
+                                  shadowColor: widget.playButtonShadow ??
+                                      widget.primaryColor.withValues(alpha: 0.6),
+                                  glowColor: widget.accentColor,
+                                  textColor: widget.playButtonTextColor ??
+                                      Colors.white,
+                                  iconColor: widget.playButtonTextColor ??
+                                      Colors.white,
+                                  onPressed: (_isPlayButtonTapped || _isNavigating)
+                                      ? null
+                                      : _handlePlayButton,
                                 ),
-                              );
-                            },
-                          ),
 
-                          // 4. (Optional) SELECT LEVEL
-                          if (widget.onSelectLevel != null) ...[
-                            const SizedBox(height: 14.0),
-                            App3DButton(
-                              text: 'SELECT LEVEL',
-                              icon: Icons.grid_view_rounded,
-                              height: 48,
-                              fontSize: 14.5,
-                              width: double.infinity,
-                              borderRadius: 24.0,
-                              gradientColors: [
-                                widget.accentColor,
-                                widget.primaryColor,
+                                const SizedBox(height: 14.0),
+
+                                // 2. WATCH & EARN (3D Pill Button with Coin)
+                                App3DButton.amber(
+                                  text: 'WATCH & EARN',
+                                  icon: Icons.play_circle_fill_rounded,
+                                  coinBadge: true,
+                                  height: 50,
+                                  fontSize: 15,
+                                  width: double.infinity,
+                                  borderRadius: 25.0,
+                                  onPressed: (_isPlayButtonTapped || _isNavigating)
+                                      ? null
+                                      : () {
+                                          if (_isPlayButtonTapped || _isNavigating) return;
+                                          setState(() => _isNavigating = true);
+                                          checkInternetAndProceed(context, () async {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    AdPlaybackPage(
+                                                  isRewardAd: true,
+                                                  onAdComplete: () =>
+                                                      _addCoins(5, 'Ad Reward'),
+                                                ),
+                                              ),
+                                            );
+                                            if (mounted) {
+                                              setState(() => _isNavigating = false);
+                                            }
+                                          });
+                                        },
+                                ),
+
+                                const SizedBox(height: 14.0),
+
+                                // 3. SETTINGS (3D Pill Button with Cog)
+                                App3DButton(
+                                  text: 'SETTINGS',
+                                  icon: Icons.settings_rounded,
+                                  height: 48,
+                                  fontSize: 14.5,
+                                  width: double.infinity,
+                                  borderRadius: 24.0,
+                                  gradientColors: _effectiveSettingsGradient,
+                                  shadowColor: _effectiveSettingsShadow,
+                                  textColor: Colors.white,
+                                  onPressed: (_isPlayButtonTapped || _isNavigating)
+                                      ? null
+                                      : () async {
+                                          if (_isPlayButtonTapped || _isNavigating) return;
+                                          setState(() => _isNavigating = true);
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const SettingsPage(),
+                                            ),
+                                          );
+                                          if (mounted) {
+                                            setState(() => _isNavigating = false);
+                                          }
+                                        },
+                                ),
+
+                                // 4. (Optional) SELECT LEVEL
+                                if (widget.onSelectLevel != null) ...[
+                                  const SizedBox(height: 14.0),
+                                  App3DButton(
+                                    text: 'SELECT LEVEL',
+                                    icon: Icons.grid_view_rounded,
+                                    height: 48,
+                                    fontSize: 14.5,
+                                    width: double.infinity,
+                                    borderRadius: 24.0,
+                                    gradientColors: [
+                                      widget.accentColor,
+                                      widget.primaryColor,
+                                    ],
+                                    shadowColor: widget.primaryColor
+                                        .withValues(alpha: 0.6),
+                                    textColor: Colors.white,
+                                    onPressed: (_isPlayButtonTapped || _isNavigating)
+                                        ? null
+                                        : () {
+                                            if (_isPlayButtonTapped || _isNavigating) return;
+                                            widget.onSelectLevel!();
+                                          },
+                                  ),
+                                ],
                               ],
-                              shadowColor: widget.primaryColor
-                                  .withValues(alpha: 0.6),
-                              textColor: Colors.white,
-                              onPressed: widget.onSelectLevel,
                             ),
-                          ],
+                          ),
 
                           const SizedBox(height: 24.0),
                         ],

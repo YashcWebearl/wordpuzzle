@@ -1428,13 +1428,13 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
 
     final currentSig = _getBoardSignature(_columns);
     List<List<ScrambleTile>>? newCols;
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < 50; i++) {
       final candidate = ScramblePuzzleEngine.repackRemainingWords(
         remainingWords: remainingWords,
         cols: _levelData.cols,
         seed: _levelData.level * 1000 +
             _remainingShuffles * 47 +
-            DateTime.now().millisecond +
+            DateTime.now().microsecondsSinceEpoch +
             i * 41,
       );
       if (candidate.any((c) => c.isNotEmpty) &&
@@ -1444,13 +1444,18 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       }
     }
 
-    newCols ??= ScramblePuzzleEngine.repackRemainingWords(
-      remainingWords: remainingWords,
-      cols: _levelData.cols,
-      seed: DateTime.now().microsecondsSinceEpoch,
-    );
+    if (newCols == null || !newCols.any((c) => c.isNotEmpty) || _getBoardSignature(newCols) == currentSig) {
+      // Fallback: shift non-empty columns to guarantee changed layout
+      if (newCols != null && newCols.any((c) => c.isNotEmpty)) {
+        final nonEmpty = newCols.where((c) => c.isNotEmpty).toList();
+        if (nonEmpty.length > 1) {
+          final shifted = [nonEmpty.last, ...nonEmpty.sublist(0, nonEmpty.length - 1)];
+          newCols = shifted;
+        }
+      }
+    }
 
-    if (newCols.isEmpty || !newCols.any((c) => c.isNotEmpty)) {
+    if (newCols == null || !newCols.any((c) => c.isNotEmpty) || _getBoardSignature(newCols) == currentSig) {
       setState(() => _isShuffleAvailable = false);
       Fluttertoast.showToast(msg: "Shuffle not possible!");
       return;
@@ -1483,6 +1488,21 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
 
       newCols!.removeWhere((col) => col.isEmpty);
       _columns = newCols;
+
+      // Update remaining tiles rows and columns based on new column heights & compaction
+      int newMaxRows = 0;
+      for (final col in _columns) {
+        if (col.length > newMaxRows) newMaxRows = col.length;
+      }
+      for (int c = 0; c < _columns.length; c++) {
+        final col = _columns[c];
+        for (int k = 0; k < col.length; k++) {
+          col[k].col = c;
+          col[k].row = newMaxRows - 1 - k;
+          col[k].isSelected = false;
+        }
+      }
+
       _selectedTiles.clear();
       _currentFormedWord = '';
       _dragDirection = null;

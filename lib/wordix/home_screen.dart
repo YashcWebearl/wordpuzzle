@@ -87,6 +87,7 @@ class _HomePageState extends State<HomePage> {
       playButtonShadow: const Color(0xFF002244),
       playButtonTextColor: const Color(0xFF001122),
       onPlay: () {
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(

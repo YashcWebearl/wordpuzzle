@@ -56,8 +56,10 @@ class SuccessScreen extends StatelessWidget {
       darkAuraColor: const Color(0xFF0A2239),
       onCompleteLevel: () async {
         try {
-          await Provider.of<GameLevelProvider>(context, listen: false)
-              .updateGameLevel(level + 1, gridSize);
+          if (isWin) {
+            await Provider.of<GameLevelProvider>(context, listen: false)
+                .updateGameLevel(level + 1, gridSize);
+          }
         } catch (_) {}
       },
       onNextLevel: () async {

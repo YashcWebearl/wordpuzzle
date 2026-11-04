@@ -30,9 +30,10 @@ class CrosswordAudioHelper {
   SoundHandle? _countdownHandle;
   Timer? _countdownLoopTimer;
 
-  bool get isSoundOn => _isSoundOn;
+  bool get isSoundOn => AudioHelper().isSoundOn;
 
   Future<void> initialize() async {
+    await _loadSoundSetting();
     if (_isInitialized) return;
     try {
       _soLoud = SoLoud.instance;
@@ -88,9 +89,8 @@ class CrosswordAudioHelper {
   }
 
   Future<void> toggleSound() async {
-    _isSoundOn = !_isSoundOn;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sound_on', _isSoundOn);
+    await AudioHelper().toggleSound();
+    _isSoundOn = AudioHelper().isSoundOn;
   }
 
   /// Play dynamic rising note as letters are connected on the circular wheel

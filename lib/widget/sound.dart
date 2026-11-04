@@ -52,14 +52,9 @@ class AudioHelper {
   SoundHandle? _hintHandle;
 
   Future<void> initialize() async {
-    // _soLoud = SoLoud.instance;
-    //
-    // if (_soLoud.isInitialized) return;
-    print('sound fetch00000000000000');
+    await _loadSoundSetting();
     _soLoud = SoLoud.instance;
-    print('sound fetch44444444444444');
     if (_soLoud.isInitialized) return;
-    print('sound fetch11111111111');
     await _soLoud.init();
 
     _button = await _safeLoad('assets/music/button.mp3');
@@ -128,15 +123,49 @@ class AudioHelper {
 
   Future<void> _loadSoundSetting() async {
     final prefs = await SharedPreferences.getInstance();
-    print('sound fetch222222222222');
     _isSoundOn = prefs.getBool('sound_on') ?? true;
   }
 
-  Future<void> toggleSound() async {
-    _isSoundOn = !_isSoundOn;
-    print('sound fetch33333333333');
+  Future<void> setSound(bool value) async {
+    _isSoundOn = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('sound_on', _isSoundOn);
+    if (!_isSoundOn) {
+      await stopAllSounds();
+    }
+  }
+
+  Future<void> stopAllSounds() async {
+    try {
+      if (_last5secHandle != null) {
+        await _soLoud.stop(_last5secHandle!);
+        _last5secHandle = null;
+      }
+      if (_hintHandle != null) {
+        await _soLoud.stop(_hintHandle!);
+        _hintHandle = null;
+      }
+      if (_backgroundHandle != null) {
+        await _soLoud.stop(_backgroundHandle!);
+        _backgroundHandle = null;
+      }
+      if (_winnerHandle != null) {
+        await _soLoud.stop(_winnerHandle!);
+        _winnerHandle = null;
+      }
+      if (_notFoundHandle != null) {
+        await _soLoud.stop(_notFoundHandle!);
+        _notFoundHandle = null;
+      }
+      if (_characterVocalHandle != null) {
+        await _soLoud.stop(_characterVocalHandle!);
+        _characterVocalHandle = null;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> toggleSound() async {
+    await setSound(!_isSoundOn);
   }
 
   bool get isSoundOn => _isSoundOn;

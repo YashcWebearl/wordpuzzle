@@ -394,19 +394,25 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   void _applyDailyData(Map<String, dynamic> data) {
     if (!mounted) return;
 
-    final streak = data['streak'] as Map<String, dynamic>? ?? {};
-    final tasks = (data['dailyTasks'] as List<dynamic>?)
-            ?.map((e) => Map<String, dynamic>.from(e as Map))
-            .toList() ??
-        [];
-    final spin = data['spin'] as Map<String, dynamic>? ?? {};
-    final catalog = (data['rewardsCatalog'] as List<dynamic>?)
-            ?.map((e) => Map<String, dynamic>.from(e as Map))
-            .toList() ??
+    // Handle nested `data` wrapper if present
+    final Map<String, dynamic> root = (data['data'] is Map<String, dynamic>)
+        ? Map<String, dynamic>.from(data['data'] as Map)
+        : data;
+
+    final streak = (root['streak'] ?? data['streak']) as Map<String, dynamic>? ?? {};
+    final rawTasksList = (root['dailyTasks'] ??
+        root['tasks'] ??
+        data['dailyTasks'] ??
+        data['tasks']) as List<dynamic>?;
+    final spin = (root['spin'] ?? data['spin']) as Map<String, dynamic>? ?? {};
+    final catalog = ((root['rewardsCatalog'] ?? data['rewardsCatalog'])
+            as List<dynamic>?)
+        ?.map((e) => Map<String, dynamic>.from(e as Map))
+        .toList() ??
         [];
 
-    final int currentDay = (streak['currentDay'] as int?) ?? 1;
-    final int cycle = (streak['cycle'] as int?) ?? 1;
+    final int currentDay = (streak['currentDay'] as num?)?.toInt() ?? 1;
+    final int cycle = (streak['cycle'] as num?)?.toInt() ?? 1;
     final bool isTodayClaimed = (streak['isTodayClaimed'] as bool?) ?? false;
 
     // Update 7-day rewards calendar status
@@ -438,13 +444,21 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       }
     }
 
+    List<Map<String, dynamic>> tasks = [];
+    if (rawTasksList != null && rawTasksList.isNotEmpty) {
+      tasks = rawTasksList
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+
     // Assign appropriate icons to tasks and clamp progress to total
     if (tasks.isNotEmpty) {
       // Gather whether Wordix and Crossword have been played today
       int wordixProg = 0;
       int crossProg = 0;
       for (var task in tasks) {
-        final k = task['taskKey']?.toString() ?? '';
+        final k = (task['taskKey'] ?? task['key'])?.toString() ?? '';
         final p = (task['progress'] as num?)?.toInt() ?? 0;
         if (k == 'play_wordix' || k == 'win_wordix') {
           if (p > wordixProg) wordixProg = p;
@@ -458,29 +472,32 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       final int duoCalculatedProg = (hasWordix ? 1 : 0) + (hasCross ? 1 : 0);
 
       for (var task in tasks) {
-        final key = task['taskKey']?.toString() ?? '';
-        final total = (task['total'] as num?)?.toInt() ?? 1;
+        final key = (task['taskKey'] ?? task['key'])?.toString() ?? '';
+        task['taskKey'] = key;
+        final int total = (task['total'] as num?)?.toInt() ??
+            (task['target'] as num?)?.toInt() ??
+            1;
+        final isClaimed = task['isClaimed'] == true || task['claimed'] == true;
         int rawProg = (task['progress'] as num?)?.toInt() ?? 0;
 
-        // Strictly enforce Dual Scholar rule:
-        // Wordix played = 1, Crossword played = 1, total = 2.
-        // Playing multiple levels in only one game must NEVER complete it!
-        if (key == 'word_master_duo') {
-          final isClaimed = task['isClaimed'] == true;
-          if (!isClaimed) {
-            rawProg = duoCalculatedProg;
-            task['isCompleted'] = duoCalculatedProg >= 2;
-          } else {
-            rawProg = 2;
-            task['isCompleted'] = true;
-          }
+        if (isClaimed) {
+          rawProg = total;
+          task['isCompleted'] = true;
+          task['isClaimed'] = true;
+        } else if (key == 'word_master_duo') {
+          rawProg = duoCalculatedProg;
+          task['isCompleted'] = duoCalculatedProg >= 2;
+          task['isClaimed'] = false;
         } else {
-          task['isCompleted'] =
-              (task['isCompleted'] == true) || (rawProg >= total);
+          task['isCompleted'] = (task['isCompleted'] == true) ||
+              (task['completed'] == true) ||
+              (rawProg >= total);
+          task['isClaimed'] = false;
         }
 
         task['total'] = total;
-        task['progress'] = math.min(rawProg, total);
+        task['target'] = total;
+        task['progress'] = math.min<int>(rawProg, total);
         _assignTaskIconAndDetails(task, key);
       }
     }
@@ -498,6 +515,16 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   }
 
   void _assignTaskIconAndDetails(Map<String, dynamic> task, String key) {
+    // Fill title/desc/coins/gameScope fallback if missing from backend
+    for (var def in _dailyTasks) {
+      if (def['taskKey'] == key) {
+        task['title'] ??= def['title'];
+        task['description'] ??= def['description'];
+        task['coins'] ??= def['coins'];
+        task['gameScope'] ??= def['gameScope'];
+        break;
+      }
+    }
     if (key == 'play_wordix') {
       task['icon'] = Icons.search_rounded;
       task['iconColor'] = const Color(0xFF00E5FF);
@@ -569,20 +596,21 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
     if (res['success'] == true) {
       final data = res['data'] ?? {};
+      final claimedDay = (data['claimedDay'] as int?) ?? _currentStreak;
       final rewardCoins = (data['coinsAwarded'] as int?) ??
-          _streakRewards[(_currentStreak - 1).clamp(0, 6)]['coins'] as int;
+          _streakRewards[(claimedDay - 1).clamp(0, 6)]['coins'] as int;
       final newBalance = (data['newWalletBalance'] as num?)?.toInt();
 
       setState(() {
         _isTodayClaimed = true;
-        _streakRewards[(_currentStreak - 1).clamp(0, 6)]['status'] = 'claimed';
+        _streakRewards[(claimedDay - 1).clamp(0, 6)]['status'] = 'claimed';
       });
 
       // Show unified reward dialog with COLLECT button and flying coins animation
       await _coinGrantKey.currentState?.showReward(
         coins: rewardCoins,
         source: 'Daily Streak',
-        title: "DAY $_currentStreak STREAK CLAIMED!",
+        title: "DAY $claimedDay STREAK CLAIMED!",
         subtitle: "You've earned +$rewardCoins bonus coins!",
         newWalletBalance: newBalance,
       );
@@ -794,8 +822,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
         );
         return;
       }
-      // Instant optimistic coin deduction (non-blocking in background)
-      coinProvider.undoCoins(100, instant: true);
+      // Deduct 100 coins locally (the backend spin endpoint '/api/daily/spin-wheel' deducts on server)
+      coinProvider.creditCoinsLocally(-100);
       _executeWheelSpin('coin');
       return;
     }

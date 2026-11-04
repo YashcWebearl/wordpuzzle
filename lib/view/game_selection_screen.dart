@@ -313,11 +313,15 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
   }
 
   Future<void> _toggleSound() async {
-    await AudioHelper().toggleSound();
+    final nextState = !_isSoundOn;
+    await AudioHelper().setSound(nextState);
     if (mounted) {
       setState(() {
-        _isSoundOn = AudioHelper().isSoundOn;
+        _isSoundOn = nextState;
       });
+    }
+    if (nextState) {
+      AudioHelper().playButtonSound();
     }
   }
 
@@ -349,6 +353,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       await _coinGrantKey.currentState?.showReward(
         coins: coins,
         source: source,
+        syncServer: true,
       );
     } catch (e) {
       debugPrint("Error adding coins from $source: $e");
@@ -1405,12 +1410,10 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                             value: _isSoundOn,
                             activeColor: const Color(0xFF00E676),
                             onChanged: (val) {
-                              AudioHelper().playButtonSound();
                               _toggleSound();
                             },
                           ),
                           onTap: () {
-                            AudioHelper().playButtonSound();
                             _toggleSound();
                           },
                         ),

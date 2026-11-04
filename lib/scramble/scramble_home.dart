@@ -72,6 +72,7 @@ class _ScrambleHomeScreenState extends State<ScrambleHomeScreen> {
       playButtonShadow: const Color(0xFF4A148C),
       playButtonTextColor: Colors.white,
       onPlay: () {
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:word_puzzle/widget/app_3d_button.dart';
 import 'package:word_puzzle/widget/coin_service.dart';
 import 'package:word_puzzle/widget/sound.dart';
@@ -70,6 +71,7 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
     String? title,
     String? subtitle,
     int? newWalletBalance,
+    bool syncServer = false,
     Future<void> Function()? onCoinsDelivered,
   }) async {
     if (!mounted || _isShowingDialog || _isCoinFlying) return;
@@ -83,205 +85,207 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
         context: context,
         barrierDismissible: true,
         builder: (dialogContext) {
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Dialog(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                  child: Container(
-                    width: 330,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 26),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF0F2B48), Color(0xFF051324)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: const Color(0xFFFFD54F).withValues(alpha: 0.8),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              const Color(0xFFFFD54F).withValues(alpha: 0.35),
-                          blurRadius: 28,
-                          spreadRadius: 2,
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              Dialog(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                    child: Container(
+                      width: 330,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 26),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0F2B48), Color(0xFF051324)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                         ),
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          blurRadius: 18,
-                          offset: const Offset(0, 8),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: const Color(0xFFFFD54F).withValues(alpha: 0.8),
+                          width: 2,
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Badge Header
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 6),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFFD54F), Color(0xFFFF9100)],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFFFD54F)
-                                    .withValues(alpha: 0.4),
-                                blurRadius: 10,
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFFFFD54F).withValues(alpha: 0.35),
+                            blurRadius: 28,
+                            spreadRadius: 2,
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Badge Header
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 6),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFFD54F), Color(0xFFFF9100)],
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            source.toUpperCase(),
-                            style: GoogleFonts.outfit(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF2C004C),
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Luminous 3D Coin Badge
-                        Container(
-                          width: 84,
-                          height: 84,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [
-                                const Color(0xFFFFD54F).withValues(alpha: 0.28),
-                                Colors.transparent,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFD54F)
+                                      .withValues(alpha: 0.4),
+                                  blurRadius: 10,
+                                ),
                               ],
                             ),
-                            border: Border.all(
-                              color: const Color(0xFFFFD54F)
-                                    .withValues(alpha: 0.65),
-                              width: 2,
+                            child: Text(
+                              source.toUpperCase(),
+                              style: GoogleFonts.outfit(
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w900,
+                                color: const Color(0xFF2C004C),
+                                letterSpacing: 1.2,
+                              ),
                             ),
-                            boxShadow: [
-                              BoxShadow(
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Luminous 3D Coin Badge
+                          Container(
+                            width: 84,
+                            height: 84,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  const Color(0xFFFFD54F)
+                                      .withValues(alpha: 0.28),
+                                  Colors.transparent,
+                                ],
+                              ),
+                              border: Border.all(
                                 color: const Color(0xFFFFD54F)
-                                    .withValues(alpha: 0.25),
-                                blurRadius: 22,
-                                spreadRadius: 2,
+                                    .withValues(alpha: 0.65),
+                                width: 2,
                               ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Image.asset(
-                              'assets/coin.png',
-                              width: 54,
-                              height: 54,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.monetization_on_rounded,
-                                color: Color(0xFFFFD54F),
-                                size: 48,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFD54F)
+                                      .withValues(alpha: 0.25),
+                                  blurRadius: 22,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Image.asset(
+                                'assets/coin.png',
+                                width: 54,
+                                height: 54,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.monetization_on_rounded,
+                                  color: Color(0xFFFFD54F),
+                                  size: 48,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
-                        if (title != null && title.isNotEmpty) ...[
-                          Text(
-                            title,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.dynaPuff(
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
+                          if (title != null && title.isNotEmpty) ...[
+                            Text(
+                              title,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.dynaPuff(
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-
-                        // Reward Amount
-                        Text(
-                          '+$coins COINS',
-                          style: GoogleFonts.outfit(
-                            fontSize: 28.sp,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFFFFD700),
-                            shadows: [
-                              Shadow(
-                                color: const Color(0xFFFF9100)
-                                    .withValues(alpha: 0.8),
-                                blurRadius: 18,
-                              ),
-                              Shadow(
-                                color: Colors.black.withValues(alpha: 0.6),
-                                offset: const Offset(0, 3),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-
-                        Text(
-                          subtitle ?? 'Coins added to your balance!',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.outfit(
-                            fontSize: 13.5.sp,
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-
-                        const SizedBox(height: 22),
-
-                        // Collect 3D Button
-                        App3DButton(
-                          width: 190,
-                          height: 48,
-                          depth: 3.5,
-                          fontSize: 14.sp,
-                          text: 'COLLECT',
-                          icon: Icons.check_circle_rounded,
-                          gradientColors: const [
-                            Color(0xFF00E676),
-                            Color(0xFF00B0FF),
+                            const SizedBox(height: 8),
                           ],
-                          shadowColor: const Color(0xFF004D40),
-                          glowColor: const Color(0xFF00E676),
-                          textColor: const Color(0xFF052115),
-                          onPressed: () {
-                            Navigator.pop(dialogContext);
-                          },
-                        ),
-                      ],
+
+                          // Reward Amount
+                          Text(
+                            '+$coins COINS',
+                            style: GoogleFonts.outfit(
+                              fontSize: 28.sp,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFFFFD700),
+                              shadows: [
+                                Shadow(
+                                  color: const Color(0xFFFF9100)
+                                      .withValues(alpha: 0.8),
+                                  blurRadius: 18,
+                                ),
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  offset: const Offset(0, 3),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+
+                          Text(
+                            subtitle ?? 'Coins added to your balance!',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.outfit(
+                              fontSize: 13.5.sp,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+
+                          const SizedBox(height: 22),
+
+                          // Collect 3D Button
+                          App3DButton(
+                            width: 190,
+                            height: 48,
+                            depth: 3.5,
+                            fontSize: 14.sp,
+                            text: 'COLLECT',
+                            icon: Icons.check_circle_rounded,
+                            gradientColors: const [
+                              Color(0xFF00E676),
+                              Color(0xFF00B0FF),
+                            ],
+                            shadowColor: const Color(0xFF004D40),
+                            glowColor: const Color(0xFF00E676),
+                            textColor: const Color(0xFF052115),
+                            onPressed: () {
+                              Navigator.pop(dialogContext);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
-        );
-      },
-    );
-  } finally {
-    _isShowingDialog = false;
-  }
+            ],
+          );
+        },
+      );
+    } finally {
+      _isShowingDialog = false;
+    }
 
     if (!mounted) return;
     _triggerFlyingCoins(
       coins: coins,
       newWalletBalance: newWalletBalance,
+      syncServer: syncServer,
       onCoinsDelivered: onCoinsDelivered,
     );
   }
@@ -289,6 +293,7 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
   void _triggerFlyingCoins({
     required int coins,
     int? newWalletBalance,
+    bool syncServer = false,
     Future<void> Function()? onCoinsDelivered,
   }) {
     if (_isCoinFlying) return;
@@ -327,10 +332,13 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
 
       if (onCoinsDelivered != null) {
         await onCoinsDelivered();
-      } else if (newWalletBalance != null && newWalletBalance > 0) {
-        await coinProvider.setCoins(newWalletBalance);
+      } else if (syncServer) {
+        await coinProvider.addCoins(coins, syncServer: true);
       } else {
-        await coinProvider.addCoins(coins);
+        // Increment the visible wallet by EXACTLY the reward coins that flew in!
+        // This guarantees the user always sees their balance increase by exactly
+        // the claimed amount (e.g. +100) with zero unexpected jumps or drift.
+        await coinProvider.creditCoinsLocally(coins);
       }
 
       widget.confettiController.play();

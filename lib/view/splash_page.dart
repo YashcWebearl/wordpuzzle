@@ -16,6 +16,7 @@ import 'personal_ad_screen.dart';
 import '../crossword/crossword_level_service.dart';
 import '../scramble/scramble_level_service.dart';
 import '../balloon_rescue/balloon_level_service.dart';
+import '../services/in_app_update_service.dart';
 import '../widget/base_url.dart';
 import '../widget/get_level.dart';
 import 'game_selection_screen.dart';
@@ -44,6 +45,9 @@ class _SplashPageState extends State<SplashPage>
     _scaleAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    // Check for Google Play Store In-App Updates (Official Play Core API)
+    InAppUpdateService().checkForUpdate();
 
     _startLoading();
   }
@@ -76,6 +80,13 @@ class _SplashPageState extends State<SplashPage>
   }
 
   Future<void> _checkAppVersionAndNavigate() async {
+    // 1. Google Play Store In-App Update check
+    try {
+      await InAppUpdateService().checkForUpdate();
+    } catch (_) {}
+
+    // 2. Old backend version API check commented out as requested:
+    /*
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
       _checkAuthAndNavigate();
       return;
@@ -104,6 +115,10 @@ class _SplashPageState extends State<SplashPage>
       print('Error during version check: $e');
       _checkAuthAndNavigate();
     }
+    */
+
+    // 3. Continue to navigation
+    _checkAuthAndNavigate();
   }
 
   Future<void> _checkAuthAndNavigate() async {
