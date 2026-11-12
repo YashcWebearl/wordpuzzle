@@ -784,6 +784,11 @@ class WordSearchPageState extends State<WordSearchPage>
   }
 
   void _restartLevel() {
+    DailyService().updateTaskProgress(
+      taskKey: 'play_wordix',
+      increment: 1,
+      gameName: 'Wordix',
+    );
     _timer?.cancel();
     _hintTimer?.cancel();
     AudioHelper().stopLastSecond();
