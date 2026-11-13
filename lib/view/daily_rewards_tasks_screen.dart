@@ -51,6 +51,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   // ── Wheel Spin Controller & State ──
   late final AnimationController _wheelController;
   late final AnimationController _fastSpinController;
+  late final AnimationController _flapperController;
+  late final Animation<double> _flapperAnimation;
   Animation<double>? _wheelAnimation;
   double _currentWheelAngle = 0.0;
   String? _spinningButton; // null | 'free' | 'ad' | 'coin'
@@ -278,62 +280,78 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     },
   ];
 
-  // ── Wheel Slices Configuration (8 Slices) ──
+  // ── Wheel Slices Configuration (8 Slices - ALL COINS) ──
   final List<Map<String, dynamic>> _wheelSectors = [
     {
       'label': '50',
-      'icon': '🪙',
+      'valueText': '+50',
+      'icon': Icons.monetization_on_rounded,
       'coins': 50,
       'color': const Color(0xFFFF5252),
+      'colors': [const Color(0xFFFF8A80), const Color(0xFFD50000)], // Coral Crimson
       'type': 'coins',
     },
     {
       'label': '100',
-      'icon': '🪙',
+      'valueText': '+100',
+      'icon': Icons.monetization_on_rounded,
       'coins': 100,
       'color': const Color(0xFFFFB300),
+      'colors': [const Color(0xFFFFE082), const Color(0xFFFF8F00)], // Vibrant Gold
       'type': 'coins',
     },
     {
       'label': '150',
-      'icon': '🪙',
+      'valueText': '+150',
+      'icon': Icons.monetization_on_rounded,
       'coins': 150,
       'color': const Color(0xFF00E5FF),
+      'colors': [const Color(0xFF80D8FF), const Color(0xFF0091EA)], // Electric Sapphire
       'type': 'coins',
     },
     {
       'label': '250',
-      'icon': '🪙',
+      'valueText': '+250',
+      'icon': Icons.monetization_on_rounded,
       'coins': 250,
       'color': const Color(0xFFE040FB),
+      'colors': [const Color(0xFFEA80FC), const Color(0xFFAA00FF)], // Royal Amethyst
       'type': 'coins',
     },
     {
       'label': '400',
-      'icon': '🪙',
+      'valueText': '+400',
+      'icon': Icons.monetization_on_rounded,
       'coins': 400,
       'color': const Color(0xFF00E676),
+      'colors': [const Color(0xFFB9F6CA), const Color(0xFF00C853)], // Emerald Mint
       'type': 'coins',
     },
     {
       'label': '600',
-      'icon': '🪙',
+      'valueText': '+600',
+      'icon': Icons.monetization_on_rounded,
       'coins': 600,
       'color': const Color(0xFFFF9100),
+      'colors': [const Color(0xFFFFD180), const Color(0xFFFF6D00)], // Sunset Amber
       'type': 'coins',
     },
     {
-      'label': '2 HINTS',
-      'icon': '💡',
-      'coins': 60,
-      'color': const Color(0xFF7C4DFF),
-      'type': 'hint',
+      'label': '800',
+      'valueText': '+800',
+      'icon': Icons.military_tech_rounded,
+      'coins': 800,
+      'color': const Color(0xFF1DE9B6),
+      'colors': [const Color(0xFF64FFDA), const Color(0xFF00897B)], // Tropical Jade (replaced 2 HINTS)
+      'type': 'coins',
     },
     {
       'label': '1,200',
-      'icon': '👑',
+      'valueText': '1200★',
+      'icon': Icons.stars_rounded,
       'coins': 1200,
-      'color': const Color(0xFFFFD700),
+      'color': const Color(0xFFFF1744),
+      'colors': [const Color(0xFFFF5252), const Color(0xFF880E4F)], // Brilliant Ruby Jackpot
       'type': 'jackpot',
     },
   ];
@@ -365,6 +383,13 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     _fastSpinController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 380),
+    );
+    _flapperController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 140),
+    );
+    _flapperAnimation = Tween<double>(begin: 0.0, end: -0.28).animate(
+      CurvedAnimation(parent: _flapperController, curve: Curves.easeOutBack),
     );
     _wheelAnimation =
         Tween<double>(begin: 0.0, end: 0.0).animate(_wheelController);
@@ -567,9 +592,16 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     }
   }
 
+  void _triggerFlapperWobble() {
+    _flapperController.forward(from: 0.0).then((_) {
+      if (mounted) _flapperController.reverse();
+    });
+  }
+
   @override
   void dispose() {
     _fastSpinController.dispose();
+    _flapperController.dispose();
     _tabController.dispose();
     _confettiController.dispose();
     _pulseController.dispose();
@@ -920,24 +952,23 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     }
 
     const int totalSectors = 8;
-    const double sweep = 2 * math.pi / totalSectors;
-    final double targetSectorMid = targetIndex * sweep + (sweep / 2.0);
+    const double arcAngle = 2 * math.pi / totalSectors;
+    final double targetSectorAngle = (targetIndex * arcAngle) + (arcAngle / 2.0);
 
-    // Top needle is at 12 o'clock, which in Canvas coordinates is 3*pi/2 (270 degrees).
-    double desiredFinalMod =
-        (3 * math.pi / 2 - targetSectorMid) % (2 * math.pi);
-    if (desiredFinalMod < 0) desiredFinalMod += 2 * math.pi;
+    final double targetOffset =
+        ((2 * math.pi) - (targetSectorAngle % (2 * math.pi))) % (2 * math.pi);
 
     double currentMod = _currentWheelAngle % (2 * math.pi);
     if (currentMod < 0) currentMod += 2 * math.pi;
 
-    double additionalAngle = (desiredFinalMod - currentMod) % (2 * math.pi);
+    double additionalAngle = (targetOffset - currentMod) % (2 * math.pi);
     if (additionalAngle < 0) additionalAngle += 2 * math.pi;
 
-    // Add 3 full rotations for a beautiful, smooth deceleration
-    const double extraRotations = 3 * 2 * math.pi;
+    // Add 4 full rotations for smooth, dramatic deceleration
+    const double extraRotations = 4 * 2 * math.pi;
     final double totalRotation = extraRotations + additionalAngle;
 
+    int lastTickSector = -1;
     _wheelAnimation = Tween<double>(
       begin: _currentWheelAngle,
       end: _currentWheelAngle + totalRotation,
@@ -946,38 +977,44 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
         parent: _wheelController,
         curve: Curves.easeOutCubic,
       ),
-    );
+    )..addListener(() {
+        final currentRot = _wheelAnimation?.value ?? 0.0;
+        final currentSector =
+            ((currentRot / arcAngle).floor()) % totalSectors;
+        if (currentSector != lastTickSector) {
+          lastTickSector = currentSector;
+          _triggerFlapperWobble();
+          HapticFeedback.selectionClick();
+        }
+      });
 
     _wheelController.reset();
     _wheelController.forward().then((_) async {
       _currentWheelAngle = (_currentWheelAngle + totalRotation) % (2 * math.pi);
 
-      final winningSector = _wheelSectors[targetIndex];
-
-      if (!mounted) return;
       if (!mounted) return;
       final spinData = spinRes['data'] as Map<String, dynamic>? ?? {};
       final newBalance = (spinData['newWalletBalance'] as num?)?.toInt();
-
-      // Report spin wheel task completion
-      await DailyService().updateTaskProgress(
-        taskKey: 'spin_wheel_task',
-        increment: 1,
-        gameName: widget.gameName,
-      );
 
       setState(() {
         _spinningButton = null;
       });
 
-      // Show unified reward dialog with COLLECT button and flying coins animation
+      // Report spin wheel task completion asynchronously in background (instant 0ms popup!)
+      DailyService().updateTaskProgress(
+        taskKey: 'spin_wheel_task',
+        increment: 1,
+        gameName: widget.gameName,
+      ).then((_) {
+        if (mounted) _loadData();
+      });
+
+      // Show unified reward dialog IMMEDIATELY with COLLECT button & flying coins animation
       await _coinGrantKey.currentState?.showReward(
         coins: winCoins,
         source: targetIndex == 7 ? 'Mega Jackpot' : 'Lucky Wheel',
         title: targetIndex == 7 ? "🏆 MEGA JACKPOT!" : "YOU WON!",
-        subtitle: winningSector['type'] == 'hint'
-            ? "2 Free In-Game Hints + $winCoins Coins!"
-            : "+$winCoins Coins added to your wallet!",
+        subtitle: "+$winCoins Coins added to your wallet!",
         newWalletBalance: newBalance,
       );
 
@@ -2352,8 +2389,27 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
     );
   }
 
+  Widget _buildWheelSegmentCoin(int index, int itemCount, double size) {
+    final anglePerItem = 2 * math.pi / itemCount;
+    final midAngle = index * anglePerItem - math.pi / 2 + anglePerItem / 2;
+    final wheelRadius = size / 2;
+    final contentRadius = (wheelRadius - 11) * 0.38;
+
+    return Transform.translate(
+      offset: Offset(
+        contentRadius * math.cos(midAngle),
+        contentRadius * math.sin(midAngle),
+      ),
+      child: Image.asset(
+        'assets/coin.png',
+        width: 20,
+        height: 20,
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // 🎡 TAB 2: LUCKY SPIN WHEEL
+  // 🎡 TAB 2: LUCKY SPIN WHEEL (3D ARCADE CABINET DESIGN)
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildLuckyWheelTab() {
@@ -2408,107 +2464,162 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
           const SizedBox(height: 14),
 
-          // 3D Spinning Wheel Canvas & Pointer
-          Builder(
-            builder: (context) {
-              final double wheelSize =
-                  (MediaQuery.of(context).size.width - 64).clamp(240.0, 290.0);
-              return SizedBox(
-                width: wheelSize,
-                height: wheelSize,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Wheel Rotation
-                    AnimatedBuilder(
-                      animation: Listenable.merge(
-                          [_wheelController, _fastSpinController]),
-                      builder: (context, _) {
-                        final double angle;
-                        if (_wheelController.isAnimating &&
-                            _wheelAnimation != null) {
-                          angle = _wheelAnimation!.value;
-                        } else if (_fastSpinController.isAnimating) {
-                          angle = _currentWheelAngle +
-                              _fastSpinController.value * 2 * math.pi;
-                        } else {
-                          angle = _currentWheelAngle;
-                        }
+          // ── Animated 3D Wheel Assembly (Stand + Extrusion Base + Wheel + Mechanical Pointer) ──
+          SizedBox(
+            width: 284,
+            height: 298,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
+              children: [
+                // 1. 3D Pedestal Stand behind the wheel
+                Positioned(
+                  bottom: 0,
+                  child: CustomPaint(
+                    size: const Size(284, 60),
+                    painter: _Wheel3DStandPainter(),
+                  ),
+                ),
 
-                        return Transform.rotate(
-                          angle: angle,
-                          child: CustomPaint(
-                            size: Size(wheelSize - 10, wheelSize - 10),
-                            painter: _InteractiveWheelPainter(
-                              sectors: _wheelSectors,
-                            ),
-                          ),
-                        );
-                      },
+                // 2. 3D Cylindrical Extruded Base Ring (Bottom thickness)
+                Positioned(
+                  top: 14,
+                  child: Container(
+                    width: 270,
+                    height: 270,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFF8A2E00),
+                          Color(0xFF521500),
+                          Color(0xFF260800),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          offset: const Offset(0, 10),
+                          blurRadius: 16,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
+                  ),
+                ),
 
-                    // Center Spin Medallion with Rotary Icon
-                    GestureDetector(
-                      onTap: _isSpinning
-                          ? null
-                          : () => _spinWheel(
-                                buttonType: _hasFreeSpinToday ? 'free' : 'ad',
+                // 3. Rotating 3D Wheel Drum Housing
+                Positioned(
+                  top: 8,
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge(
+                        [_wheelController, _fastSpinController]),
+                    builder: (context, _) {
+                      final double angle;
+                      if (_wheelController.isAnimating &&
+                          _wheelAnimation != null) {
+                        angle = _wheelAnimation!.value;
+                      } else if (_fastSpinController.isAnimating) {
+                        angle = _currentWheelAngle +
+                            _fastSpinController.value * 2 * math.pi;
+                      } else {
+                        angle = _currentWheelAngle;
+                      }
+
+                      return Transform.rotate(
+                        angle: angle,
+                        child: SizedBox(
+                          width: 264,
+                          height: 264,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CustomPaint(
+                                size: const Size(264, 264),
+                                painter: _Wheel3DPainter(sectors: _wheelSectors),
                               ),
-                      child: Container(
-                        width: 62,
-                        height: 62,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const RadialGradient(
-                            colors: [
-                              Color(0xFFFFFDE7),
-                              Color(0xFFFFD54F),
-                              Color(0xFFFF8F00),
+                              for (int i = 0; i < _wheelSectors.length; i++)
+                                _buildWheelSegmentCoin(
+                                    i, _wheelSectors.length, 264),
                             ],
                           ),
-                          border: Border.all(color: Colors.white, width: 2.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              blurRadius: 10,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                // 4. Center Gold Hub (Stationary Center with 3D metallic bevel)
+                Positioned(
+                  top: 111,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _isSpinning
+                        ? null
+                        : () => _spinWheel(
+                              buttonType: _hasFreeSpinToday ? 'free' : 'ad',
                             ),
+                    child: Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const RadialGradient(
+                          colors: [
+                            Color(0xFFFFF9C4),
+                            Color(0xFFFFEE58),
+                            Color(0xFFFFB300),
+                            Color(0xFFE65100),
                           ],
                         ),
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.rotate_right_rounded,
-                                size: 19,
-                                color: Color(0xFF2E1500),
-                              ),
-                              Text(
-                                'SPIN',
-                                style: GoogleFonts.dynaPuff(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                  color: const Color(0xFF2E1500),
-                                ),
-                              ),
-                            ],
+                        border: Border.all(color: Colors.white, width: 2.6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFFB300).withValues(alpha: 0.5),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                          const BoxShadow(
+                            color: Colors.black54,
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          _isSpinning ? "..." : "SPIN",
+                          style: GoogleFonts.dynaPuff(
+                            color: const Color(0xFF2E1500),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
                           ),
                         ),
                       ),
                     ),
-
-                    // Top Pointer Needle
-                    Positioned(
-                      top: 0,
-                      child: CustomPaint(
-                        size: const Size(24, 28),
-                        painter: _WheelPointerPainter(),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              );
-            },
+
+                // 5. Heavy 3D Mechanical Pointer with Flapper Wobble at Top
+                Positioned(
+                  top: -6,
+                  child: AnimatedBuilder(
+                    animation: _flapperAnimation,
+                    builder: (context, _) {
+                      return CustomPaint(
+                        size: const Size(40, 46),
+                        painter: _PointerPainter(
+                          deflectionAngle: _flapperAnimation.value,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 20),
@@ -2561,7 +2672,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
           const SizedBox(height: 14),
 
-          // Fair RNG & Prize Highlights with Icons
+          // Fair RNG & Prize Highlights with Icons (ALL COINS)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
@@ -2574,7 +2685,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
               children: [
                 _buildPrizeChip(icon: '🪙', label: '50-600 Coins'),
                 Container(width: 1, height: 16, color: Colors.white24),
-                _buildPrizeChip(icon: '💡', label: 'Free Hints'),
+                _buildPrizeChip(icon: '⭐', label: '800 Super Win'),
                 Container(width: 1, height: 16, color: Colors.white24),
                 _buildPrizeChip(
                     icon: '👑', label: '1,200 Jackpot', isGold: true),
@@ -2610,183 +2721,522 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 🎡 INTERACTIVE WHEEL PAINTER
+// 🎡 3D ARCADE PEDESTAL STAND PAINTER
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _InteractiveWheelPainter extends CustomPainter {
-  final List<Map<String, dynamic>> sectors;
-
-  _InteractiveWheelPainter({required this.sectors});
-
+/// Sturdy 3D Arcade Pedestal Stand supporting the wheel from underneath
+class _Wheel3DStandPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final double cx = size.width / 2.0;
-    final double cy = size.height / 2.0;
-    final double radius = size.width / 2.0 - 6.0;
-    final Offset center = Offset(cx, cy);
+    final double cx = size.width / 2;
+    final double bottomY = size.height;
 
-    // Drop shadow
-    canvas.drawCircle(
-      center.translate(0, 4),
-      radius,
+    // 1. Drop shadow of the pedestal base
+    final shadowPath = Path()
+      ..moveTo(cx - 75, bottomY - 3)
+      ..lineTo(cx + 75, bottomY - 3)
+      ..lineTo(cx + 85, bottomY + 5)
+      ..lineTo(cx - 85, bottomY + 5)
+      ..close();
+    canvas.drawPath(
+      shadowPath,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.5)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+        ..color = Colors.black.withValues(alpha: 0.65)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
 
-    final Rect wheelRect = Rect.fromCircle(center: center, radius: radius);
-    final int sectorCount = sectors.length;
-    final double sweep = 2.0 * math.pi / sectorCount;
-
-    // Draw Slices
-    for (int i = 0; i < sectorCount; i++) {
-      final double startAngle = i * sweep;
-      final Color color = sectors[i]['color'] as Color;
-
-      final Paint sectorPaint = Paint()
-        ..color = color
-        ..style = PaintingStyle.fill;
-
-      canvas.drawArc(wheelRect, startAngle, sweep, true, sectorPaint);
-    }
-
-    // Spokes
-    final Paint spokePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.65)
-      ..strokeWidth = 1.4;
-
-    for (int i = 0; i < sectorCount; i++) {
-      final double ang = i * sweep;
-      canvas.drawLine(
-        center,
-        Offset(cx + radius * math.cos(ang), cy + radius * math.sin(ang)),
-        spokePaint,
-      );
-    }
-
-    // Outer Bezel Rim
-    final Paint bezelPaint = Paint()
-      ..shader = SweepGradient(
-        colors: const [
-          Color(0xFFFFD54F),
-          Color(0xFFFF8F00),
-          Color(0xFFFFF9C4),
-          Color(0xFFFF6D00),
-          Color(0xFFFFD54F),
-        ],
-      ).createShader(wheelRect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.6;
-    canvas.drawCircle(center, radius, bezelPaint);
-
-    // Light Bulbs on Bezel
-    final Paint bulbPaint = Paint()..color = const Color(0xFFFFFDE7);
-    for (int i = 0; i < sectorCount; i++) {
-      final double ang = i * sweep + (sweep / 2.0);
-      final Offset bulbPos = Offset(
-        cx + (radius - 1.8) * math.cos(ang),
-        cy + (radius - 1.8) * math.sin(ang),
-      );
-      canvas.drawCircle(bulbPos, 2.0, bulbPaint);
-    }
-
-    // Slice Text, Icons & Badges
-    for (int i = 0; i < sectorCount; i++) {
-      final double midAngle = i * sweep + (sweep / 2.0);
-      canvas.save();
-      canvas.translate(cx, cy);
-      canvas.rotate(midAngle + math.pi / 2);
-
-      final sector = sectors[i];
-      final String label = sector['label'] as String;
-      final String icon = (sector['icon'] as String?) ?? '🪙';
-      final bool isJackpot = sector['type'] == 'jackpot';
-
-      // 1. Draw Icon / Emoji near outer rim
-      final iconTp = TextPainter(
-        text: TextSpan(
-          text: icon,
-          style: TextStyle(
-            fontSize: isJackpot ? 15.0 : 13.0,
-          ),
-        ),
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.ltr,
-      )..layout();
-      iconTp.paint(canvas, Offset(-iconTp.width / 2, -radius * 0.81));
-
-      // 2. Draw Text Label below icon
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: GoogleFonts.dynaPuff(
-            fontSize: isJackpot ? 8.5 : 9.5,
-            fontWeight: FontWeight.w900,
-            color: isJackpot ? const Color(0xFF2E1500) : Colors.white,
-            shadows: isJackpot
-                ? null
-                : const [
-                    Shadow(
-                      color: Colors.black87,
-                      offset: Offset(0, 1),
-                      blurRadius: 2,
-                    ),
-                  ],
-          ),
-        ),
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: 55);
-
-      tp.paint(canvas, Offset(-tp.width / 2, -radius * 0.58));
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _InteractiveWheelPainter oldDelegate) => false;
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// 🔻 WHEEL POINTER PAINTER
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _WheelPointerPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Path path = Path()
-      ..moveTo(size.width / 2, size.height)
-      ..lineTo(0, 0)
-      ..lineTo(size.width, 0)
+    // 2. Twin Angled Support Legs
+    final leftLeg = Path()
+      ..moveTo(cx - 36, bottomY - 48)
+      ..lineTo(cx - 16, bottomY - 48)
+      ..lineTo(cx - 42, bottomY - 8)
+      ..lineTo(cx - 68, bottomY - 8)
       ..close();
 
-    // Shadow
-    canvas.drawPath(
-      path.shift(const Offset(0, 2)),
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.5)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-    );
+    final rightLeg = Path()
+      ..moveTo(cx + 16, bottomY - 48)
+      ..lineTo(cx + 36, bottomY - 48)
+      ..lineTo(cx + 68, bottomY - 8)
+      ..lineTo(cx + 42, bottomY - 8)
+      ..close();
 
-    // Gold Needle
-    final Paint paint = Paint()
+    final legPaint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFFFD54F), Color(0xFFFF6D00)],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawPath(path, paint);
+        colors: [Color(0xFF380868), Color(0xFF1E0438), Color(0xFF0E011A)],
+      ).createShader(Rect.fromLTWH(cx - 70, bottomY - 55, 140, 55))
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(leftLeg, legPaint);
+    canvas.drawPath(rightLeg, legPaint);
 
-    // Border
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = const Color(0xFFFFF9C4)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
+    final legBorderPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xFFFFD54F), Color(0xFFFFA000)],
+      ).createShader(Rect.fromLTWH(cx - 70, bottomY - 55, 140, 55))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    canvas.drawPath(leftLeg, legBorderPaint);
+    canvas.drawPath(rightLeg, legBorderPaint);
+
+    // 3. Foot Platform Plate
+    final footRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(cx, bottomY - 8), width: 140, height: 14),
+      const Radius.circular(7),
     );
+
+    // Foot extrusion shadow
+    canvas.drawRRect(
+      footRect.shift(const Offset(0, 2.5)),
+      Paint()..color = const Color(0xFF0A0014),
+    );
+
+    // Foot body
+    canvas.drawRRect(
+      footRect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF501278), Color(0xFF260442)],
+        ).createShader(footRect.outerRect),
+    );
+
+    // Foot gold rim
+    canvas.drawRRect(
+      footRect,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFFFFEE58), Color(0xFFFFA000), Color(0xFFFFD54F)],
+        ).createShader(footRect.outerRect)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    // Screws on foot plate
+    final screwPaint = Paint()..color = const Color(0xFFFFD54F);
+    canvas.drawCircle(Offset(cx - 52, bottomY - 8), 2.5, screwPaint);
+    canvas.drawCircle(Offset(cx + 52, bottomY - 8), 2.5, screwPaint);
   }
 
   @override
-  bool shouldRepaint(covariant _WheelPointerPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🎡 3D WHEEL DRUM PAINTER (8 COIN SECTORS, 3D MEDALLIONS & ARCADE BULBS)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Custom painter to render the 8 sectors with 3D depth, arcade bulbs, and recessed badges
+class _Wheel3DPainter extends CustomPainter {
+  final List<Map<String, dynamic>> sectors;
+
+  _Wheel3DPainter({required this.sectors});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    final arcAngle = 2 * math.pi / sectors.length;
+
+    // 1. Deep 3D Outer Rim Casing
+    final outerRingPaint = Paint()
+      ..shader = const SweepGradient(
+        colors: [
+          Color(0xFFFFF9C4),
+          Color(0xFFFFD54F),
+          Color(0xFFFFA000),
+          Color(0xFFE65100),
+          Color(0xFFFFF9C4),
+          Color(0xFFFFD54F),
+          Color(0xFFFFA000),
+          Color(0xFFFFF9C4),
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 10;
+    canvas.drawCircle(center, radius - 5, outerRingPaint);
+
+    // Inner dark recessed groove behind the rim
+    final groovePaint = Paint()
+      ..color = const Color(0xFF0F001E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+    canvas.drawCircle(center, radius - 10, groovePaint);
+
+    // 2. 16 Illuminated Arcade Bulbs between sectors
+    for (int i = 0; i < 16; i++) {
+      final dotAngle = i * (2 * math.pi / 16) - math.pi / 2;
+      final dotX = center.dx + (radius - 5) * math.cos(dotAngle);
+      final dotY = center.dy + (radius - 5) * math.sin(dotAngle);
+      final dotCenter = Offset(dotX, dotY);
+
+      canvas.drawCircle(
+        dotCenter,
+        2.8,
+        Paint()..color = const Color(0xFF381000),
+      );
+      final isGold = i % 2 == 0;
+      final bulbPaint = Paint()
+        ..shader = RadialGradient(
+          colors: isGold
+              ? [Colors.white, const Color(0xFFFFD54F), const Color(0xFFFF8F00)]
+              : [Colors.white, const Color(0xFF80D8FF), const Color(0xFF0091EA)],
+        ).createShader(Rect.fromCircle(center: dotCenter, radius: 2.0))
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(dotCenter, 2.0, bulbPaint);
+      canvas.drawCircle(
+        Offset(dotX - 0.5, dotY - 0.5),
+        0.6,
+        Paint()..color = Colors.white,
+      );
+    }
+
+    // 3. Sector Wedges with Radial Vignette Depth & Vibrant Jewel Palette
+    final innerRadius = radius - 11;
+
+    for (int i = 0; i < sectors.length; i++) {
+      final startAngle = (i * arcAngle) - (math.pi / 2);
+      final midAngle = startAngle + (arcAngle / 2);
+      final sector = sectors[i];
+      final List<Color> colors = (sector['colors'] as List<Color>?) ??
+          [sector['color'] as Color, (sector['color'] as Color).withValues(alpha: 0.7)];
+
+      // 3A. Radial shader: bright glossy luminous center, deep outer rim
+      final segmentPaint = Paint()
+        ..shader = RadialGradient(
+          center: Alignment.center,
+          radius: 0.95,
+          colors: [
+            Color.lerp(colors.first, Colors.white, 0.35)!,
+            colors.first,
+            colors.last,
+          ],
+          stops: const [0.0, 0.48, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: innerRadius));
+
+      final path = Path()
+        ..moveTo(center.dx, center.dy)
+        ..arcTo(
+          Rect.fromCircle(center: center, radius: innerRadius),
+          startAngle,
+          arcAngle,
+          false,
+        )
+        ..close();
+      canvas.drawPath(path, segmentPaint);
+
+      // Inner Ambient Occlusion Shadow Arc near the outer rim (sunken compartment 3D depth)
+      final shadowArc = Path()
+        ..arcTo(
+          Rect.fromCircle(center: center, radius: innerRadius),
+          startAngle,
+          arcAngle,
+          false,
+        );
+      canvas.drawPath(
+        shadowArc,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              Colors.black.withValues(alpha: 0.45),
+              Colors.black.withValues(alpha: 0.0),
+            ],
+            stops: const [0.85, 1.0],
+          ).createShader(Rect.fromCircle(center: center, radius: innerRadius))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 8,
+      );
+
+      // 3B. 3D Metallic Golden Divider Rails along spoke boundaries
+      final lineEndX = center.dx + innerRadius * math.cos(startAngle);
+      final lineEndY = center.dy + innerRadius * math.sin(startAngle);
+
+      // Deep Shadow line
+      canvas.drawLine(
+        center,
+        Offset(lineEndX, lineEndY),
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.55)
+          ..strokeWidth = 3.2,
+      );
+      // Bright Golden Rail
+      canvas.drawLine(
+        center,
+        Offset(lineEndX, lineEndY),
+        Paint()
+          ..shader = const LinearGradient(
+            colors: [Color(0xFFFFF9C4), Color(0xFFFFEE58), Color(0xFFFFA000)],
+          ).createShader(Rect.fromPoints(center, Offset(lineEndX, lineEndY)))
+          ..strokeWidth = 1.8,
+      );
+      // Specular highlight line
+      canvas.drawLine(
+        center,
+        Offset(lineEndX, lineEndY),
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.85)
+          ..strokeWidth = 0.8,
+      );
+
+      // Brass peg stud on outer rim of each sector separator
+      canvas.drawCircle(
+        Offset(lineEndX, lineEndY),
+        2.5,
+        Paint()
+          ..shader = const RadialGradient(
+            colors: [Colors.white, Color(0xFFFFD54F), Color(0xFF6D2600)],
+          ).createShader(
+              Rect.fromCircle(center: Offset(lineEndX, lineEndY), radius: 2.5)),
+      );
+
+      // 3C. LOCAL ROTATION ALONG SPOKE: Aligns Token and Number Pill perfectly inside wedge!
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(midAngle);
+
+      // 3C-1. 3D Golden Medallion Socket for the Coin at x = innerRadius * 0.38
+      final double tokenX = innerRadius * 0.38;
+      // Soft drop shadow
+      canvas.drawCircle(
+        Offset(tokenX, 1.5),
+        14,
+        Paint()..color = Colors.black.withValues(alpha: 0.45),
+      );
+      // Outer stepped golden bezel ring
+      canvas.drawCircle(
+        Offset(tokenX, 0),
+        13.5,
+        Paint()
+          ..shader = const SweepGradient(
+            colors: [
+              Color(0xFFFFF9C4),
+              Color(0xFFFFEE58),
+              Color(0xFFFFA000),
+              Color(0xFFE65100),
+              Color(0xFFFFF9C4),
+            ],
+          ).createShader(Rect.fromCircle(center: Offset(tokenX, 0), radius: 13.5))
+          ..style = PaintingStyle.fill,
+      );
+      // Inner deep glossy velvet medallion base
+      canvas.drawCircle(
+        Offset(tokenX, 0),
+        11,
+        Paint()
+          ..shader = const RadialGradient(
+            colors: [Color(0xFF280645), Color(0xFF10011C)],
+          ).createShader(Rect.fromCircle(center: Offset(tokenX, 0), radius: 11)),
+      );
+
+      // 3C-2. 3D Prize Pill Badge at x = innerRadius * 0.67
+      final double badgeX = innerRadius * 0.67;
+      canvas.save();
+      canvas.translate(badgeX, 0);
+      canvas.rotate(math.pi / 2); // Facing the outer rim
+
+      final badgeRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset.zero, width: 42, height: 18),
+        const Radius.circular(9),
+      );
+
+      // Badge drop shadow
+      canvas.drawRRect(
+        badgeRect.shift(const Offset(0, 2)),
+        Paint()..color = Colors.black.withValues(alpha: 0.50),
+      );
+
+      // Badge deep glossy container body
+      canvas.drawRRect(
+        badgeRect,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xEE1C0736), Color(0xFF0B0117)],
+          ).createShader(badgeRect.outerRect)
+          ..style = PaintingStyle.fill,
+      );
+
+      // Badge 3D golden bevel border
+      canvas.drawRRect(
+        badgeRect,
+        Paint()
+          ..shader = const LinearGradient(
+            colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFFA000)],
+          ).createShader(badgeRect.outerRect)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.3,
+      );
+
+      // Embossed Value Text
+      final bool isJackpot = sector['type'] == 'jackpot';
+      final String valText =
+          (sector['valueText'] as String?) ?? (sector['label'] as String);
+      final textSpan = TextSpan(
+        text: valText,
+        style: TextStyle(
+          color: isJackpot ? const Color(0xFFFFD54F) : Colors.white,
+          fontSize: isJackpot ? 10.0 : 11.5,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.2,
+          shadows: const [
+            Shadow(color: Colors.black, offset: Offset(0, 1.5), blurRadius: 2),
+          ],
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout();
+
+      textPainter.paint(
+        canvas,
+        Offset(-textPainter.width / 2, -textPainter.height / 2),
+      );
+
+      canvas.restore(); // restore badge rotation
+      canvas.restore(); // restore slice spoke rotation
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🔻 3D MECHANICAL POINTER PAINTER WITH DYNAMIC FLAPPER HINGE
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Heavy 3D Mechanical Pointer Assembly with dynamic spring deflection angle
+class _PointerPainter extends CustomPainter {
+  final double deflectionAngle;
+
+  const _PointerPainter({this.deflectionAngle = 0.0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double cx = size.width / 2;
+    final double tipY = size.height;
+
+    // 1. Golden Mounting Bracket Plate at top (y = 0 to 14)
+    final bracketRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(cx, 7), width: 38, height: 14),
+      const Radius.circular(5),
+    );
+
+    // Bracket 3D extrusion
+    canvas.drawRRect(
+      bracketRect.shift(const Offset(0, 2)),
+      Paint()..color = const Color(0xFF6B1B00),
+    );
+
+    // Bracket metallic gold body
+    final bracketPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFFFFF9C4),
+          Color(0xFFFFEE58),
+          Color(0xFFFFA000),
+          Color(0xFFE65100),
+        ],
+      ).createShader(bracketRect.outerRect)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(bracketRect, bracketPaint);
+
+    // Bracket 2 Screws
+    for (final screwX in [cx - 13.0, cx + 13.0]) {
+      final sCenter = Offset(screwX, 7);
+      canvas.drawCircle(
+        sCenter,
+        2.2,
+        Paint()..color = const Color(0xFF455A64),
+      );
+    }
+
+    // 2. Dynamic Spring Hinge: Needle rotates around (cx, 14) with deflectionAngle
+    canvas.save();
+    canvas.translate(cx, 14);
+    canvas.rotate(deflectionAngle);
+    canvas.translate(-cx, -14);
+
+    // Drop shadow onto wheel
+    final shadowPath = Path()
+      ..moveTo(cx + 2, tipY + 3)
+      ..lineTo(cx - 14, 16)
+      ..arcToPoint(Offset(cx + 14, 16),
+          radius: const Radius.circular(14), clockwise: true)
+      ..close();
+    canvas.drawPath(
+      shadowPath,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.6)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+
+    // Left Facet (Light-facing Bright Emerald)
+    final leftFacet = Path()
+      ..moveTo(cx, tipY)
+      ..lineTo(cx - 12, 16)
+      ..arcToPoint(Offset(cx, 4),
+          radius: const Radius.circular(12), clockwise: true)
+      ..lineTo(cx, tipY)
+      ..close();
+
+    final leftPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFB9F6CA), Color(0xFF00E676), Color(0xFF00C853)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(leftFacet, leftPaint);
+
+    // Right Facet (Shadow-facing Deep Emerald)
+    final rightFacet = Path()
+      ..moveTo(cx, tipY)
+      ..lineTo(cx, 4)
+      ..arcToPoint(Offset(cx + 12, 16),
+          radius: const Radius.circular(12), clockwise: true)
+      ..lineTo(cx, tipY)
+      ..close();
+
+    final rightPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF00A340), Color(0xFF00752E), Color(0xFF004D1E)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(rightFacet, rightPaint);
+
+    // Center Crease Highlight
+    canvas.drawLine(
+      Offset(cx, tipY),
+      Offset(cx, 4),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.7)
+        ..strokeWidth = 0.9,
+    );
+
+    // Center Gold Pivot Stud on Hinge
+    final pivotCenter = Offset(cx, 14);
+    canvas.drawCircle(
+      pivotCenter,
+      4.2,
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Colors.white, Color(0xFFFFD54F), Color(0xFFE65100)],
+        ).createShader(Rect.fromCircle(center: pivotCenter, radius: 4.2)),
+    );
+
+    canvas.restore(); // restore deflection rotation
+  }
+
+  @override
+  bool shouldRepaint(covariant _PointerPainter oldDelegate) =>
+      oldDelegate.deflectionAngle != deflectionAngle;
 }

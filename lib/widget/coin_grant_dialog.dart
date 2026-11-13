@@ -80,14 +80,17 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
     AudioHelper().playMoneySound();
     widget.confettiController.play();
 
+    bool collected = false;
     try {
-      await showDialog(
+      final result = await showDialog<bool>(
         context: context,
-        barrierDismissible: true,
+        barrierDismissible: false,
         builder: (dialogContext) {
-          return Stack(
-            alignment: Alignment.center,
-            children: [
+          return PopScope(
+            canPop: false,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
               Dialog(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
@@ -264,7 +267,7 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
                             glowColor: const Color(0xFF00E676),
                             textColor: const Color(0xFF052115),
                             onPressed: () {
-                              Navigator.pop(dialogContext);
+                              Navigator.of(dialogContext).pop(true);
                             },
                           ),
                         ],
@@ -274,14 +277,19 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
                 ),
               ),
             ],
-          );
-        },
-      );
-    } finally {
-      _isShowingDialog = false;
-    }
+          ),
+        );
+      },
+    );
 
-    if (!mounted) return;
+    if (result == true) {
+      collected = true;
+    }
+  } finally {
+    _isShowingDialog = false;
+  }
+
+  if (!mounted || !collected) return;
     _triggerFlyingCoins(
       coins: coins,
       newWalletBalance: newWalletBalance,
@@ -426,4 +434,63 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
       },
     );
   }
+}
+
+/// Secure Reward Dialog Helper Function (Stand-alone pattern)
+/// Provides the 4 protection rules:
+/// 1. barrierDismissible: false
+/// 2. PopScope(canPop: false)
+/// 3. Returns true only on 'COLLECT'
+/// 4. Reward guard condition (if (!collected) return;)
+Future<void> showSecureRewardDialog({
+  required BuildContext context,
+  required int coins,
+  required VoidCallback onRewardGranted,
+}) async {
+  bool collected = false;
+  // 1. showDialog ને barrierDismissible: false રાખો
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false, // 👈 બહાર ટચ કરવાથી બંધ નહીં થાય
+    builder: (dialogContext) {
+      return PopScope(
+        canPop: false, // 👈 ફોનનું Back બટન દબાવવાથી પણ બંધ નહીં થાય
+        child: Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.stars_rounded, color: Colors.amber, size: 60),
+                const SizedBox(height: 12),
+                Text(
+                  "+$coins COINS",
+                  style: const TextStyle(
+                      fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                // 2. માત્ર આ COLLECT બટન પર જ pop(true) થશે
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(true); // 👈 પાસ કર્યું true
+                  },
+                  child: const Text("COLLECT"),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+  // 3. ચેક કરો કે COLLECT ક્લિક થયું છે કે નહીં
+  if (result == true) {
+    collected = true;
+  }
+  // 4. જો COLLECT ક્લિક ન કર્યું હોય તો અહીંથી જ અટકી જશે
+  if (!context.mounted || !collected) return;
+  // 5. હવે જ કોઈન્સ આપો / બેકએન્ડ API કોલ કરો
+  onRewardGranted();
 }

@@ -10,6 +10,7 @@ import 'package:word_puzzle/widget/bg_container.dart';
 import 'package:word_puzzle/widget/coin_service.dart';
 import 'package:word_puzzle/widget/floating_words_background.dart';
 import 'package:word_puzzle/widget/sound.dart';
+import 'package:word_puzzle/widget/top_task_snackbar.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -184,6 +185,8 @@ class _SettingsPageState extends State<SettingsPage> {
                               } catch (e) {
                                 // Ignore Google sign out error
                               }
+
+                              TopTaskSnackBar.reset();
 
                               if (context.mounted) {
                                 Provider.of<CoinProvider>(context,

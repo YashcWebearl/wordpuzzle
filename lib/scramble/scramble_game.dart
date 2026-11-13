@@ -87,7 +87,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
   int _timeLeft = 90;
   int _remainingMoves = 15;
   int _totalMoves = 15;
-  int _remainingShuffles = 5;
+  int _remainingShuffles = 2;
   bool _isShuffleAvailable = true;
   bool _isGameOver = false;
   bool _isGameOverDialogShowing = false;
@@ -276,7 +276,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     _timeLeft = math.max(75, _levelData.targetWords.length * 15 + 15);
     _totalMoves = math.max(10, _levelData.targetWords.length * 3 + 2);
     _remainingMoves = _totalMoves;
-    _remainingShuffles = 5;
+    _remainingShuffles = 2;
     _currentHintWord = null;
     _hintLetterCount = 0;
     _hintedTileIds.clear();
@@ -782,10 +782,6 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
 
     // Check if entire level is cleared
     if (_solvedWords.length == _levelData.targetWords.length) {
-      DailyService().updateTaskProgress(
-        taskKey: 'win_scramble',
-        gameName: 'scramble',
-      );
       _gameTimer?.cancel();
       final movesUsed = math.max(0, _totalMoves - _remainingMoves);
 
@@ -799,6 +795,11 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
             isRewardAd: false,
             onAdComplete: () {
               if (!mounted) return;
+              // Trigger win task progress AFTER ad playback so snackbar is 100% visible
+              DailyService().updateTaskProgress(
+                taskKey: 'win_scramble',
+                gameName: 'scramble',
+              );
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
@@ -1467,7 +1468,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
         _showInsufficientCoinsDialog();
         return;
       }
-      await coinProvider.undoCoins(5);
+      coinProvider.undoCoins(5);
       AudioHelper().playMoneySound();
     }
 
@@ -1516,7 +1517,13 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
       _updateShuffleAvailability();
     });
 
-    Fluttertoast.showToast(msg: "Board shuffled!");
+    Fluttertoast.showToast(
+      msg: useCoins
+          ? "Board shuffled! -5 coins"
+          : (_remainingShuffles > 0
+              ? "Free Shuffle used! ($_remainingShuffles left)"
+              : "Free shuffles used! Next shuffles cost 5 coins."),
+    );
   }
 
   void _showExitConfirmationDialog() {

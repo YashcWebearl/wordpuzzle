@@ -16,6 +16,7 @@ import 'personal_ad_screen.dart';
 import '../crossword/crossword_level_service.dart';
 import '../scramble/scramble_level_service.dart';
 import '../balloon_rescue/balloon_level_service.dart';
+import '../services/daily_service.dart';
 import '../services/in_app_update_service.dart';
 import '../widget/base_url.dart';
 import '../widget/get_level.dart';
@@ -136,6 +137,7 @@ class _SplashPageState extends State<SplashPage>
         CrosswordLevelService.fetchLevel();
         ScrambleLevelService.fetchLevel();
         BalloonLevelService.fetchLevel();
+        DailyService().getDailyStatus();
       }
       nextScreen = const GameSelectionScreen();
     } else {

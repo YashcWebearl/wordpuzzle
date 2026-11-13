@@ -47,7 +47,7 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
   int _timeLeft = 90;
   int _remainingMoves = 0;
   int _totalMoves = 0;
-  int _remainingShuffles = 5;
+  int _remainingShuffles = 2;
   bool _isGameOver = false;
   bool _isWatchingAd = false;
 
@@ -74,7 +74,7 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
   void initState() {
     super.initState();
     CrosswordAudioHelper().initialize();
-    _loadSavedShuffles();
+    _remainingShuffles = 2;
     _shuffleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -94,16 +94,6 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
     _loadLevel(widget.level);
   }
 
-  Future<void> _loadSavedShuffles() async {
-    final prefs = await SharedPreferences.getInstance();
-    final count = prefs.getInt('crossword_shuffles') ?? 5;
-    if (mounted) {
-      setState(() {
-        _remainingShuffles = count;
-      });
-    }
-  }
-
   @override
   void dispose() {
     _gameTimer?.cancel();
@@ -116,10 +106,8 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
     if (_isShuffling || _selectedIndices.isNotEmpty) return;
 
     if (_remainingShuffles > 0) {
-      // Global Free Starting Shuffles stored in SharedPreferences (5 down to 0)
-      final prefs = await SharedPreferences.getInstance();
-      final newCount = math.max(0, _remainingShuffles - 1);
-      await prefs.setInt('crossword_shuffles', newCount);
+      // 2 Free Shuffles per level / retry
+      final newCount = _remainingShuffles - 1;
       if (mounted) {
         setState(() {
           _remainingShuffles = newCount;
@@ -129,7 +117,7 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
       Fluttertoast.showToast(
         msg: newCount > 0
             ? "Free Shuffle used! ($newCount left)"
-            : "Last free shuffle used! Next shuffles cost 5 coins.",
+            : "Free shuffles used! Next shuffles cost 5 coins.",
         toastLength: Toast.LENGTH_SHORT,
       );
     } else {
@@ -170,7 +158,7 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
     }
 
     if (useCoins) {
-      await coinProvider.undoCoins(5);
+      coinProvider.undoCoins(5);
       CrosswordAudioHelper().playCoin();
     }
 
@@ -197,7 +185,7 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
     // Moves = double the number of words (e.g. 5 words -> 10 moves)
     _totalMoves = _levelData.targetWords.length * 2;
     _remainingMoves = _totalMoves;
-    _loadSavedShuffles();
+    _remainingShuffles = 2;
     _flyingTiles.clear();
     _landingPopCells.clear();
     _displayedBubbleWord = '';
@@ -1014,11 +1002,6 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
   void _handleLevelWon() {
     if (_isGameOver) return;
     _isGameOver = true;
-    DailyService().updateTaskProgress(
-      taskKey: 'win_crossword',
-      increment: 1,
-      gameName: 'Crossword',
-    );
     _gameTimer?.cancel();
     CrosswordAudioHelper().stopCountdown();
     CrosswordAudioHelper().playWinner();
@@ -1034,6 +1017,12 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
             isRewardAd: false,
             onAdComplete: () {
               if (!mounted) return;
+              // Trigger win task progress AFTER ad playback so snackbar is 100% visible
+              DailyService().updateTaskProgress(
+                taskKey: 'win_crossword',
+                increment: 1,
+                gameName: 'Crossword',
+              );
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(

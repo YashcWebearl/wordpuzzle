@@ -2,20 +2,62 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:word_puzzle/view/daily_rewards_tasks_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:word_puzzle/widget/sound.dart';
+
+class _TaskQueueItem {
+  final String title;
+  final String message;
+  final int? coinReward;
+  final Duration duration;
+
+  _TaskQueueItem({
+    required this.title,
+    required this.message,
+    this.coinReward,
+    this.duration = const Duration(milliseconds: 3200),
+  });
+}
 
 class TopTaskSnackBar {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
   static OverlayEntry? _currentEntry;
-  static Timer? _dismissTimer;
+  static bool _isShowing = false;
+  static final List<_TaskQueueItem> _queue = [];
   static final Set<String> _shownKeys = {};
 
+  static Future<String> _getCurrentUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('user_id') ?? prefs.getString('email') ?? '';
+      if (uid.isNotEmpty) return uid.trim().toLowerCase();
+      final token = prefs.getString('auth_token') ?? '';
+      if (token.isNotEmpty) {
+        return token.length > 20 ? token.substring(token.length - 20) : token;
+      }
+    } catch (_) {}
+    return 'default_user';
+  }
+
+  /// Reset in-memory tracking on logout / account switch
+  static void reset() {
+    _shownKeys.clear();
+    _queue.clear();
+    _cleanupEntry();
+    _isShowing = false;
+  }
+
   /// Mark task as already notified so it never shows again
-  static void markNotified(String taskKey, String date) {
-    _shownKeys.add('${taskKey}_$date');
+  static void markNotified(String taskKey, String date, {String? userId}) async {
+    final effectiveUserId = userId ?? await _getCurrentUserId();
+    final debounceKey = '${effectiveUserId}_${taskKey}_$date';
+    _shownKeys.add(debounceKey);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('snackbar_shown_$debounceKey', true);
+    } catch (_) {}
   }
 
   /// Official 12 Daily Tasks catalog metadata
@@ -34,89 +76,131 @@ class TopTaskSnackBar {
     'watch_ad': {'title': 'Bonus Hunter', 'coins': 80},
   };
 
-  /// Show Top Snackbar when a daily task is completed (Guaranteed exactly 1 time)
-  static void showTaskCompleted({
+  /// Show Top Snackbar when a daily task is completed (Guaranteed exactly 1 time per user per day)
+  static Future<void> showTaskCompleted({
     required String taskKey,
     String? title,
     int? coins,
-  }) {
+    String? userId,
+  }) async {
     final now = DateTime.now();
     final todayStr =
         "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-    final debounceKey = '${taskKey}_$todayStr';
+    final effectiveUserId = userId ?? await _getCurrentUserId();
+    final debounceKey = '${effectiveUserId}_${taskKey}_$todayStr';
 
-    // Strictly enforce: ONLY ONCE per task per day!
+    // 1. In-memory check: Strictly enforce ONLY ONCE per user per task per day!
     if (_shownKeys.contains(debounceKey)) {
       return;
     }
     _shownKeys.add(debounceKey);
 
+    // 2. Persistent SharedPreferences check (survives app restart)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final persistentKey = 'snackbar_shown_$debounceKey';
+      if (prefs.getBool(persistentKey) == true) {
+        return;
+      }
+      await prefs.setBool(persistentKey, true);
+    } catch (_) {}
+
     final info = taskCatalog[taskKey];
     final displayTitle = title ?? info?['title'] as String? ?? 'Daily Quest Complete';
     final rewardCoins = coins ?? info?['coins'] as int? ?? 100;
 
-    show(
-      title: '🏆 DAILY TASK COMPLETED!',
-      message: displayTitle,
-      coinReward: rewardCoins,
-      onTap: () {
-        dismiss();
-        final context = navigatorKey.currentContext;
-        if (context != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const DailyRewardsTasksScreen(),
-            ),
-          );
-        }
-      },
+    debugPrint('🎉 [TopTaskSnackBar] ENQUEUING: $displayTitle (+ $rewardCoins coins)');
+
+    _enqueue(
+      _TaskQueueItem(
+        title: '🏆 DAILY TASK COMPLETED!',
+        message: displayTitle,
+        coinReward: rewardCoins,
+        duration: const Duration(milliseconds: 3200),
+      ),
     );
   }
 
-  /// Show custom top snackbar
+  /// Show custom top snackbar (enqueued safely)
   static void show({
     required String title,
     required String message,
     int? coinReward,
-    VoidCallback? onTap,
-    Duration duration = const Duration(seconds: 4),
+    Duration duration = const Duration(milliseconds: 3200),
   }) {
-    // Sound & Haptic
-    try {
-      AudioHelper().playWinnerSound();
-      HapticFeedback.heavyImpact();
-    } catch (_) {}
-
-    final overlayState = navigatorKey.currentState?.overlay;
-    if (overlayState == null) return;
-
-    // Dismiss existing snackbar cleanly
-    dismiss();
-
-    _currentEntry = OverlayEntry(
-      builder: (context) => _TopSnackBarWidget(
+    _enqueue(
+      _TaskQueueItem(
         title: title,
         message: message,
         coinReward: coinReward,
-        onTap: onTap,
-        onDismiss: dismiss,
         duration: duration,
+      ),
+    );
+  }
+
+  static void _enqueue(_TaskQueueItem item) {
+    _queue.add(item);
+    if (!_isShowing) {
+      _showNext();
+    }
+  }
+
+  static void _showNext() {
+    if (_queue.isEmpty) {
+      _isShowing = false;
+      return;
+    }
+
+    final overlayState = navigatorKey.currentState?.overlay;
+    if (overlayState == null) {
+      // Retry in 500ms if overlay is not yet attached
+      Timer(const Duration(milliseconds: 500), () {
+        if (!_isShowing && _queue.isNotEmpty) {
+          _showNext();
+        }
+      });
+      return;
+    }
+
+    _isShowing = true;
+    final item = _queue.removeAt(0);
+
+    // Sound & Haptic
+    try {
+      HapticFeedback.heavyImpact();
+    } catch (_) {}
+
+    _cleanupEntry();
+
+    _currentEntry = OverlayEntry(
+      builder: (context) => _TopSnackBarWidget(
+        title: item.title,
+        message: item.message,
+        coinReward: item.coinReward,
+        duration: item.duration,
+        onDismiss: () {
+          _cleanupEntry();
+          // Small smooth pause before presenting the next task banner
+          Timer(const Duration(milliseconds: 250), () {
+            _showNext();
+          });
+        },
       ),
     );
 
     overlayState.insert(_currentEntry!);
-
-    _dismissTimer = Timer(duration + const Duration(milliseconds: 400), () {
-      dismiss();
-    });
   }
 
-  static void dismiss() {
-    _dismissTimer?.cancel();
-    _dismissTimer = null;
+  static void _cleanupEntry() {
     _currentEntry?.remove();
     _currentEntry = null;
+  }
+
+  /// Force dismiss all active and queued banners
+  static void dismiss() {
+    _queue.clear();
+    _cleanupEntry();
+    _isShowing = false;
   }
 }
 
@@ -124,7 +208,6 @@ class _TopSnackBarWidget extends StatefulWidget {
   final String title;
   final String message;
   final int? coinReward;
-  final VoidCallback? onTap;
   final VoidCallback onDismiss;
   final Duration duration;
 
@@ -132,7 +215,6 @@ class _TopSnackBarWidget extends StatefulWidget {
     required this.title,
     required this.message,
     this.coinReward,
-    this.onTap,
     required this.onDismiss,
     required this.duration,
   });
@@ -147,14 +229,16 @@ class _TopSnackBarWidgetState extends State<_TopSnackBarWidget>
   late final Animation<Offset> _offsetAnimation;
   late final Animation<double> _fadeAnimation;
   late final Animation<double> _scaleAnimation;
+  Timer? _autoCloseTimer;
+  bool _isHiding = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 450),
-      reverseDuration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 400),
+      reverseDuration: const Duration(milliseconds: 280),
     );
 
     _offsetAnimation = Tween<Offset>(
@@ -175,18 +259,29 @@ class _TopSnackBarWidgetState extends State<_TopSnackBarWidget>
     );
 
     _controller.forward();
+
+    // Auto-dismiss after duration
+    _autoCloseTimer = Timer(widget.duration, () {
+      _hide();
+    });
   }
 
   void _hide() {
+    if (_isHiding) return;
+    _isHiding = true;
+    _autoCloseTimer?.cancel();
     if (mounted) {
       _controller.reverse().then((_) {
         widget.onDismiss();
       });
+    } else {
+      widget.onDismiss();
     }
   }
 
   @override
   void dispose() {
+    _autoCloseTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -209,8 +304,8 @@ class _TopSnackBarWidgetState extends State<_TopSnackBarWidget>
             }
           },
           onTap: () {
+            // Dismisses without navigating, keeping game state completely intact!
             _hide();
-            widget.onTap?.call();
           },
           child: SlideTransition(
             position: _offsetAnimation,
@@ -307,7 +402,7 @@ class _TopSnackBarWidgetState extends State<_TopSnackBarWidget>
                             ),
                             const SizedBox(height: 1),
                             Text(
-                              'Tap to claim your reward in Quests!',
+                              'Reward ready in Daily Quests!',
                               style: GoogleFonts.outfit(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
@@ -320,50 +415,71 @@ class _TopSnackBarWidgetState extends State<_TopSnackBarWidget>
 
                       const SizedBox(width: 8),
 
-                      // Reward Badge / Claim Action
-                      if (widget.coinReward != null && widget.coinReward! > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                      // Reward Badge (Coins)
+                      // if (widget.coinReward != null && widget.coinReward! > 0)
+                      //   Container(
+                      //     padding: const EdgeInsets.symmetric(
+                      //         horizontal: 10, vertical: 6),
+                      //     decoration: BoxDecoration(
+                      //       gradient: const LinearGradient(
+                      //         colors: [Color(0xFF00E676), Color(0xFF00B0FF)],
+                      //       ),
+                      //       borderRadius: BorderRadius.circular(12),
+                      //       boxShadow: [
+                      //         BoxShadow(
+                      //           color: const Color(0xFF00E676).withValues(alpha: 0.4),
+                      //           blurRadius: 8,
+                      //           offset: const Offset(0, 2),
+                      //         ),
+                      //       ],
+                      //     ),
+                      //     child: Row(
+                      //       mainAxisSize: MainAxisSize.min,
+                      //       children: [
+                      //         const Icon(
+                      //           Icons.monetization_on_rounded,
+                      //           color: Color(0xFFFFD700),
+                      //           size: 14,
+                      //         ),
+                      //         const SizedBox(width: 4),
+                      //         Text(
+                      //           '+${widget.coinReward}',
+                      //           style: GoogleFonts.outfit(
+                      //             fontSize: 12,
+                      //             fontWeight: FontWeight.w800,
+                      //             color: Colors.white,
+                      //           ),
+                      //         ),
+                      //       ],
+                      //     ),
+                      //   ),
+
+                      const SizedBox(width: 8),
+
+                      // Close 'X' Button
+                      GestureDetector(
+                        onTap: _hide,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          width: 28,
+                          height: 28,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF00E676), Color(0xFF00B0FF)],
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.15),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              width: 1,
                             ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF00E676).withValues(alpha: 0.4),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.monetization_on_rounded,
-                                color: Color(0xFFFFD700),
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '+${widget.coinReward}',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 2),
-                              const Icon(
-                                Icons.chevron_right_rounded,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                            ],
+                          child: const Center(
+                            child: Icon(
+                              Icons.close_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
                         ),
+                      ),
                     ],
                   ),
                 ),

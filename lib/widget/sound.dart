@@ -1,13 +1,16 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class AudioHelper {
+class AudioHelper with WidgetsBindingObserver {
   static final AudioHelper _instance = AudioHelper._internal();
   factory AudioHelper() => _instance;
   AudioHelper._internal();
 
   late SoLoud _soLoud;
   bool _isSoundOn = true;
+  bool _isObserverRegistered = false;
 
   AudioSource? _button;
   AudioSource? _dragWord;
@@ -51,74 +54,151 @@ class AudioHelper {
   SoundHandle? _last5secHandle;
   SoundHandle? _hintHandle;
 
+  static bool _isRecovering = false;
+  static final List<Future<void> Function()> onAudioEngineReset = [];
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When returning from background or full-screen video Ad, verify and recover audio
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('🔄 [AudioHelper] App resumed. Verifying audio engine...');
+      ensureAudioReady();
+    }
+  }
+
+  /// Ensure SoLoud engine is alive and assets are properly loaded
+  Future<void> ensureAudioReady({bool forceReload = false}) async {
+    if (_isRecovering) return;
+    _isRecovering = true;
+    try {
+      _soLoud = SoLoud.instance;
+      final bool needsInit = !_soLoud.isInitialized || forceReload;
+      if (needsInit) {
+        debugPrint('🔄 [AudioHelper] (Re)initializing SoLoud audio engine...');
+        if (_soLoud.isInitialized) {
+          try {
+            _soLoud.deinit();
+          } catch (_) {}
+        }
+        await _soLoud.init();
+        await _loadAllSoundAssets();
+        for (final cb in onAudioEngineReset) {
+          try {
+            await cb();
+          } catch (e) {
+            debugPrint('⚠️ Error in audio reset callback: $e');
+          }
+        }
+        debugPrint('✅ [AudioHelper] SoLoud audio engine ready and sound assets loaded.');
+      } else if (_button == null) {
+        await _loadAllSoundAssets();
+      }
+    } catch (e) {
+      debugPrint('❌ [AudioHelper] ensureAudioReady failed: $e');
+    } finally {
+      _isRecovering = false;
+    }
+  }
+
   Future<void> initialize() async {
     await _loadSoundSetting();
     _soLoud = SoLoud.instance;
-    if (_soLoud.isInitialized) return;
-    await _soLoud.init();
 
+    if (!_isObserverRegistered) {
+      WidgetsBinding.instance.addObserver(this);
+      _isObserverRegistered = true;
+    }
+
+    await ensureAudioReady(forceReload: false);
+    await _loadSoundSetting();
+  }
+
+  Future<void> _loadAllSoundAssets() async {
     _button = await _safeLoad('assets/music/button.mp3');
-    _dragWord = await _soLoud.loadAsset('assets/music/drag_word.mp3');
-    _found = await _soLoud.loadAsset('assets/music/found.mp3');
-    _notFound = await _soLoud.loadAsset('assets/music/not_found.mp3');
-    _screenOpen = await _soLoud.loadAsset('assets/music/screen_open.mp3');
-    _winner = await _soLoud.loadAsset('assets/music/winner.mp3');
-    _money = await _soLoud.loadAsset('assets/music/Money.mp3');
-    _timeOut = await _soLoud.loadAsset('assets/music/time_out.mp3');
-    _last5sec = await _soLoud.loadAsset('assets/music/last5sec.mp3');
-    _hint = await _soLoud.loadAsset('assets/music/hint.mp3');
+    _dragWord = await _safeLoad('assets/music/drag_word.mp3');
+    _found = await _safeLoad('assets/music/found.mp3');
+    _notFound = await _safeLoad('assets/music/not_found.mp3');
+    _screenOpen = await _safeLoad('assets/music/screen_open.mp3');
+    _winner = await _safeLoad('assets/music/winner.mp3');
+    _money = await _safeLoad('assets/music/Money.mp3');
+    _timeOut = await _safeLoad('assets/music/time_out.mp3');
+    _last5sec = await _safeLoad('assets/music/last5sec.mp3');
+    _hint = await _safeLoad('assets/music/hint.mp3');
 
     // Load Word Scramble sounds safely
     _scramblePopNotes.clear();
     for (int i = 1; i <= 8; i++) {
       try {
-        final src = await _soLoud.loadAsset(
-          'assets/music/scramble/scramble_pop_$i.wav',
-        );
-        _scramblePopNotes.add(src);
+        final src = await _safeLoad('assets/music/scramble/scramble_pop_$i.wav');
+        if (src != null) _scramblePopNotes.add(src);
       } catch (_) {}
     }
-    _scramblePopDefault =
-        await _safeLoad('assets/music/scramble/scramble_pop.wav');
-    _scrambleCollapse =
-        await _safeLoad('assets/music/scramble/scramble_collapse.wav');
-    _scrambleSolve =
-        await _safeLoad('assets/music/scramble/scramble_solve.wav');
-    _scrambleKitty =
-        await _safeLoad('assets/music/scramble/scramble_kitty.wav');
-    _scrambleShuffle =
-        await _safeLoad('assets/music/scramble/scramble_shuffle.wav');
-    _scramblePraise =
-        await _safeLoad('assets/music/scramble/scramble_praise.wav');
+    _scramblePopDefault = await _safeLoad('assets/music/scramble/scramble_pop.wav');
+    _scrambleCollapse = await _safeLoad('assets/music/scramble/scramble_collapse.wav');
+    _scrambleSolve = await _safeLoad('assets/music/scramble/scramble_solve.wav');
+    _scrambleKitty = await _safeLoad('assets/music/scramble/scramble_kitty.wav');
+    _scrambleShuffle = await _safeLoad('assets/music/scramble/scramble_shuffle.wav');
+    _scramblePraise = await _safeLoad('assets/music/scramble/scramble_praise.wav');
 
     // Load Balloon Rescue sounds safely
     _balloonPops.clear();
     for (int i = 1; i <= 8; i++) {
       try {
-        final src = await _soLoud.loadAsset(
-          'assets/music/balloon/balloon_pop_$i.wav',
-        );
-        _balloonPops.add(src);
+        final src = await _safeLoad('assets/music/balloon/balloon_pop_$i.wav');
+        if (src != null) _balloonPops.add(src);
       } catch (_) {}
     }
-    _balloonPopDefault =
-        await _safeLoad('assets/music/balloon/balloon_pop.wav');
+    _balloonPopDefault = await _safeLoad('assets/music/balloon/balloon_pop.wav');
     _balloonBurst = await _safeLoad('assets/music/balloon/balloon_burst.wav');
     _balloonFly = await _safeLoad('assets/music/balloon/balloon_fly.wav');
     _balloonPraise = await _safeLoad('assets/music/balloon/balloon_praise.wav');
-    _balloonTakeoff =
-        await _safeLoad('assets/music/balloon/balloon_takeoff.wav');
+    _balloonTakeoff = await _safeLoad('assets/music/balloon/balloon_takeoff.wav');
     _balloonFall = await _safeLoad('assets/music/balloon/balloon_fall.wav');
-    _balloonInflate =
-        await _safeLoad('assets/music/balloon/balloon_inflate.wav');
+    _balloonInflate = await _safeLoad('assets/music/balloon/balloon_inflate.wav');
     _balloonDanger = await _safeLoad('assets/music/balloon/balloon_danger.wav');
     _balloonWrong = await _safeLoad('assets/music/balloon/balloon_wrong.wav');
     _balloonScared = await _safeLoad('assets/music/balloon/balloon_scared.wav');
     _balloonGiggle = await _safeLoad('assets/music/balloon/balloon_giggle.wav');
-    _balloonLetterHappy =
-        await _safeLoad('assets/music/balloon/balloon_letter_happy.wav');
+    _balloonLetterHappy = await _safeLoad('assets/music/balloon/balloon_letter_happy.wav');
+  }
 
-    await _loadSoundSetting();
+  /// Centralized robust sound playback with auto-recovery if audio focus was lost
+  Future<SoundHandle?> _safePlay(
+    AudioSource? source, {
+    double volume = 1.0,
+    bool protectVoice = false,
+  }) async {
+    if (!_isSoundOn) return null;
+    if (source == null) {
+      await ensureAudioReady();
+      if (source == null) return null;
+    }
+
+    try {
+      if (!_soLoud.isInitialized) {
+        await ensureAudioReady();
+      }
+      final handle = await _soLoud.play(source, volume: volume);
+      if (protectVoice) {
+        _soLoud.setProtectVoice(handle, true);
+      }
+      return handle;
+    } catch (e) {
+      debugPrint('⚠️ [AudioHelper] Play error ($e). Auto-recovering audio engine...');
+      try {
+        await ensureAudioReady(forceReload: true);
+        if (_soLoud.isInitialized && source != null) {
+          final handle = await _soLoud.play(source, volume: volume);
+          if (protectVoice) {
+            _soLoud.setProtectVoice(handle, true);
+          }
+          return handle;
+        }
+      } catch (retryError) {
+        debugPrint('❌ [AudioHelper] Recovery play retry failed: $retryError');
+      }
+      return null;
+    }
   }
 
   Future<void> _loadSoundSetting() async {
@@ -173,122 +253,102 @@ class AudioHelper {
   static int _lastButtonSoundTime = 0;
 
   Future<void> playButtonSound() async {
-    if (!_isSoundOn || _button == null) return;
+    if (!_isSoundOn) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastButtonSoundTime < 100) return;
     _lastButtonSoundTime = now;
 
-    try {
-      _soLoud.play(_button!);
-    } catch (_) {}
+    await _safePlay(_button);
   }
 
   Future<void> playTapSound() => playButtonSound();
+
   Future<void> playMoneySound() async {
-    if (_isSoundOn && _money != null) {
-      await _soLoud.play(_money!);
-    }
+    await _safePlay(_money);
   }
 
   Future<void> playLastSecond() async {
-    if (_isSoundOn && _last5sec != null) {
-      _last5secHandle = await _soLoud.play(_last5sec!);
-    }
+    _last5secHandle = await _safePlay(_last5sec);
   }
 
   Future<void> stopLastSecond() async {
     if (_last5secHandle != null) {
-      await _soLoud.stop(_last5secHandle!);
+      try {
+        await _soLoud.stop(_last5secHandle!);
+      } catch (_) {}
       _last5secHandle = null;
     }
   }
 
   Future<void> playHintSound() async {
-    if (_isSoundOn && _hint != null) {
-      _hintHandle = await _soLoud.play(_hint!);
-    }
+    _hintHandle = await _safePlay(_hint);
   }
 
   Future<void> stopHintSound() async {
     if (_hintHandle != null) {
-      await _soLoud.stop(_hintHandle!);
+      try {
+        await _soLoud.stop(_hintHandle!);
+      } catch (_) {}
       _hintHandle = null;
     }
   }
 
-  // Future<void> playHintSound() async {
-  //   if (_isSoundOn && _hint != null) {
-  //     await _soLoud.play(_hint!);
-  //   }
-  // }
-  // Future<void> playLastSecond() async {
-  //   if (_isSoundOn && _last5sec != null) {
-  //     await _soLoud.play(_last5sec!);
-  //   }
-  // }
-  // Future<void> stopLastSecond() async {
-  //   if (_last5secHandle != null) {
-  //     await _soLoud.stop(_last5secHandle!);
-  //     _last5secHandle = null;
-  //   }
-  // }
   Future<void> playDragWordSound() async {
-    if (_isSoundOn && _dragWord != null) {
-      _backgroundHandle = await _soLoud.play(_dragWord!);
-      _soLoud.setProtectVoice(_backgroundHandle!, true); // prevents auto-stop
-    }
+    _backgroundHandle = await _safePlay(_dragWord, protectVoice: true);
   }
 
   Future<void> playFoundSound() async {
-    if (_isSoundOn && _found != null) {
-      await _soLoud.play(_found!);
-    }
+    await _safePlay(_found);
   }
 
   Future<void> playTimeOutSound() async {
-    if (_isSoundOn && _timeOut != null) {
-      await _soLoud.play(_timeOut!);
-    }
+    await _safePlay(_timeOut);
   }
 
   Future<void> playNotFoundSound() async {
-    if (_isSoundOn && _notFound != null) {
-      _notFoundHandle = await _soLoud.play(_notFound!);
-    }
+    _notFoundHandle = await _safePlay(_notFound);
   }
 
   Future<void> playScreenOpenSound() async {
-    if (_isSoundOn && _screenOpen != null) {
-      await _soLoud.play(_screenOpen!);
-    }
+    await _safePlay(_screenOpen);
   }
 
   Future<void> playWinnerSound() async {
-    if (_isSoundOn && _winner != null) {
-      _winnerHandle = await _soLoud.play(_winner!);
-    }
+    _winnerHandle = await _safePlay(_winner);
   }
 
   Future<void> stopWinnerOrNotFoundSound() async {
     if (_winnerHandle != null) {
-      _soLoud.stop(_winnerHandle!);
+      try {
+        _soLoud.stop(_winnerHandle!);
+      } catch (_) {}
       _winnerHandle = null;
     }
     if (_notFoundHandle != null) {
-      _soLoud.stop(_notFoundHandle!);
+      try {
+        _soLoud.stop(_notFoundHandle!);
+      } catch (_) {}
       _notFoundHandle = null;
     }
   }
 
   Future<void> stopBackgroundSound() async {
     if (_backgroundHandle != null) {
-      _soLoud.fadeVolume(
-          _backgroundHandle!, 0.0, const Duration(milliseconds: 500));
+      try {
+        _soLoud.fadeVolume(
+            _backgroundHandle!, 0.0, const Duration(milliseconds: 500));
+      } catch (_) {}
     }
   }
 
   void dispose() {
-    _soLoud.deinit();
+    if (_isObserverRegistered) {
+      WidgetsBinding.instance.removeObserver(this);
+      _isObserverRegistered = false;
+    }
+    try {
+      _soLoud.deinit();
+    } catch (_) {}
   }
 
   Future<AudioSource?> _safeLoad(String path) async {
@@ -302,160 +362,103 @@ class AudioHelper {
   // --- Word Scramble In-Game Audio Methods ---
   Future<void> playScramblePop([int noteIndex = 0]) async {
     if (!_isSoundOn) return;
-    try {
-      if (_scramblePopNotes.isNotEmpty) {
-        final idx = noteIndex.clamp(0, _scramblePopNotes.length - 1);
-        await _soLoud.play(_scramblePopNotes[idx]);
-      } else if (_scramblePopDefault != null) {
-        await _soLoud.play(_scramblePopDefault!);
-      } else {
-        await playButtonSound();
-      }
-    } catch (_) {}
+    if (_scramblePopNotes.isNotEmpty) {
+      final idx = noteIndex.clamp(0, _scramblePopNotes.length - 1);
+      await _safePlay(_scramblePopNotes[idx]);
+    } else if (_scramblePopDefault != null) {
+      await _safePlay(_scramblePopDefault);
+    } else {
+      await playButtonSound();
+    }
   }
 
   Future<void> playScrambleCollapse() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_scrambleCollapse != null) {
-        await _soLoud.play(_scrambleCollapse!);
-      }
-    } catch (_) {}
+    await _safePlay(_scrambleCollapse);
   }
 
   Future<void> playScrambleSolve() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_scrambleSolve != null) {
-        await _soLoud.play(_scrambleSolve!);
-      } else {
-        await playFoundSound();
-      }
-    } catch (_) {}
+    if (_scrambleSolve != null) {
+      await _safePlay(_scrambleSolve);
+    } else {
+      await playFoundSound();
+    }
   }
 
   Future<void> playScrambleKitty() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_scrambleKitty != null) {
-        await _soLoud.play(_scrambleKitty!);
-      }
-    } catch (_) {}
+    await _safePlay(_scrambleKitty);
   }
 
   Future<void> playScrambleShuffle() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_scrambleShuffle != null) {
-        await _soLoud.play(_scrambleShuffle!);
-      }
-    } catch (_) {}
+    await _safePlay(_scrambleShuffle);
   }
 
   Future<void> playScramblePraise() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_scramblePraise != null) {
-        await _soLoud.play(_scramblePraise!);
-      }
-    } catch (_) {}
+    await _safePlay(_scramblePraise);
   }
 
   // --- Balloon Rescue In-Game Audio Methods ---
   Future<void> playBalloonPop([int noteIndex = 0]) async {
     if (!_isSoundOn) return;
-    try {
-      if (_balloonPops.isNotEmpty) {
-        final idx = noteIndex.clamp(0, _balloonPops.length - 1);
-        await _soLoud.play(_balloonPops[idx]);
-      } else if (_balloonPopDefault != null) {
-        await _soLoud.play(_balloonPopDefault!);
-      } else {
-        await playButtonSound();
-      }
-    } catch (_) {}
+    if (_balloonPops.isNotEmpty) {
+      final idx = noteIndex.clamp(0, _balloonPops.length - 1);
+      await _safePlay(_balloonPops[idx]);
+    } else if (_balloonPopDefault != null) {
+      await _safePlay(_balloonPopDefault);
+    } else {
+      await playButtonSound();
+    }
   }
 
   Future<void> playBalloonBurst() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_balloonBurst != null) {
-        await _soLoud.play(_balloonBurst!);
-      } else {
-        await playNotFoundSound();
-      }
-    } catch (_) {}
+    if (_balloonBurst != null) {
+      await _safePlay(_balloonBurst);
+    } else {
+      await playNotFoundSound();
+    }
   }
 
   Future<void> playBalloonFly() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_balloonFly != null) {
-        await _soLoud.play(_balloonFly!);
-      }
-    } catch (_) {}
+    await _safePlay(_balloonFly);
   }
 
   Future<void> playBalloonPraise() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_balloonPraise != null) {
-        await _soLoud.play(_balloonPraise!);
-      } else {
-        await playButtonSound();
-      }
-    } catch (_) {}
+    if (_balloonPraise != null) {
+      await _safePlay(_balloonPraise);
+    } else {
+      await playButtonSound();
+    }
   }
 
   Future<void> playBalloonTakeoff() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_balloonTakeoff != null) {
-        await _soLoud.play(_balloonTakeoff!);
-      } else {
-        await playWinnerSound();
-      }
-    } catch (_) {}
+    if (_balloonTakeoff != null) {
+      await _safePlay(_balloonTakeoff);
+    } else {
+      await playWinnerSound();
+    }
   }
 
   Future<void> playBalloonFall() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_balloonFall != null) {
-        await _soLoud.play(_balloonFall!);
-      } else {
-        await playTimeOutSound();
-      }
-    } catch (_) {}
+    if (_balloonFall != null) {
+      await _safePlay(_balloonFall);
+    } else {
+      await playTimeOutSound();
+    }
   }
 
   Future<void> playBalloonInflate() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_balloonInflate != null) {
-        await _soLoud.play(_balloonInflate!);
-      } else {
-        await playMoneySound();
-      }
-    } catch (_) {}
+    if (_balloonInflate != null) {
+      await _safePlay(_balloonInflate);
+    } else {
+      await playMoneySound();
+    }
   }
 
   Future<void> playBalloonDanger() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_balloonDanger != null) {
-        await _soLoud.play(_balloonDanger!);
-      }
-    } catch (_) {}
+    await _safePlay(_balloonDanger);
   }
 
   Future<void> playBalloonWrong() async {
-    if (!_isSoundOn) return;
-    try {
-      if (_balloonWrong != null) {
-        await _soLoud.play(_balloonWrong!);
-      }
-    } catch (_) {}
+    await _safePlay(_balloonWrong);
   }
 
   /// Stop any active character vocalization immediately to prevent sound overlay
@@ -470,11 +473,9 @@ class AudioHelper {
 
   /// Cute playful cartoon squeak/chirp on touch (0.22s, pleasant, NOT engine loop)
   Future<void> playBalloonScared() async {
-    if (!_isSoundOn || _balloonScared == null) return;
+    if (!_isSoundOn) return;
     await stopCharacterVoice();
-    try {
-      _characterVocalHandle = await _soLoud.play(_balloonScared!, volume: 0.75);
-    } catch (_) {}
+    _characterVocalHandle = await _safePlay(_balloonScared, volume: 0.75);
   }
 
   Future<void> startBalloonHoldScared() => playBalloonScared();
@@ -482,40 +483,30 @@ class AudioHelper {
 
   /// When finger is released without panic: cute short baby relief giggle
   Future<void> playBalloonRelief() async {
-    if (!_isSoundOn || _balloonGiggle == null) return;
+    if (!_isSoundOn) return;
     await stopCharacterVoice();
-    try {
-      _characterVocalHandle = await _soLoud.play(_balloonGiggle!, volume: 0.85);
-    } catch (_) {}
+    _characterVocalHandle = await _safePlay(_balloonGiggle, volume: 0.85);
   }
 
   /// When 1 letter is correct in Balloon Rescue: short, sweet baby happy "Yay!"
   Future<void> playBalloonLetterHappy() async {
     if (!_isSoundOn) return;
     await stopCharacterVoice();
-    try {
-      if (_balloonLetterHappy != null) {
-        _characterVocalHandle =
-            await _soLoud.play(_balloonLetterHappy!, volume: 0.85);
-      } else if (_balloonGiggle != null) {
-        _characterVocalHandle =
-            await _soLoud.play(_balloonGiggle!, volume: 0.85);
-      }
-    } catch (_) {}
+    if (_balloonLetterHappy != null) {
+      _characterVocalHandle =
+          await _safePlay(_balloonLetterHappy, volume: 0.85);
+    } else {
+      _characterVocalHandle =
+          await _safePlay(_balloonGiggle, volume: 0.85);
+    }
   }
 
   /// Celebratory "Yoo-hoooo!" joyful victory cheer on takeoff
   Future<void> playBalloonWoohoo() async {
     if (!_isSoundOn) return;
     await stopCharacterVoice();
-    try {
-      if (_balloonTakeoff != null) {
-        _characterVocalHandle =
-            await _soLoud.play(_balloonTakeoff!, volume: 0.95);
-      }
-    } catch (_) {}
+    _characterVocalHandle = await _safePlay(_balloonTakeoff, volume: 0.95);
   }
 
-  // Future<void> playBalloonScared() => startBalloonHoldScared();
   Future<void> playBalloonGiggle() => playBalloonRelief();
 }

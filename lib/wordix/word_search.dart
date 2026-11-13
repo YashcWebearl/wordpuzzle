@@ -1293,11 +1293,6 @@ class WordSearchPageState extends State<WordSearchPage>
   }
 
   void _showSuccessDialog() {
-    DailyService().updateTaskProgress(
-      taskKey: 'win_wordix',
-      increment: 1,
-      gameName: 'Wordix',
-    );
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -1305,6 +1300,12 @@ class WordSearchPageState extends State<WordSearchPage>
           isRewardAd: false,
           onAdComplete: () {
             if (!mounted) return;
+            // Trigger win task progress AFTER ad playback so snackbar is 100% visible
+            DailyService().updateTaskProgress(
+              taskKey: 'win_wordix',
+              increment: 1,
+              gameName: 'Wordix',
+            );
             Navigator.push(
               context,
               MaterialPageRoute(

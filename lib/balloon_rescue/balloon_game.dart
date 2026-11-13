@@ -361,10 +361,6 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
 
   void _handleVictory() {
     _isGameOver = true;
-    DailyService().updateTaskProgress(
-      taskKey: 'win_balloon',
-      gameName: 'balloon',
-    );
     _dangerPulseController.stop();
     _dangerPulseController.reset();
 
@@ -388,6 +384,11 @@ class _BalloonGameScreenState extends State<BalloonGameScreen>
             isRewardAd: false,
             onAdComplete: () {
               if (!mounted) return;
+              // Trigger win task progress AFTER ad playback so snackbar is 100% visible
+              DailyService().updateTaskProgress(
+                taskKey: 'win_balloon',
+                gameName: 'balloon',
+              );
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(

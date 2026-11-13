@@ -282,8 +282,9 @@ class DailyService {
                 if (isCompleted || isClaimed) {
                   await prefs.setBool(
                       'task_top_notified_${userId}_${todayStr}_$key', true);
-                  TopTaskSnackBar.markNotified(key, todayStr);
-                } else if (key == 'word_master_duo') {
+                  TopTaskSnackBar.markNotified(key, todayStr, userId: userId);
+                } else {
+                  // If NOT completed on backend, ensure notification is NOT prematurely locked
                   await prefs.setBool(
                       'task_top_notified_${userId}_${todayStr}_$key', false);
                 }
@@ -472,16 +473,24 @@ class DailyService {
       debugPrint('DailyService: updateTaskProgress backend error: $e');
     }
 
+    final bool justCompleted =
+        justCompletedLocally || (backendJustCompleted && oldProg < target);
+
+    debugPrint(
+        '🎯 [DailyService] updateTaskProgress: $taskKey (old: $oldProg, new: $localProg, target: $target, justCompleted: $justCompleted, notified: $isAlreadyNotified)');
+
     // 4. Trigger TOP SNACKBAR on any screen STRICTLY ONCE if just completed right now
-    if ((justCompletedLocally || backendJustCompleted) &&
+    if (justCompleted &&
         !isAlreadyNotified &&
         !isAlreadyClaimed) {
+      debugPrint('📢 [DailyService] Triggering TopTaskSnackBar for $taskKey');
       final notifiedKey = 'task_top_notified_${userId}_${todayStr}_$taskKey';
       await prefs.setBool(notifiedKey, true);
       TopTaskSnackBar.showTaskCompleted(
         taskKey: taskKey,
         title: taskTitle.isNotEmpty ? taskTitle : null,
         coins: coinsReward,
+        userId: userId,
       );
     }
 
@@ -526,6 +535,7 @@ class DailyService {
           taskKey: 'word_master_duo',
           title: 'Dual Scholar',
           coins: 200,
+          userId: userId,
         );
       }
     }

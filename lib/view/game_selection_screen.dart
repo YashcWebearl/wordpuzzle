@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
@@ -20,6 +19,8 @@ import 'package:word_puzzle/crossword/crossword_splash.dart';
 import 'package:word_puzzle/crossword/crossword_logo.dart';
 import 'package:word_puzzle/crossword/crossword_level_service.dart';
 import 'package:word_puzzle/widget/coin_grant_dialog.dart';
+import 'package:word_puzzle/widget/top_task_snackbar.dart';
+import 'package:word_puzzle/services/daily_service.dart';
 import 'package:word_puzzle/view/daily_rewards_tasks_screen.dart';
 import 'package:word_puzzle/scramble/scramble_splash.dart';
 import 'package:word_puzzle/scramble/scramble_logo.dart';
@@ -290,6 +291,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         CrosswordLevelService.fetchLevel();
         ScrambleLevelService.fetchLevel();
         BalloonLevelService.fetchLevel();
+        DailyService().getDailyStatus();
       }
     });
   }
@@ -483,7 +485,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     child: Text(
                       '⏳ RELEASING SOON',
                       style: GoogleFonts.outfit(
-                        fontSize: 11.sp,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: game.badgeColor,
                         letterSpacing: 1.1,
@@ -494,7 +496,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                   Text(
                     game.title,
                     style: GoogleFonts.outfit(
-                      fontSize: 24.sp,
+                      fontSize: 24,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                       letterSpacing: 1.2,
@@ -505,7 +507,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     game.subtitle,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
-                      fontSize: 13.sp,
+                      fontSize: 13,
                       color: Colors.white70,
                     ),
                   ),
@@ -515,7 +517,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     child: Text(
                       'UPCOMING HIGHLIGHTS',
                       style: GoogleFonts.outfit(
-                        fontSize: 12.sp,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: game.primaryColor,
                         letterSpacing: 1.1,
@@ -539,7 +541,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                             child: Text(
                               feature,
                               style: GoogleFonts.outfit(
-                                fontSize: 13.sp,
+                                fontSize: 13,
                                 color: Colors.white.withValues(alpha: 0.9),
                                 height: 1.3,
                               ),
@@ -680,7 +682,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     Text(
                       "SIGN OUT?",
                       style: GoogleFonts.outfit(
-                        fontSize: 22.sp,
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                       ),
@@ -689,7 +691,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     Text(
                       "Are you sure you want to sign out from your account?",
                       style: GoogleFonts.outfit(
-                        fontSize: 13.5.sp,
+                        fontSize: 13.5,
                         color: Colors.white70,
                       ),
                       textAlign: TextAlign.center,
@@ -754,6 +756,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                               } catch (e) {
                                 debugPrint('Google sign out error: $e');
                               }
+
+                              TopTaskSnackBar.reset();
 
                               if (context.mounted) {
                                 Provider.of<CoinProvider>(context, listen: false).reset();
@@ -844,7 +848,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                   Text(
                     "EXIT APP?",
                     style: GoogleFonts.outfit(
-                      fontSize: 22.sp,
+                      fontSize: 22,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                       letterSpacing: 1.2,
@@ -855,7 +859,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     "Are you sure you want to exit?",
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
-                      fontSize: 14.sp,
+                      fontSize: 14,
                       color: Colors.white.withValues(alpha: 0.85),
                       height: 1.3,
                     ),
@@ -874,7 +878,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           glowColor: Colors.white24,
                           textColor: Colors.white70,
                           height: 46,
-                          fontSize: 13.5.sp,
+                          fontSize: 13.5,
                           borderRadius: 16.0,
                           onPressed: () {
                             AudioHelper().playButtonSound();
@@ -895,7 +899,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           glowColor: const Color(0xFFFF5252),
                           textColor: Colors.white,
                           height: 46,
-                          fontSize: 13.5.sp,
+                          fontSize: 13.5,
                           borderRadius: 16,
                           onPressed: () => SystemNavigator.pop(),
                         ),
@@ -1034,7 +1038,6 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    ScreenUtil.init(context);
     final activeGame = _games[_currentPage];
 
     return PopScope(
@@ -1190,7 +1193,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Game Logo Circular Button to open Drawer
+          // Game Menu / Console Controller Button to open Drawer
           GestureDetector(
             onTap: () {
               AudioHelper().playButtonSound();
@@ -1204,36 +1207,43 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                   duration: const Duration(milliseconds: 300),
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
+                    color: Colors.white.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: activeColor.withValues(alpha: 0.7),
+                      color: activeColor.withValues(alpha: 0.8),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: activeColor.withValues(alpha: 0.25),
+                        color: activeColor.withValues(alpha: 0.35),
                         blurRadius: 10,
+                        spreadRadius: 1,
                       ),
                     ],
                   ),
                   child: Container(
-                    width: 34,
-                    height: 34,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF0F3057),
-                      border: Border.all(color: Colors.white38, width: 1),
+                      gradient: LinearGradient(
+                        colors: [
+                          activeColor.withValues(alpha: 0.45),
+                          const Color(0xFF0F3057),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        width: 1,
+                      ),
                     ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/icon/icon3.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.extension_rounded,
-                          color: activeColor,
-                          size: 18,
-                        ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.sports_esports_rounded,
+                        color: Colors.white,
+                        size: 22,
                       ),
                     ),
                   ),
@@ -1321,7 +1331,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                                   ? _userName[0].toUpperCase()
                                   : 'P',
                               style: GoogleFonts.outfit(
-                                fontSize: 36.sp,
+                                fontSize: 36,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.white,
                               ),
@@ -1334,7 +1344,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                         Text(
                           _userName,
                           style: GoogleFonts.outfit(
-                            fontSize: 20.sp,
+                            fontSize: 20,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
                             letterSpacing: 0.6,
@@ -1357,7 +1367,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           child: Text(
                             _userEmail,
                             style: GoogleFonts.outfit(
-                              fontSize: 12.sp,
+                              fontSize: 12,
                               color: Colors.white.withValues(alpha: 0.85),
                             ),
                             textAlign: TextAlign.center,
@@ -1382,7 +1392,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                       child: Text(
                         'SETTINGS & PREFERENCES',
                         style: GoogleFonts.outfit(
-                          fontSize: 11.sp,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF00E5FF),
                           letterSpacing: 1.2,
@@ -1448,7 +1458,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     child: Text(
                       'Word Search Puzzle • v1.0.0',
                       style: GoogleFonts.outfit(
-                        fontSize: 11.sp,
+                        fontSize: 11,
                         color: Colors.white38,
                       ),
                     ),
@@ -1491,7 +1501,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         title: Text(
           title,
           style: GoogleFonts.outfit(
-            fontSize: 14.sp,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             color: titleColor ?? Colors.white,
           ),
@@ -1500,7 +1510,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
             ? Text(
                 subtitle,
                 style: GoogleFonts.outfit(
-                  fontSize: 11.sp,
+                  fontSize: 11,
                   color: Colors.white54,
                 ),
               )
@@ -1546,7 +1556,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     'SELECT ARENA',
                     style: GoogleFonts.outfit(
                       color: Colors.white,
-                      fontSize: 13.5.sp,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.1,
                     ),
@@ -1557,7 +1567,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                 'SWIPE OR TAP',
                 style: GoogleFonts.outfit(
                   color: Colors.white38,
-                  fontSize: 10.sp,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
                 ),
@@ -1651,7 +1661,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                             title,
                             style: GoogleFonts.outfit(
                               color: isSelected ? Colors.white : Colors.white60,
-                              fontSize: 11.5.sp,
+                              fontSize: 11.5,
                               fontWeight: isSelected
                                   ? FontWeight.w900
                                   : FontWeight.w700,
@@ -1761,44 +1771,11 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           child: Text(
                             game.category,
                             style: GoogleFonts.outfit(
-                              fontSize: 10.sp,
+                              fontSize: 10,
                               fontWeight: FontWeight.w700,
                               color: Colors.white70,
                               letterSpacing: 1.1,
                             ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: game.badgeColor.withValues(alpha: 0.22),
-                            borderRadius: BorderRadius.circular(12),
-                            border:
-                                Border.all(color: game.badgeColor, width: 1.2),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: game.badgeColor,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                game.badgeText,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w800,
-                                  color: game.badgeColor,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ],
@@ -1809,8 +1786,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     // Hero Art / Icon Display (Proper, prominent size & 3D Crossword / Balloon Rescue Logo)
                     Center(
                       child: Container(
-                        width: 140.w,
-                        height: 140.h,
+                        width: 140,
+                        height: 140,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: RadialGradient(
@@ -1832,7 +1809,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                     Text(
                       game.title,
                       style: GoogleFonts.outfit(
-                        fontSize: 26.sp,
+                        fontSize: 26,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                         letterSpacing: 1.2,
@@ -1851,7 +1828,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
-                        fontSize: 12.sp,
+                        fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.8),
                         height: 1.25,
                       ),
@@ -1876,7 +1853,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                           child: Text(
                             tag,
                             style: GoogleFonts.outfit(
-                              fontSize: 10.sp,
+                              fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
@@ -1945,12 +1922,12 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
     if (game.imagePath != null) {
       return Image.asset(
         game.imagePath!,
-        width: 125.w,
-        height: 125.h,
+        width: 125,
+        height: 125,
         fit: BoxFit.contain,
         errorBuilder: (_, __, ___) => Icon(
           game.fallbackIcon,
-          size: 80.sp,
+          size: 80,
           color: game.primaryColor,
         ),
       );
@@ -1960,8 +1937,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
 
   Widget _buildCrosswordHeroArt(_GameItemModel game) {
     return Container(
-      width: 88.w,
-      height: 88.h,
+      width: 88,
+      height: 88,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(18),
@@ -2005,8 +1982,8 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
   Widget _buildCrosswordCell(String letter, bool highlight,
       {bool isBlack = false}) {
     return Container(
-      width: 22.w,
-      height: 22.h,
+      width: 22,
+      height: 22,
       margin: const EdgeInsets.all(1.5),
       decoration: BoxDecoration(
         color: isBlack
@@ -2020,7 +1997,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         child: Text(
           letter,
           style: GoogleFonts.outfit(
-            fontSize: 11.sp,
+            fontSize: 11,
             fontWeight: FontWeight.w900,
             color: highlight ? const Color(0xFF1E033A) : Colors.white,
           ),
@@ -2265,7 +2242,7 @@ class _FloatingWordsBackground extends StatelessWidget {
                             child: Text(
                               p.text,
                               style: GoogleFonts.outfit(
-                                fontSize: p.size.sp,
+                                fontSize: p.size,
                                 fontWeight: FontWeight.w900,
                                 color: wordTextColor,
                                 letterSpacing: 1.8,
@@ -2273,8 +2250,8 @@ class _FloatingWordsBackground extends StatelessWidget {
                             ),
                           )
                         : Container(
-                            width: (p.size * 1.3).sp,
-                            height: (p.size * 1.3).sp,
+                            width: p.size * 1.3,
+                            height: p.size * 1.3,
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
@@ -2287,7 +2264,7 @@ class _FloatingWordsBackground extends StatelessWidget {
                               child: Text(
                                 p.text,
                                 style: GoogleFonts.outfit(
-                                  fontSize: p.size.sp,
+                                  fontSize: p.size,
                                   fontWeight: FontWeight.w900,
                                   color: tileTextColor,
                                 ),
