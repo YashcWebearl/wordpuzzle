@@ -708,24 +708,53 @@ class WordSearchPageState extends State<WordSearchPage>
 
   Future<void> _startLevel() async {
     try {
-      final potentialWords = _generateDynamicWords();
-      _grid = List.generate(gridSize, (_) => List.filled(gridSize, ''));
-      _currentWords = [];
-      for (final word in potentialWords) {
-        if (_placeWord(word, _grid)) {
-          _currentWords.add(word);
+      final targetWordCount = gridSize == 6 ? 5 : (gridSize == 8 ? 6 : 7);
+      List<List<String>> bestGrid =
+          List.generate(gridSize, (_) => List.filled(gridSize, ''));
+      List<String> bestPlacedWords = [];
+
+      // Try generating and placing words with retries to guarantee targetWordCount
+      for (int attempt = 0; attempt < 10; attempt++) {
+        final potentialWords = _generateDynamicWords();
+        // Sort by length descending to place larger words first
+        potentialWords.sort((a, b) => b.length.compareTo(a.length));
+
+        final testGrid =
+            List.generate(gridSize, (_) => List.filled(gridSize, ''));
+        final placedWords = <String>[];
+
+        for (final word in potentialWords) {
+          if (_placeWord(word, testGrid)) {
+            placedWords.add(word);
+            if (placedWords.length >= targetWordCount) break;
+          }
+        }
+
+        if (placedWords.length > bestPlacedWords.length) {
+          bestPlacedWords = placedWords;
+          bestGrid = testGrid;
+        }
+
+        if (bestPlacedWords.length >= targetWordCount) {
+          break;
         }
       }
+
+      _currentWords = bestPlacedWords;
+      _grid = bestGrid;
+
       for (var r = 0; r < gridSize; r++) {
         for (var c = 0; c < gridSize; c++) {
-          if (_grid[r][c].isEmpty)
+          if (_grid[r][c].isEmpty) {
             _grid[r][c] = String.fromCharCode(65 + _random.nextInt(26));
+          }
         }
       }
       if (mounted) {
         setState(() {
           moveCount = 0;
-          maxMoves = _currentWords.length + 2;
+          // Always give 3 extra moves on top of words to find (never words == moves)
+          maxMoves = _currentWords.length + 3;
           _isGameOver = false;
           _isLevelCompleted = false;
           _foundWordPaths.clear();
@@ -767,7 +796,7 @@ class WordSearchPageState extends State<WordSearchPage>
                 setState(() {
                   timeLeft = 90;
                   moveCount = 0;
-                  maxMoves = _currentWords.length + 2;
+                  maxMoves = _currentWords.length + 3;
                   _lastSecondSoundPlayed = false;
                 });
                 _startTimer();
@@ -837,8 +866,9 @@ class WordSearchPageState extends State<WordSearchPage>
           .where((word) => word.length <= gridSize && !_usedWords.contains(word)));
     }
     availableWords.shuffle(_random);
+    final candidateCount = max(8, 5 + gridSize ~/ 2);
     final selectedWords = availableWords
-        .take(min(availableWords.length, 4 + gridSize ~/ 2))
+        .take(min(availableWords.length, candidateCount))
         .map((word) => word.toUpperCase())
         .toSet()
         .toList();
@@ -1061,6 +1091,27 @@ class WordSearchPageState extends State<WordSearchPage>
     if (_isGameOver || _isLevelCompleted || _isDialogShowing) return;
     if (_start != null && _end != null) {
       final forwardWord = _getSelectedWord(_start!, _end!);
+
+      // 1. If only 1 letter was selected (or path length <= 1), do not count as a move
+      if (forwardWord.length <= 1 || _currentDragPath.length <= 1) {
+        setState(() {
+          _start = _end = null;
+          _currentDragPath = [];
+        });
+        return;
+      }
+
+      // 2. ONLY if the EXACT word was already found (e.g. "BOOK"), do not count as a move.
+      // Partial words ("BO", "OK", "BOO") or reverse ("KOOB", "KOO") are NOT in _foundWordPaths,
+      // so they fall through and count as an invalid move attempt.
+      if (_foundWordPaths.containsKey(forwardWord)) {
+        setState(() {
+          _start = _end = null;
+          _currentDragPath = [];
+        });
+        return;
+      }
+
       String? matchedWord;
       if (_currentWords.contains(forwardWord) &&
           !_foundWordPaths.containsKey(forwardWord)) {

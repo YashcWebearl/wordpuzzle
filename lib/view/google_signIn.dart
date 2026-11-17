@@ -60,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleEmailSignIn() async {
-    final email = emailController.text.trim();
+    final email = emailController.text.trim().toLowerCase();
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
@@ -68,20 +68,31 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Specific email/password combination rule preserved exactly
-    // if (email != 'yashchauhan864@gmail.com' || password != '123123') {
-    //   Fluttertoast.showToast(msg: "please use google sign in for login");
-    //   return;
-    // }
-    if ((email != 'yashchauhan864@gmail.com' &&
-        email != 'yashc.webearl@gmail.com') ||
-        password != '123123') {
-      Fluttertoast.showToast(msg: "please use google sign in for login");
-      return;
-    }
     setState(() => isLoading = true);
 
     try {
+      // 🔍 Step 1: Check if email is an active test email via API
+      final checkUri = Uri.parse('$LURL/api/test-mail/check/${Uri.encodeComponent(email)}');
+      final checkResponse = await http.get(checkUri);
+
+      print('Test Mail Check Status: ${checkResponse.statusCode} | Body: ${checkResponse.body}');
+
+      bool isTestMail = false;
+      if (checkResponse.statusCode == 200) {
+        final checkJson = jsonDecode(checkResponse.body);
+        isTestMail = checkJson['isTestMail'] == true;
+      }
+
+      if (!isTestMail) {
+        if (mounted) setState(() => isLoading = false);
+        Fluttertoast.showToast(
+          msg: "Please use Google Sign In for login",
+          backgroundColor: Colors.orange,
+        );
+        return;
+      }
+
+      // 🚀 Step 2: Test email confirmed -> proceed with login
       final uri = Uri.parse('$LURL/api/user/login');
       final response = await http.post(
         uri,
