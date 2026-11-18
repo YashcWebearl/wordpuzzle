@@ -7,7 +7,7 @@ import 'base_url.dart'; // for LURL
 class CoinProvider extends ChangeNotifier {
   int _coins = 0;
   bool _isInitialized = false;
-  bool _isUpdating = false; // Flag to track pending updates
+  bool _isUpdating = false;
   String? _errorMessage;
 
   bool get isInitialized => _isInitialized;
@@ -25,127 +25,142 @@ class CoinProvider extends ChangeNotifier {
     return 'user_coins';
   }
 
+  /// 1. Initialize immediately from local storage (Zero network delay)
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     final key = await _getCoinKey();
 
-    // 1. Immediately load local saved coins so UI is instant and never flickers
+    // Immediately load local saved coins so UI is instant and never flickers
     _coins = prefs.getInt(key) ?? prefs.getInt('user_coins') ?? 0;
-    notifyListeners();
-
-    // 2. Perform dynamic bidirectional reconciliation with server in background
-    await syncWithServer();
     _isInitialized = true;
     notifyListeners();
+
+    // 🛡️ If local balance is missing/zero, automatically fetch authentic balance in background
+    if (_coins == 0) {
+      fetchCoinsFromBackend();
+    }
   }
 
-  /// Dynamically reconciles local and server coin balances:
-  /// - Never hardcodes any numbers.
-  /// - Never causes unexpected jumps on the user's screen.
-  /// - Automatically brings server and local into 100% agreement.
-  Future<void> syncWithServer() async {
-    if (_isUpdating) return;
+  /// 2. Fetch coins from backend with 3-attempt retry & connection resilience
+  /// (Used during Login, fresh install, or auto-recovery when local is zero)
+  Future<int?> fetchCoinsFromBackend() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
     final coinKey = await _getCoinKey();
 
-    try {
-      final response = await http.get(
-        Uri.parse('$LURL/api/coin/display?gameName=Wordix'),
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-          if (token.isNotEmpty)
-            'Authorization':
-                token.startsWith('Bearer ') ? token : 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 8));
+    if (token.isEmpty) {
+      debugPrint('⚠️ [CoinProvider] No auth_token available for fetchCoinsFromBackend');
+      return null;
+    }
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data is Map<String, dynamic> && data['success'] == true) {
-          final int serverCoins = (data['coins'] as num?)?.toInt() ?? 0;
-          final int? savedCoins =
-              prefs.getInt(coinKey) ?? prefs.getInt('user_coins');
+    final authHeader = token.startsWith('Bearer ') ? token : 'Bearer $token';
+    final rawToken = token.replaceFirst('Bearer ', '');
 
-          // Case 1: Fresh user / new device login without existing local history
-          if (savedCoins == null) {
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final response = await http.get(
+          Uri.parse('$LURL/api/coin/display?gameName=Wordix'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Connection': 'close',
+            'ngrok-skip-browser-warning': 'true',
+            'Authorization': authHeader,
+            'token': rawToken,
+          },
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data is Map<String, dynamic> && data['success'] == true) {
+            final int serverCoins = (data['coins'] as num?)?.toInt() ?? 0;
             _coins = serverCoins;
             await prefs.setInt(coinKey, _coins);
             await prefs.setInt('user_coins', _coins);
-            return;
+            _isInitialized = true;
+            notifyListeners();
+            print('🪙 [CoinProvider] Successfully fetched coins from backend: $serverCoins (attempt $attempt)');
+            return serverCoins;
           }
-
-          // Case 2: Existing user with local gameplay balance
-          final int localCoins = _coins > 0 ? _coins : savedCoins;
-
-          if (serverCoins > localCoins) {
-            // Server has more coins (ghost coins from un-synced undos or duplicate claims)
-            // Dynamically reconcile by undoing the difference on server
-            final int excess = serverCoins - localCoins;
-            if (token.isNotEmpty && excess > 0) {
-              try {
-                final undoUrl = Uri.parse('$LURL/api/coin/undo');
-                await http
-                    .post(
-                      undoUrl,
-                      headers: {
-                        'Authorization': token.startsWith('Bearer ')
-                            ? token
-                            : 'Bearer $token',
-                        'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true',
-                      },
-                      body: jsonEncode({'coin': excess, "gameName": "Wordix"}),
-                    )
-                    .timeout(const Duration(seconds: 8));
-              } catch (_) {}
-            }
-            _coins = localCoins;
-          } else if (localCoins > serverCoins) {
-            // Local has more coins (earned offline or pending sync)
-            // Dynamically reconcile by crediting the difference to server
-            final int missing = localCoins - serverCoins;
-            if (token.isNotEmpty && missing > 0) {
-              try {
-                final addUrl = Uri.parse('$LURL/api/coin/add');
-                await http
-                    .post(
-                      addUrl,
-                      headers: {
-                        'Authorization': token.startsWith('Bearer ')
-                            ? token
-                            : 'Bearer $token',
-                        'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true',
-                      },
-                      body: jsonEncode({'coin': missing, "gameName": "Wordix"}),
-                    )
-                    .timeout(const Duration(seconds: 8));
-              } catch (_) {}
-            }
-            _coins = localCoins;
-          } else {
-            // Already in perfect harmony
-            _coins = localCoins;
-          }
-
-          await prefs.setInt(coinKey, _coins);
-          await prefs.setInt('user_coins', _coins);
+        } else {
+          print('⚠️ [CoinProvider] fetchCoins status: ${response.statusCode} | body: ${response.body}');
+        }
+      } catch (e) {
+        debugPrint('⚠️ [CoinProvider] Attempt $attempt failed fetching coins: $e');
+        if (attempt < 3) {
+          await Future.delayed(const Duration(milliseconds: 600));
         }
       }
+    }
+    return null;
+  }
+
+  /// 3. Sync coins & levels to backend using Replace API
+  /// (Called ONLY on Splash Screen and Logout)
+  Future<bool> syncCoinsToBackend({Map<String, int>? levels}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token') ?? '';
+    if (token.isEmpty) return false;
+
+    final coinKey = await _getCoinKey();
+    final currentCoins =
+        prefs.getInt(coinKey) ?? prefs.getInt('user_coins') ?? _coins;
+    _coins = currentCoins;
+
+    final url = Uri.parse('$LURL/api/gameLevel/wordix/replace');
+    final Map<String, dynamic> body = {
+      'coins': currentCoins,
+    };
+    if (levels != null && levels.isNotEmpty) {
+      body['levels'] = levels;
+    }
+
+    try {
+      print('🚀 [CoinProvider] Syncing coins ($currentCoins) and levels ($levels) to backend...');
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Connection': 'close',
+              'ngrok-skip-browser-warning': 'true',
+              'Authorization':
+                  token.startsWith('Bearer ') ? token : 'Bearer $token',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      print(
+          '📡 [CoinProvider] Replace API response: ${response.statusCode} | ${response.body}');
+      return response.statusCode == 200;
     } catch (e) {
-      debugPrint('Dynamic coin sync error: $e');
-    } finally {
+      debugPrint('Error syncing coins/levels to backend: $e');
+      return false;
+    }
+  }
+
+  /// Backward compatible alias
+  Future<void> syncWithServer() async {
+    await initialize();
+  }
+
+  /// Called on screen load (e.g. GameSelectionScreen):
+  /// If coins are 0 or local storage is empty, auto-fetches from backend!
+  Future<void> getCoin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = await _getCoinKey();
+    final localCoins = prefs.getInt(key) ?? prefs.getInt('user_coins');
+
+    if (localCoins == null || localCoins == 0 || _coins == 0) {
+      await fetchCoinsFromBackend();
+    } else {
+      _coins = localCoins;
       notifyListeners();
     }
   }
 
-  Future<void> getCoin() async {
-    await syncWithServer();
-  }
-
-  /// Sets balance directly without calling /api/coin/add (used when backend API already credited coins e.g. streak/task claims)
+  /// Sets balance directly in local storage
   Future<void> setCoins(int newBalance) async {
     _coins = newBalance;
     final prefs = await SharedPreferences.getInstance();
@@ -155,7 +170,7 @@ class CoinProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Locally increments (or decrements) coins without calling /api/coin/add
+  /// Locally increments (or decrements) coins without calling server
   Future<void> creditCoinsLocally(int amount) async {
     final prefs = await SharedPreferences.getInstance();
     final coinKey = await _getCoinKey();
@@ -174,161 +189,48 @@ class CoinProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 100% Local Add Coins (Zero API calls during gameplay)
   Future<void> addCoins(
     int amount, {
     bool isWinner = false,
     bool instant = false,
-    bool syncServer = true,
+    bool syncServer = false,
   }) async {
-    if (_isUpdating) {
-      print('Skipping addCoins due to pending update');
-      return;
-    }
-    _isUpdating = true;
     final currentCoins = _coins;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final coinKey = await _getCoinKey();
-      final newCoins = currentCoins + amount;
+    final newCoins = currentCoins + amount;
 
-      if (isWinner && !instant) {
-        // Animate coin count increment
-        for (int i = 1; i <= amount; i++) {
-          _coins = currentCoins + i;
-          notifyListeners();
-          await Future.delayed(const Duration(milliseconds: 25));
-        }
-      } else {
-        _coins = newCoins;
+    final prefs = await SharedPreferences.getInstance();
+    final coinKey = await _getCoinKey();
+
+    // 🛡️ Always save to SharedPreferences FIRST so nothing is lost if user exits during animation
+    await prefs.setInt(coinKey, newCoins);
+    await prefs.setInt('user_coins', newCoins);
+
+    if (isWinner && !instant) {
+      for (int i = 1; i <= amount; i++) {
+        _coins = currentCoins + i;
         notifyListeners();
+        await Future.delayed(const Duration(milliseconds: 25));
       }
-
-      await prefs.setInt(coinKey, newCoins);
-      await prefs.setInt('user_coins', newCoins);
-
-      if (!syncServer) {
-        return;
-      }
-
-      final token = prefs.getString('auth_token');
-      if (token == null || token.isEmpty) throw Exception('No auth token');
-
-      // Sync with server
-      final url = Uri.parse('$LURL/api/coin/add');
-      final response = await http
-          .post(
-            url,
-            headers: {
-              'Authorization':
-                  token.startsWith('Bearer ') ? token : 'Bearer $token',
-              'Content-Type': 'application/json',
-              'ngrok-skip-browser-warning': 'true',
-            },
-            body: jsonEncode({'coin': amount, "gameName": "Wordix"}),
-          )
-          .timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final bool isSuccess = data['success'] == true ||
-            data.containsKey('coins') ||
-            (data.containsKey('message') &&
-                (data['message'] == 'Coins added' ||
-                    data['message'] == 'Coin data updated'));
-
-        if (isSuccess) {
-          _coins = newCoins;
-          await prefs.setInt(coinKey, _coins);
-          await prefs.setInt('user_coins', _coins);
-        } else {
-          _coins = currentCoins;
-          await prefs.setInt(coinKey, currentCoins);
-          await prefs.setInt('user_coins', currentCoins);
-        }
-      } else {
-        // Rollback if sync fails
-        _coins = currentCoins;
-        await prefs.setInt(coinKey, currentCoins);
-        await prefs.setInt('user_coins', currentCoins);
-      }
-    } catch (e) {
-      final prefs = await SharedPreferences.getInstance();
-      final coinKey = await _getCoinKey();
-      print('Error adding coins: $e');
-      _coins = currentCoins;
-      await prefs.setInt(coinKey, currentCoins);
-      await prefs.setInt('user_coins', currentCoins);
-    } finally {
-      _isUpdating = false;
+    } else {
+      _coins = newCoins;
       notifyListeners();
     }
   }
 
+  /// 100% Local Deduct/Undo Coins (Zero API calls during gameplay)
   Future<void> undoCoins(int amount, {bool instant = true}) async {
-    int attempts = 0;
-    while (_isUpdating && attempts < 25) {
-      await Future.delayed(const Duration(milliseconds: 80));
-      attempts++;
-    }
-    _isUpdating = true;
     final currentCoins = _coins;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final coinKey = await _getCoinKey();
-      final token = prefs.getString('auth_token');
-      if (token == null || token.isEmpty) throw Exception('No auth token');
+    final newCoins = (currentCoins - amount).clamp(0, double.infinity).toInt();
 
-      final newCoins =
-          (currentCoins - amount).clamp(0, double.infinity).toInt();
+    final prefs = await SharedPreferences.getInstance();
+    final coinKey = await _getCoinKey();
 
-      if (instant) {
-        _coins = newCoins;
-        await prefs.setInt(coinKey, _coins);
-        await prefs.setInt('user_coins', _coins);
-        notifyListeners();
-      }
+    // Save immediately to local storage
+    await prefs.setInt(coinKey, newCoins);
+    await prefs.setInt('user_coins', newCoins);
 
-      final url = Uri.parse('$LURL/api/coin/undo');
-      final response = await http
-          .post(
-            url,
-            headers: {
-              'Authorization':
-                  token.startsWith('Bearer ') ? token : 'Bearer $token',
-              'Content-Type': 'application/json',
-              'ngrok-skip-browser-warning': 'true',
-            },
-            body: jsonEncode({'coin': amount, "gameName": "Wordix"}),
-          )
-          .timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 200) {
-        _coins = newCoins;
-        await prefs.setInt(coinKey, _coins);
-        await prefs.setInt('user_coins', _coins);
-      } else {
-        // Rollback if sync failed on server
-        if (instant) {
-          _coins = currentCoins;
-          await prefs.setInt(coinKey, currentCoins);
-          await prefs.setInt('user_coins', currentCoins);
-          notifyListeners();
-        }
-        throw Exception('Failed to undo coins: ${response.body}');
-      }
-    } catch (e) {
-      print('Error undoing coins: $e');
-      if (instant) {
-        final prefs = await SharedPreferences.getInstance();
-        final coinKey = await _getCoinKey();
-        _coins = currentCoins;
-        await prefs.setInt(coinKey, currentCoins);
-        await prefs.setInt('user_coins', currentCoins);
-        notifyListeners();
-      }
-    } finally {
-      _isUpdating = false;
-      notifyListeners();
-    }
+    _coins = newCoins;
+    notifyListeners();
   }
 }

@@ -94,13 +94,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           if (userId.isNotEmpty) {
             await prefs.setString('user_id', userId);
           }
+
+          int? loginCoins;
+          if (jsonResponse['user'] != null && jsonResponse['user']['coins'] != null) {
+            loginCoins = (jsonResponse['user']['coins'] as num?)?.toInt();
+          } else if (jsonResponse['coins'] != null) {
+            loginCoins = (jsonResponse['coins'] as num?)?.toInt();
+          }
+
           if (mounted) {
             final coinProvider =
                 Provider.of<CoinProvider>(context, listen: false);
+            if (loginCoins != null && loginCoins > 0) {
+              await coinProvider.setCoins(loginCoins);
+            }
             final gameLevelProvider =
                 Provider.of<GameLevelProvider>(context, listen: false);
 
-            await coinProvider.initialize();
+            await coinProvider.fetchCoinsFromBackend();
 
             await Future.wait([
               gameLevelProvider.refresh(),

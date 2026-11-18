@@ -333,20 +333,18 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
     AudioHelper().playMoneySound();
     HapticFeedback.mediumImpact();
 
+    // 🛡️ Award coins locally immediately so if user exits during animation, coins are 100% saved
+    try {
+      final coinProvider = Provider.of<CoinProvider>(context, listen: false);
+      coinProvider.creditCoinsLocally(coins);
+    } catch (_) {}
+
     _flyAnimController.forward(from: 0.0).then((_) async {
       if (!mounted) return;
       HapticFeedback.heavyImpact();
-      final coinProvider = Provider.of<CoinProvider>(context, listen: false);
 
       if (onCoinsDelivered != null) {
         await onCoinsDelivered();
-      } else if (syncServer) {
-        await coinProvider.addCoins(coins, syncServer: true);
-      } else {
-        // Increment the visible wallet by EXACTLY the reward coins that flew in!
-        // This guarantees the user always sees their balance increase by exactly
-        // the claimed amount (e.g. +100) with zero unexpected jumps or drift.
-        await coinProvider.creditCoinsLocally(coins);
       }
 
       widget.confettiController.play();

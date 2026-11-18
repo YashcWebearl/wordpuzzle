@@ -124,9 +124,27 @@ class _CommonGameSuccessScreenState extends State<CommonGameSuccessScreen>
     }
   }
 
+  void _ensureCoinsAwarded({bool animated = false}) {
+    if (_coinsAwarded) return;
+    _coinsAwarded = true;
+    if (widget.isWin && widget.coinsEarned > 0) {
+      try {
+        final coinProvider = Provider.of<CoinProvider>(context, listen: false);
+        coinProvider.addCoins(
+          widget.coinsEarned,
+          isWinner: animated,
+          instant: !animated,
+        );
+        debugPrint(
+            "🪙 [CommonGameSuccessScreen] Awarded ${widget.coinsEarned} coins for win! (animated: $animated) New balance: ${coinProvider.coins}");
+      } catch (e) {
+        debugPrint("Error awarding coins: $e");
+      }
+    }
+  }
+
   void _triggerFlyingCoinsAnimation() {
     if (_coinsAwarded) return;
-    _coinsAwarded = true; // Guard immediately to prevent duplicate rewards on rebuilds or double frames
 
     final RenderBox? coinBox =
         _topCoinKey.currentContext?.findRenderObject() as RenderBox?;
@@ -162,10 +180,13 @@ class _CommonGameSuccessScreenState extends State<CommonGameSuccessScreen>
     HapticFeedback.mediumImpact();
 
     _flyCoinController.forward(from: 0.0).then((_) async {
-      if (!mounted) return;
+      if (!mounted) {
+        _ensureCoinsAwarded(animated: false);
+        return;
+      }
       HapticFeedback.heavyImpact();
-      _coinsAwarded = true;
-      _checkConnectivityAndAddCoins();
+      AudioHelper().playMoneySound();
+      _ensureCoinsAwarded(animated: true);
       setState(() {
         _isCoinFlying = false;
       });
@@ -173,35 +194,15 @@ class _CommonGameSuccessScreenState extends State<CommonGameSuccessScreen>
   }
 
   Future<void> _checkConnectivityAndAddCoins() async {
-    final connectivity = await Connectivity().checkConnectivity();
-    if (!mounted) return;
-    if (connectivity.contains(ConnectivityResult.none)) {
-      Fluttertoast.showToast(msg: "You're offline, coins couldn't be added");
-    } else {
-      try {
-        final coinProvider = Provider.of<CoinProvider>(context, listen: false);
-        if (widget.isWin && widget.coinsEarned > 0) {
-          await coinProvider.addCoins(widget.coinsEarned, isWinner: true);
-        }
-      } catch (e) {
-        debugPrint("Error adding coins: $e");
-      }
-    }
+    // Coins already safely awarded locally in _triggerCoinAnimation
   }
 
   void _handleNextLevel() async {
+    _ensureCoinsAwarded(animated: false);
     if (_isNextButtonTapped) return;
     setState(() => _isNextButtonTapped = true);
 
     try {
-      final connectivity = await Connectivity().checkConnectivity();
-      if (!mounted) return;
-      if (connectivity.contains(ConnectivityResult.none)) {
-        Fluttertoast.showToast(msg: "You're offline");
-        setState(() => _isNextButtonTapped = false);
-        return;
-      }
-
       final coinProvider = Provider.of<CoinProvider>(context, listen: false);
       if (coinProvider.coins < widget.requiredCoins) {
         setState(() => _isNextButtonTapped = false);
@@ -384,6 +385,7 @@ class _CommonGameSuccessScreenState extends State<CommonGameSuccessScreen>
 
   @override
   void dispose() {
+    _ensureCoinsAwarded(animated: false);
     AudioHelper().stopWinnerOrNotFoundSound();
     _confettiController.dispose();
     _floatController.dispose();
@@ -474,6 +476,9 @@ class _CommonGameSuccessScreenState extends State<CommonGameSuccessScreen>
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        _ensureCoinsAwarded(animated: false);
+      },
       child: Scaffold(
         body: Stack(
           fit: StackFit.expand,
@@ -851,6 +856,7 @@ class _CommonGameSuccessScreenState extends State<CommonGameSuccessScreen>
                             borderColor: const Color(0xFFFFD54F)
                                 .withValues(alpha: 0.4),
                             onPressed: () {
+                              _ensureCoinsAwarded(animated: false);
                               AudioHelper().stopWinnerOrNotFoundSound();
                               widget.onHome();
                             },

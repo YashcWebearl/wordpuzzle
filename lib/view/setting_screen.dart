@@ -165,6 +165,42 @@ class _SettingsPageState extends State<SettingsPage> {
                               final prefs =
                                   await SharedPreferences.getInstance();
 
+                              // 1. Sync latest coins & levels to server before clearing preferences!
+                              try {
+                                if (context.mounted) {
+                                  final coinProvider =
+                                      Provider.of<CoinProvider>(context,
+                                          listen: false);
+                                  final wordixGrid =
+                                      prefs.getInt('lastGridSize') ?? 6;
+                                  final wordixLvl =
+                                      prefs.getInt('maxLevel_$wordixGrid') ?? 1;
+                                  final crosswordLvl =
+                                      prefs.getInt('crossword_level') ??
+                                          prefs.getInt('crossword_current_level') ??
+                                          1;
+                                  final scrambleLvl =
+                                      prefs.getInt('scramble_max_unlocked_level') ??
+                                          prefs.getInt('scramble_current_level') ??
+                                          1;
+                                  final balloonLvl =
+                                      prefs.getInt('balloon_max_unlocked_level') ??
+                                          prefs.getInt('balloon_current_level') ??
+                                          1;
+
+                                  await coinProvider.syncCoinsToBackend(
+                                    levels: {
+                                      'wordix': wordixLvl,
+                                      'crossword': crosswordLvl,
+                                      'scramble': scrambleLvl,
+                                      'balloon': balloonLvl,
+                                    },
+                                  );
+                                }
+                              } catch (e) {
+                                debugPrint('Logout sync error: $e');
+                              }
+
                               // Preserve sound & locale on logout
                               final soundOn = prefs.getBool('sound_on');
                               final locale = prefs.getString('locale');

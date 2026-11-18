@@ -19,6 +19,7 @@ import '../balloon_rescue/balloon_level_service.dart';
 import '../services/daily_service.dart';
 import '../services/in_app_update_service.dart';
 import '../widget/base_url.dart';
+import '../widget/coin_service.dart';
 import '../widget/get_level.dart';
 import 'game_selection_screen.dart';
 
@@ -131,12 +132,50 @@ class _SplashPageState extends State<SplashPage>
     Widget nextScreen;
     if (token != null && token.isNotEmpty) {
       if (mounted) {
-        final gameLevelProvider =
-            Provider.of<GameLevelProvider>(context, listen: false);
-        gameLevelProvider.refresh();
-        CrosswordLevelService.fetchLevel();
-        ScrambleLevelService.fetchLevel();
-        BalloonLevelService.fetchLevel();
+        final coinProvider =
+            Provider.of<CoinProvider>(context, listen: false);
+        final localCoins = prefs.getInt('user_coins');
+
+        if (localCoins == null || localCoins == 0) {
+          // 🛡️ Safe Check: Fresh install, cache cleared, or 0 local coins
+          // Fetch from backend first so we don't accidentally overwrite server with 0!
+          await coinProvider.fetchCoinsFromBackend();
+          final gameLevelProvider =
+              Provider.of<GameLevelProvider>(context, listen: false);
+          await Future.wait([
+            gameLevelProvider.refresh(),
+            CrosswordLevelService.fetchLevel(),
+            ScrambleLevelService.fetchLevel(),
+            BalloonLevelService.fetchLevel(),
+          ]);
+        } else {
+          // 🚀 Local coins present! Initialize local & do single batch sync with replace API
+          await coinProvider.initialize();
+
+          final wordixGrid = prefs.getInt('lastGridSize') ?? 6;
+          final wordixLvl = prefs.getInt('maxLevel_$wordixGrid') ?? 1;
+          final crosswordLvl = prefs.getInt('crossword_level') ??
+              prefs.getInt('crossword_current_level') ??
+              1;
+          final scrambleLvl =
+              prefs.getInt('scramble_max_unlocked_level') ??
+                  prefs.getInt('scramble_current_level') ??
+                  1;
+          final balloonLvl =
+              prefs.getInt('balloon_max_unlocked_level') ??
+                  prefs.getInt('balloon_current_level') ??
+                  1;
+
+          // Single API batch sync for coins and all 4 sub-games
+          await coinProvider.syncCoinsToBackend(
+            levels: {
+              'wordix': wordixLvl,
+              'crossword': crosswordLvl,
+              'scramble': scrambleLvl,
+              'balloon': balloonLvl,
+            },
+          );
+        }
         DailyService().getDailyStatus();
       }
       nextScreen = const GameSelectionScreen();

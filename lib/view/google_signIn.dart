@@ -72,10 +72,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       // 🔍 Step 1: Check if email is an active test email via API
-      final checkUri = Uri.parse('$LURL/api/test-mail/check/${Uri.encodeComponent(email)}');
+      final checkUri =
+          Uri.parse('$LURL/api/test-mail/check/${Uri.encodeComponent(email)}');
       final checkResponse = await http.get(checkUri);
 
-      print('Test Mail Check Status: ${checkResponse.statusCode} | Body: ${checkResponse.body}');
+      print(
+          'Test Mail Check Status: ${checkResponse.statusCode} | Body: ${checkResponse.body}');
 
       bool isTestMail = false;
       if (checkResponse.statusCode == 200) {
@@ -122,13 +124,24 @@ class _LoginScreenState extends State<LoginScreen> {
           await prefs.setString('user_id', userId);
         }
 
+        // 🛡️ Fallback: If login response already includes coins, load immediately
+        int? loginCoins;
+        if (json['user'] != null && json['user']['coins'] != null) {
+          loginCoins = (json['user']['coins'] as num?)?.toInt();
+        } else if (json['coins'] != null) {
+          loginCoins = (json['coins'] as num?)?.toInt();
+        }
+
         if (mounted) {
           final coinProvider =
               Provider.of<CoinProvider>(context, listen: false);
+          if (loginCoins != null && loginCoins > 0) {
+            await coinProvider.setCoins(loginCoins);
+          }
           final gameLevelProvider =
               Provider.of<GameLevelProvider>(context, listen: false);
 
-          await coinProvider.initialize();
+          await coinProvider.fetchCoinsFromBackend();
 
           await Future.wait([
             gameLevelProvider.refresh(),
@@ -223,13 +236,23 @@ class _LoginScreenState extends State<LoginScreen> {
           await prefs.setString('user_id', userId);
         }
 
+        int? loginCoins;
+        if (json['user'] != null && json['user']['coins'] != null) {
+          loginCoins = (json['user']['coins'] as num?)?.toInt();
+        } else if (json['coins'] != null) {
+          loginCoins = (json['coins'] as num?)?.toInt();
+        }
+
         if (mounted) {
           final coinProvider =
               Provider.of<CoinProvider>(context, listen: false);
+          if (loginCoins != null && loginCoins > 0) {
+            await coinProvider.setCoins(loginCoins);
+          }
           final gameLevelProvider =
               Provider.of<GameLevelProvider>(context, listen: false);
 
-          await coinProvider.initialize();
+          await coinProvider.fetchCoinsFromBackend();
 
           await Future.wait([
             gameLevelProvider.refresh(),
@@ -253,8 +276,7 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: Colors.orange,
         );
       } else {
-        Fluttertoast.showToast(
-            msg: "Authentication failed. Please try again.");
+        Fluttertoast.showToast(msg: "Authentication failed. Please try again.");
       }
     } on PlatformException catch (e) {
       print("Google error: ${e.code} - ${e.message}");
@@ -346,12 +368,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: Container(
                                   padding: EdgeInsets.all(cardPadding),
                                   decoration: BoxDecoration(
-                                    color:
-                                        Colors.black.withValues(alpha: 0.58),
+                                    color: Colors.black.withValues(alpha: 0.58),
                                     borderRadius: BorderRadius.circular(32),
                                     border: Border.all(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.20),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.20),
                                       width: 1.5,
                                     ),
                                     boxShadow: [

@@ -66,6 +66,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   bool _isTodayClaimed = false;
   bool _isClaimingStreak = false;
   String? _claimingTaskId;
+  bool _isRewardDialogActive = false;
 
   // 7-Day Rewards Config from DAILY_REWARDS_TASKS_AND_SPIN_BACKEND_GUIDE.md
   final List<Map<String, dynamic>> _streakRewards = [
@@ -614,93 +615,119 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   void _claimStreakReward() async {
-    if (_isTodayClaimed || _isClaimingStreak) return;
+    if (_isTodayClaimed || _isClaimingStreak || _isRewardDialogActive) return;
 
     // Synchronously lock immediately so rapid double clicks do nothing
-    setState(() => _isClaimingStreak = true);
+    setState(() {
+      _isClaimingStreak = true;
+      _isRewardDialogActive = true;
+    });
     AudioHelper().playButtonSound();
     HapticFeedback.heavyImpact();
 
-    final res = await DailyService().claimStreak(gameName: widget.gameName);
+    try {
+      final res = await DailyService().claimStreak(gameName: widget.gameName);
 
-    if (!mounted) return;
-    setState(() => _isClaimingStreak = false);
+      if (!mounted) return;
 
-    if (res['success'] == true) {
-      final data = res['data'] ?? {};
-      final claimedDay = (data['claimedDay'] as int?) ?? _currentStreak;
-      final rewardCoins = (data['coinsAwarded'] as int?) ??
-          _streakRewards[(claimedDay - 1).clamp(0, 6)]['coins'] as int;
-      final newBalance = (data['newWalletBalance'] as num?)?.toInt();
+      if (res['success'] == true) {
+        final data = res['data'] ?? {};
+        final claimedDay = (data['claimedDay'] as int?) ?? _currentStreak;
+        final rewardCoins = (data['coinsAwarded'] as int?) ??
+            _streakRewards[(claimedDay - 1).clamp(0, 6)]['coins'] as int;
+        final newBalance = (data['newWalletBalance'] as num?)?.toInt();
 
-      setState(() {
-        _isTodayClaimed = true;
-        _streakRewards[(claimedDay - 1).clamp(0, 6)]['status'] = 'claimed';
-      });
+        setState(() {
+          _isTodayClaimed = true;
+          _streakRewards[(claimedDay - 1).clamp(0, 6)]['status'] = 'claimed';
+        });
 
-      // Show unified reward dialog with COLLECT button and flying coins animation
-      await _coinGrantKey.currentState?.showReward(
-        coins: rewardCoins,
-        source: 'Daily Streak',
-        title: "DAY $claimedDay STREAK CLAIMED!",
-        subtitle: "You've earned +$rewardCoins bonus coins!",
-        newWalletBalance: newBalance,
-      );
+        // Show unified reward dialog with COLLECT button and flying coins animation
+        await _coinGrantKey.currentState?.showReward(
+          coins: rewardCoins,
+          source: 'Daily Streak',
+          title: "DAY $claimedDay STREAK CLAIMED!",
+          subtitle: "You've earned +$rewardCoins bonus coins!",
+          newWalletBalance: newBalance,
+        );
 
-      _loadData();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res['message'] ?? 'Already claimed today.'),
-          backgroundColor: const Color(0xFFFF5252),
-        ),
-      );
+        _loadData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Already claimed today.'),
+            backgroundColor: const Color(0xFFFF5252),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error claiming streak: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isClaimingStreak = false;
+          _isRewardDialogActive = false;
+        });
+      }
     }
   }
 
   void _claimTask(int index) async {
+    if (_isRewardDialogActive || _claimingTaskId != null) return;
+
     final task = _dailyTasks[index];
     final taskKey = task['taskKey']?.toString() ?? '';
-    if (_claimingTaskId != null ||
-        task['isClaimed'] == true ||
-        task['isCompleted'] == false) {
+    if (task['isClaimed'] == true || task['isCompleted'] == false) {
       return;
     }
 
-    // Synchronously lock this specific task immediately
-    setState(() => _claimingTaskId = taskKey);
+    // Synchronously lock this specific task AND lock all claims until dialog finishes
+    setState(() {
+      _claimingTaskId = taskKey;
+      _isRewardDialogActive = true;
+    });
     AudioHelper().playButtonSound();
     HapticFeedback.mediumImpact();
 
-    final rewardCoins = (task['coins'] as int?) ?? 100;
-    final res = await DailyService().claimTask(
-      taskKey: taskKey,
-      coins: rewardCoins,
-      gameName: widget.gameName,
-    );
-
-    if (!mounted) return;
-    setState(() => _claimingTaskId = null);
-
-    if (res['success'] == true) {
-      final data = res['data'] ?? {};
-      final actualCoins = (data['coinsAwarded'] as int?) ?? rewardCoins;
-      final newBalance = (data['newWalletBalance'] as num?)?.toInt();
-
-      setState(() {
-        task['isClaimed'] = true;
-      });
-
-      // Show unified reward dialog with COLLECT button and flying coins animation
-      await _coinGrantKey.currentState?.showReward(
-        coins: actualCoins,
-        source: 'Daily Quest',
-        title: "QUEST COMPLETED!",
-        subtitle: "${task['title']}: +$actualCoins Coins added!",
-        newWalletBalance: newBalance,
+    try {
+      final rewardCoins = (task['coins'] as int?) ?? 100;
+      final res = await DailyService().claimTask(
+        taskKey: taskKey,
+        coins: rewardCoins,
+        gameName: widget.gameName,
       );
 
-      _loadData();
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        final data = res['data'] ?? {};
+        final actualCoins = (data['coinsAwarded'] as int?) ?? rewardCoins;
+        final newBalance = (data['newWalletBalance'] as num?)?.toInt();
+
+        setState(() {
+          task['isClaimed'] = true;
+        });
+
+        // Show unified reward dialog with COLLECT button and flying coins animation
+        await _coinGrantKey.currentState?.showReward(
+          coins: actualCoins,
+          source: 'Daily Quest',
+          title: "QUEST COMPLETED!",
+          subtitle: "${task['title']}: +$actualCoins Coins added!",
+          newWalletBalance: newBalance,
+        );
+
+        _loadData();
+      }
+    } catch (e) {
+      debugPrint("Error claiming task $taskKey: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _claimingTaskId = null;
+          _isRewardDialogActive = false;
+        });
+      }
     }
   }
 
@@ -1581,7 +1608,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   width: double.infinity,
                   height: 54,
                   isLoading: _isClaimingStreak,
-                  onPressed: _isClaimingStreak ? null : _claimStreakReward,
+                  onPressed: (_isClaimingStreak || _isRewardDialogActive) ? null : _claimStreakReward,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -1648,7 +1675,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
     return GestureDetector(
       onTap: () {
-        if (isAvailable && !_isClaimingStreak) {
+        if (isAvailable && !_isClaimingStreak && !_isRewardDialogActive) {
           _claimStreakReward();
         } else if (isTomorrow) {
           Fluttertoast.showToast(
@@ -2371,7 +2398,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                         fontSize: isSmallScreen ? 10 : 10.5,
                         height: 36,
                         isLoading: _claimingTaskId == task['taskKey'],
-                        onPressed: (_claimingTaskId != null || _isSpinning)
+                        onPressed: (_isRewardDialogActive || _claimingTaskId != null || _isSpinning)
                             ? null
                             : () => _claimTask(index),
                       )
