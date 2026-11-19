@@ -337,6 +337,9 @@ class CoinGrantOverlayState extends State<CoinGrantOverlay>
     try {
       final coinProvider = Provider.of<CoinProvider>(context, listen: false);
       coinProvider.creditCoinsLocally(coins);
+      if (syncServer) {
+        coinProvider.syncCoinsToBackend();
+      }
     } catch (_) {}
 
     _flyAnimController.forward(from: 0.0).then((_) async {

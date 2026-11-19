@@ -7,8 +7,13 @@ import '../Widget/bg_container.dart';
 
 class TermsAndPolicyScreen extends StatefulWidget {
   final String policyType; // 'terms_conditions' or 'privacy_policy'
+  final bool isRegistration;
 
-  const TermsAndPolicyScreen({super.key, required this.policyType});
+  const TermsAndPolicyScreen({
+    super.key,
+    required this.policyType,
+    this.isRegistration = false,
+  });
 
   @override
   State<TermsAndPolicyScreen> createState() => _TermsAndPolicyScreenState();
@@ -106,14 +111,20 @@ class _TermsAndPolicyScreenState extends State<TermsAndPolicyScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) =>
-              const TermsAndPolicyScreen(policyType: 'privacy_policy'),
+          builder: (context) => TermsAndPolicyScreen(
+            policyType: 'privacy_policy',
+            isRegistration: widget.isRegistration,
+          ),
         ),
       );
     } else {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const GameSelectionScreen()),
+        MaterialPageRoute(
+          builder: (context) => GameSelectionScreen(
+            coinadd: widget.isRegistration,
+          ),
+        ),
         (Route<dynamic> route) => false,
       );
     }

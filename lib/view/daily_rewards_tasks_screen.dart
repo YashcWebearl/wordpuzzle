@@ -57,6 +57,11 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   double _currentWheelAngle = 0.0;
   String? _spinningButton; // null | 'free' | 'ad' | 'coin'
   bool get _isSpinning => _spinningButton != null;
+  bool get _isBusy =>
+      _isSpinning ||
+      _isRewardDialogActive ||
+      _isClaimingStreak ||
+      _claimingTaskId != null;
   bool _hasFreeSpinToday = true;
   int _adSpinsRemaining = 3;
 
@@ -856,7 +861,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   }
 
   void _spinWheel({required String buttonType}) async {
-    if (_isSpinning) return;
+    if (_isBusy) return;
 
     if (buttonType == 'coin') {
       final coinProvider = Provider.of<CoinProvider>(context, listen: false);
@@ -908,7 +913,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   }
 
   void _executeWheelSpin(String buttonType) async {
-    if (_isSpinning) return;
+    if (_isBusy) return;
 
     AudioHelper().playButtonSound();
     HapticFeedback.heavyImpact();
@@ -1024,7 +1029,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       final newBalance = (spinData['newWalletBalance'] as num?)?.toInt();
 
       setState(() {
-        _spinningButton = null;
+        _isRewardDialogActive = true;
       });
 
       // Report spin wheel task completion asynchronously in background (instant 0ms popup!)
@@ -1037,15 +1042,23 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       });
 
       // Show unified reward dialog IMMEDIATELY with COLLECT button & flying coins animation
-      await _coinGrantKey.currentState?.showReward(
-        coins: winCoins,
-        source: targetIndex == 7 ? 'Mega Jackpot' : 'Lucky Wheel',
-        title: targetIndex == 7 ? "🏆 MEGA JACKPOT!" : "YOU WON!",
-        subtitle: "+$winCoins Coins added to your wallet!",
-        newWalletBalance: newBalance,
-      );
-
-      _loadData();
+      try {
+        await _coinGrantKey.currentState?.showReward(
+          coins: winCoins,
+          source: targetIndex == 7 ? 'Mega Jackpot' : 'Lucky Wheel',
+          title: targetIndex == 7 ? "🏆 MEGA JACKPOT!" : "YOU WON!",
+          subtitle: "+$winCoins Coins added to your wallet!",
+          newWalletBalance: newBalance,
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _spinningButton = null;
+            _isRewardDialogActive = false;
+          });
+          _loadData();
+        }
+      }
     });
   }
 
@@ -1071,81 +1084,96 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF090D1E),
-      body: Stack(
-        children: [
-          // 1. Atmospheric Reactive Cyber Aura Background
-          _buildAtmosphericBackground(),
+    return PopScope(
+      canPop: !_isBusy,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isSpinning) {
+          Fluttertoast.showToast(
+            msg: "Wheel is spinning! Please wait...",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF090D1E),
+        body: Stack(
+          children: [
+            // 1. Atmospheric Reactive Cyber Aura Background
+            _buildAtmosphericBackground(),
 
-          // 2. Animated Floating Words & Letter Particles Overlay
-          const Positioned.fill(
-            child: FloatingWordsBackground(
-              isWordix: true,
-              opacityMultiplier: 0.75,
-              baseColor: Color(0xFF00E5FF),
-              accentColor: Color(0xFFFFD54F),
+            // 2. Animated Floating Words & Letter Particles Overlay
+            const Positioned.fill(
+              child: FloatingWordsBackground(
+                isWordix: true,
+                opacityMultiplier: 0.75,
+                baseColor: Color(0xFF00E5FF),
+                accentColor: Color(0xFFFFD54F),
+              ),
             ),
-          ),
 
-          // 3. Main Content
-          SafeArea(
-            child: Column(
-              children: [
-                // Top App Bar
-                _buildTopHeader(),
+            // 3. Main Content
+            SafeArea(
+              child: Column(
+                children: [
+                  // Top App Bar
+                  _buildTopHeader(),
 
-                const SizedBox(height: 6),
+                  const SizedBox(height: 6),
 
-                // Tab Selector
-                _buildTabBar(),
+                  // Tab Selector
+                  _buildTabBar(),
 
-                const SizedBox(height: 10),
+                  const SizedBox(height: 10),
 
-                // Content View for the 3 Tabs
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    physics: const BouncingScrollPhysics(),
-                    children: [
-                      _buildStreakRewardsTab(),
-                      _buildDailyTasksTab(),
-                      _buildLuckyWheelTab(),
-                    ],
+                  // Content View for the 3 Tabs
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      physics: _isBusy
+                          ? const NeverScrollableScrollPhysics()
+                          : const BouncingScrollPhysics(),
+                      children: [
+                        _buildStreakRewardsTab(),
+                        _buildDailyTasksTab(),
+                        _buildLuckyWheelTab(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          // 3. Confetti Overlay
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [
-                Color(0xFFFFD54F),
-                Color(0xFF00E5FF),
-                Color(0xFF00E676),
-                Color(0xFFFF5252),
-                Color(0xFFE040FB),
-                Colors.white,
-              ],
-              numberOfParticles: 40,
+            // 3. Confetti Overlay
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                colors: const [
+                  Color(0xFFFFD54F),
+                  Color(0xFF00E5FF),
+                  Color(0xFF00E676),
+                  Color(0xFFFF5252),
+                  Color(0xFFE040FB),
+                  Colors.white,
+                ],
+                numberOfParticles: 40,
+              ),
             ),
-          ),
 
-          // 4. Coin Grant & Flying Coins Overlay
-          Positioned.fill(
-            child: CoinGrantOverlay(
-              key: _coinGrantKey,
-              targetKey: _topCoinKey,
-              confettiController: _confettiController,
+            // 4. Coin Grant & Flying Coins Overlay
+            Positioned.fill(
+              child: CoinGrantOverlay(
+                key: _coinGrantKey,
+                targetKey: _topCoinKey,
+                confettiController: _confettiController,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1244,24 +1272,29 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
           // Back Button
           GestureDetector(
             onTap: () {
+              if (_isBusy) return;
               AudioHelper().playButtonSound();
               Navigator.pop(context);
             },
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1.2,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _isBusy ? 0.35 : 1.0,
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    width: 1.2,
+                  ),
                 ),
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 18,
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ),
           ),
@@ -1346,19 +1379,24 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
-          width: 1.2,
-        ),
-      ),
-      child: TabBar(
-        controller: _tabController,
+    return IgnorePointer(
+      ignoring: _isBusy,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: _isBusy ? 0.6 : 1.0,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 1.2,
+            ),
+          ),
+          child: TabBar(
+            controller: _tabController,
         indicator: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           gradient: const LinearGradient(
@@ -1400,7 +1438,9 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2583,7 +2623,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   top: 111,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: _isSpinning
+                    onTap: _isBusy
                         ? null
                         : () => _spinWheel(
                               buttonType: _hasFreeSpinToday ? 'free' : 'ad',
@@ -2663,7 +2703,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                         height: 48,
                         fontSize: 12.5,
                         isLoading: _spinningButton == 'free',
-                        onPressed: _isSpinning
+                        onPressed: _isBusy
                             ? null
                             : () => _spinWheel(buttonType: 'free'),
                       )
@@ -2673,7 +2713,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                         height: 48,
                         fontSize: 11.5,
                         isLoading: _spinningButton == 'ad',
-                        onPressed: (_isSpinning || _adSpinsRemaining <= 0)
+                        onPressed: (_isBusy || _adSpinsRemaining <= 0)
                             ? null
                             : () => _spinWheel(buttonType: 'ad'),
                       ),
@@ -2691,7 +2731,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   fontSize: 12.5,
                   isLoading: _spinningButton == 'coin',
                   onPressed:
-                      _isSpinning ? null : () => _spinWheel(buttonType: 'coin'),
+                      _isBusy ? null : () => _spinWheel(buttonType: 'coin'),
                 ),
               ),
             ],

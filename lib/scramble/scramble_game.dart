@@ -895,7 +895,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                   const SizedBox(height: 15),
                   Text(
                     actionType == 'extra_move'
-                        ? 'Use 10 coins or watch an ad to get 5 extra moves.'
+                        ? 'Use 10 coins or watch an ad to get 2 extra moves.'
                         : actionType == 'shuffle'
                             ? 'Use 5 coins or watch an ad to shuffle letter tiles.'
                             : 'Use 10 coins or watch an ad to solve an unsolved word.',
@@ -1127,10 +1127,10 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     }
     HapticFeedback.mediumImpact();
     setState(() {
-      _remainingMoves += 5;
-      _totalMoves += 5;
+      _remainingMoves += 2;
+      _totalMoves += 2;
     });
-    Fluttertoast.showToast(msg: "+5 Extra Moves added!");
+    Fluttertoast.showToast(msg: "+2 Extra Moves added!");
   }
 
   /// Scans the active board to locate an unbroken, contiguous line of tiles matching [word]

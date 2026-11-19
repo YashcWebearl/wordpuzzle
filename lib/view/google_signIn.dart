@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:word_puzzle/registration_page.dart';
 import 'package:word_puzzle/view/game_selection_screen.dart';
+import 'package:word_puzzle/view/terms_policy_screen.dart';
 import 'package:word_puzzle/widget/app_3d_button.dart';
 import 'package:word_puzzle/widget/floating_words_background.dart';
 
@@ -135,8 +136,10 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           final coinProvider =
               Provider.of<CoinProvider>(context, listen: false);
-          if (loginCoins != null && loginCoins > 0) {
+          if (loginCoins != null) {
             await coinProvider.setCoins(loginCoins);
+          } else {
+            await coinProvider.setCoins(0);
           }
           final gameLevelProvider =
               Provider.of<GameLevelProvider>(context, listen: false);
@@ -151,12 +154,25 @@ class _LoginScreenState extends State<LoginScreen> {
           ]);
         }
         if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const GameSelectionScreen()),
-            (route) => false,
-          );
+          if (widget.isRegistration) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TermsAndPolicyScreen(
+                  policyType: 'terms_conditions',
+                  isRegistration: true,
+                ),
+              ),
+              (route) => false,
+            );
+          } else {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const GameSelectionScreen()),
+              (route) => false,
+            );
+          }
         }
       } else {
         final msg = jsonDecode(response.body)['message'] ??
@@ -215,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
 
-      print('Status: ${response.statusCode} | Body: ${response.body}');
+      print('Status register: ${response.statusCode} | Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
@@ -246,8 +262,10 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           final coinProvider =
               Provider.of<CoinProvider>(context, listen: false);
-          if (loginCoins != null && loginCoins > 0) {
+          if (loginCoins != null) {
             await coinProvider.setCoins(loginCoins);
+          } else {
+            await coinProvider.setCoins(0);
           }
           final gameLevelProvider =
               Provider.of<GameLevelProvider>(context, listen: false);
@@ -262,12 +280,25 @@ class _LoginScreenState extends State<LoginScreen> {
           ]);
         }
         if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const GameSelectionScreen()),
-            (route) => false,
-          );
+          if (widget.isRegistration) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TermsAndPolicyScreen(
+                  policyType: 'terms_conditions',
+                  isRegistration: true,
+                ),
+              ),
+              (route) => false,
+            );
+          } else {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const GameSelectionScreen()),
+              (route) => false,
+            );
+          }
         }
       } else if (response.statusCode == 409 && widget.isRegistration) {
         Fluttertoast.showToast(

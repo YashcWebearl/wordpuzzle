@@ -935,7 +935,7 @@ class WordSearchPageState extends State<WordSearchPage>
                   const SizedBox(height: 15),
                   Text(
                     actionType == 'extra_move'
-                        ? 'Use 10 coins or watch an ad to get an extra move.'
+                        ? 'Use 10 coins or watch an ad to get 2 extra moves.'
                         : 'Use 10 coins or watch an ad to reveal a word.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -1340,7 +1340,8 @@ class WordSearchPageState extends State<WordSearchPage>
       return;
     }
     if (useCoins) coinProvider.undoCoins(10);
-    setState(() => maxMoves = (maxMoves ?? 0) + 5);
+    setState(() => maxMoves = (maxMoves ?? 0) + 2);
+    Fluttertoast.showToast(msg: "+2 Extra Moves added!");
   }
 
   void _showSuccessDialog() {

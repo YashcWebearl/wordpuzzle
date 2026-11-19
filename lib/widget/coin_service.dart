@@ -186,6 +186,8 @@ class CoinProvider extends ChangeNotifier {
     _coins = 0;
     _isInitialized = false;
     _isUpdating = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_coins');
     notifyListeners();
   }
 

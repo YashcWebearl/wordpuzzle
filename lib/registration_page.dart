@@ -76,6 +76,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             'photo': account.photoUrl ?? '',
           }),
         );
+        print('Status register: ${response.statusCode} | Body: ${response.body}');
         if (response.statusCode == 200) {
           final jsonResponse = jsonDecode(response.body);
           final token = jsonResponse['token'];
@@ -126,7 +127,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               context,
               MaterialPageRoute(
                   builder: (context) => const TermsAndPolicyScreen(
-                      policyType: 'terms_conditions')),
+                        policyType: 'terms_conditions',
+                        isRegistration: true,
+                      )),
               (Route<dynamic> route) => false,
             );
           }
@@ -212,8 +215,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-                builder: (context) =>
-                    const TermsAndPolicyScreen(policyType: 'terms_conditions')),
+                builder: (context) => const TermsAndPolicyScreen(
+                      policyType: 'terms_conditions',
+                      isRegistration: true,
+                    )),
             (Route<dynamic> route) => false,
           );
         }
@@ -230,8 +235,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-                builder: (context) =>
-                    const TermsAndPolicyScreen(policyType: 'terms_conditions')),
+                builder: (context) => const TermsAndPolicyScreen(
+                      policyType: 'terms_conditions',
+                      isRegistration: true,
+                    )),
             (Route<dynamic> route) => false,
           );
         }

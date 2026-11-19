@@ -75,7 +75,9 @@ class _GameItemModel {
 }
 
 class GameSelectionScreen extends StatefulWidget {
-  const GameSelectionScreen({super.key});
+  final bool coinadd;
+
+  const GameSelectionScreen({super.key, this.coinadd = false});
 
   @override
   State<GameSelectionScreen> createState() => _GameSelectionScreenState();
@@ -284,7 +286,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
     _loadUser();
     _loadSoundSetting();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         Provider.of<GameLevelProvider>(context, listen: false).refresh();
         Provider.of<CoinProvider>(context, listen: false).getCoin();
@@ -292,6 +294,13 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         ScrambleLevelService.fetchLevel();
         BalloonLevelService.fetchLevel();
         DailyService().getDailyStatus();
+
+        if (widget.coinadd) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            _addCoins(50, 'Welcome Reward');
+          }
+        }
       }
     });
   }
@@ -355,6 +364,12 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       await _coinGrantKey.currentState?.showReward(
         coins: coins,
         source: source,
+        title: source == 'Welcome Reward'
+            ? '🎉 WELCOME REWARD!'
+            : 'REWARD EARNED!',
+        subtitle: source == 'Welcome Reward'
+            ? '+$coins Welcome Coins added to your wallet!'
+            : '+$coins Coins added to your wallet!',
         syncServer: true,
       );
     } catch (e) {
