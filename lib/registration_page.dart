@@ -76,8 +76,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             'photo': account.photoUrl ?? '',
           }),
         );
-        print('Status register: ${response.statusCode} | Body: ${response.body}');
-        if (response.statusCode == 200) {
+        print('Status register page: ${response.statusCode} | Body: ${response.body}');
+        if (response.statusCode == 200 || response.statusCode == 201) {
           final jsonResponse = jsonDecode(response.body);
           final token = jsonResponse['token'];
           String? userId;
@@ -106,22 +106,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           if (mounted) {
             final coinProvider =
                 Provider.of<CoinProvider>(context, listen: false);
-            if (loginCoins != null && loginCoins > 0) {
-              await coinProvider.setCoins(loginCoins);
-            }
-            final gameLevelProvider =
-                Provider.of<GameLevelProvider>(context, listen: false);
-
-            await coinProvider.fetchCoinsFromBackend();
-
-            await Future.wait([
-              gameLevelProvider.refresh(),
-              CrosswordLevelService.fetchLevel(),
-              ScrambleLevelService.fetchLevel(),
-              BalloonLevelService.fetchLevel(),
-            ]);
+            final int initialCoins = (loginCoins != null && loginCoins > 0) ? loginCoins : 0;
+            await coinProvider.setCoins(initialCoins);
           }
 
+          // 🚀 Instant Navigation: New user has 0 coins / initial state, so navigate to Terms screen immediately
+          // without waiting for heavy background fetch calls!
           if (mounted) {
             Navigator.pushAndRemoveUntil(
               context,
@@ -135,15 +125,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           }
         } else if (response.statusCode == 409) {
           final errorMessage = jsonDecode(response.body)['message'] ??
-              'User already registered.';
+              'User already registered. Please login.';
           Fluttertoast.showToast(msg: errorMessage);
         } else {
           print('API error: ${response.statusCode}, ${response.body}');
+          Fluttertoast.showToast(
+              msg: "Registration failed (${response.statusCode}). Please try again.");
         }
       }
     } on PlatformException catch (e) {
       print('Google sign-in error: ${e.code}, ${e.message}, ${e.details}');
-      Fluttertoast.showToast(msg: "Registration failed. Try again.");
+      Fluttertoast.showToast(msg: "Registration cancelled or failed.");
     } catch (error) {
       print('Sign in failed: $error');
       Fluttertoast.showToast(msg: "Something went wrong. Please try again.");
@@ -198,17 +190,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         if (mounted) {
           final coinProvider =
               Provider.of<CoinProvider>(context, listen: false);
-          final gameLevelProvider =
-              Provider.of<GameLevelProvider>(context, listen: false);
-
-          await coinProvider.initialize();
-
-          await Future.wait([
-            gameLevelProvider.refresh(),
-            CrosswordLevelService.fetchLevel(),
-            ScrambleLevelService.fetchLevel(),
-            BalloonLevelService.fetchLevel(),
-          ]);
+          await coinProvider.setCoins(0);
         }
 
         if (mounted) {
@@ -537,7 +519,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                         shadowColor: const Color(0xFF90A4AE),
                                         glowColor: Colors.white,
                                         isLoading: _isLoading,
-                                        onPressed: _handleSignUp,
+                                        onPressed: _isLoading ? null : _handleSignUp,
                                         child: Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,

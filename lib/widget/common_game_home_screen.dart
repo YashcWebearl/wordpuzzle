@@ -126,7 +126,7 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
       await _coinGrantKey.currentState?.showReward(
         coins: coins,
         source: source,
-        syncServer: true,
+        syncServer: false,
       );
     } catch (e) {
       debugPrint("Error in addCoins: $e");
@@ -579,7 +579,7 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
                     const SizedBox(height: 6),
                     Text(
                       'LVL',
-                      style:TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         letterSpacing: 4,
                         fontWeight: FontWeight.w500,
@@ -592,7 +592,7 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Text(
                           '${widget.currentLevel}',
-                          style:TextStyle(
+                          style: TextStyle(
                             fontSize: widget.currentLevel > 99 ? 52 : 62,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
@@ -756,15 +756,17 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
                                         widget.primaryColor,
                                       ],
                                   shadowColor: widget.playButtonShadow ??
-                                      widget.primaryColor.withValues(alpha: 0.6),
+                                      widget.primaryColor
+                                          .withValues(alpha: 0.6),
                                   glowColor: widget.accentColor,
                                   textColor: widget.playButtonTextColor ??
                                       Colors.white,
                                   iconColor: widget.playButtonTextColor ??
                                       Colors.white,
-                                  onPressed: (_isPlayButtonTapped || _isNavigating)
-                                      ? null
-                                      : _handlePlayButton,
+                                  onPressed:
+                                      (_isPlayButtonTapped || _isNavigating)
+                                          ? null
+                                          : _handlePlayButton,
                                 ),
 
                                 const SizedBox(height: 14.0),
@@ -778,12 +780,15 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
                                   fontSize: 15,
                                   width: double.infinity,
                                   borderRadius: 25.0,
-                                  onPressed: (_isPlayButtonTapped || _isNavigating)
+                                  onPressed: (_isPlayButtonTapped ||
+                                          _isNavigating)
                                       ? null
                                       : () {
-                                          if (_isPlayButtonTapped || _isNavigating) return;
+                                          if (_isPlayButtonTapped ||
+                                              _isNavigating) return;
                                           setState(() => _isNavigating = true);
-                                          checkInternetAndProceed(context, () async {
+                                          checkInternetAndProceed(context,
+                                              () async {
                                             await Navigator.push(
                                               context,
                                               MaterialPageRoute(
@@ -796,7 +801,8 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
                                               ),
                                             );
                                             if (mounted) {
-                                              setState(() => _isNavigating = false);
+                                              setState(
+                                                  () => _isNavigating = false);
                                             }
                                           });
                                         },
@@ -815,10 +821,12 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
                                   gradientColors: _effectiveSettingsGradient,
                                   shadowColor: _effectiveSettingsShadow,
                                   textColor: Colors.white,
-                                  onPressed: (_isPlayButtonTapped || _isNavigating)
+                                  onPressed: (_isPlayButtonTapped ||
+                                          _isNavigating)
                                       ? null
                                       : () async {
-                                          if (_isPlayButtonTapped || _isNavigating) return;
+                                          if (_isPlayButtonTapped ||
+                                              _isNavigating) return;
                                           setState(() => _isNavigating = true);
                                           await Navigator.push(
                                             context,
@@ -828,7 +836,8 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
                                             ),
                                           );
                                           if (mounted) {
-                                            setState(() => _isNavigating = false);
+                                            setState(
+                                                () => _isNavigating = false);
                                           }
                                         },
                                 ),
@@ -850,12 +859,14 @@ class _CommonGameHomeScreenState extends State<CommonGameHomeScreen> {
                                     shadowColor: widget.primaryColor
                                         .withValues(alpha: 0.6),
                                     textColor: Colors.white,
-                                    onPressed: (_isPlayButtonTapped || _isNavigating)
-                                        ? null
-                                        : () {
-                                            if (_isPlayButtonTapped || _isNavigating) return;
-                                            widget.onSelectLevel!();
-                                          },
+                                    onPressed:
+                                        (_isPlayButtonTapped || _isNavigating)
+                                            ? null
+                                            : () {
+                                                if (_isPlayButtonTapped ||
+                                                    _isNavigating) return;
+                                                widget.onSelectLevel!();
+                                              },
                                   ),
                                 ],
                               ],

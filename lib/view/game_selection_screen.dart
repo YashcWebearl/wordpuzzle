@@ -289,7 +289,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         Provider.of<GameLevelProvider>(context, listen: false).refresh();
-        Provider.of<CoinProvider>(context, listen: false).getCoin();
+        // Provider.of<CoinProvider>(context, listen: false).getCoin();
         CrosswordLevelService.fetchLevel();
         ScrambleLevelService.fetchLevel();
         BalloonLevelService.fetchLevel();
@@ -370,7 +370,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         subtitle: source == 'Welcome Reward'
             ? '+$coins Welcome Coins added to your wallet!'
             : '+$coins Coins added to your wallet!',
-        syncServer: true,
+        syncServer: false,
       );
     } catch (e) {
       debugPrint("Error adding coins from $source: $e");

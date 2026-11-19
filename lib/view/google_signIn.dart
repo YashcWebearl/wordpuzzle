@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:word_puzzle/registration_page.dart';
 import 'package:word_puzzle/view/game_selection_screen.dart';
-import 'package:word_puzzle/view/terms_policy_screen.dart';
 import 'package:word_puzzle/widget/app_3d_button.dart';
 import 'package:word_puzzle/widget/floating_words_background.dart';
 
@@ -154,25 +153,12 @@ class _LoginScreenState extends State<LoginScreen> {
           ]);
         }
         if (mounted) {
-          if (widget.isRegistration) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const TermsAndPolicyScreen(
-                  policyType: 'terms_conditions',
-                  isRegistration: true,
-                ),
-              ),
-              (route) => false,
-            );
-          } else {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const GameSelectionScreen()),
-              (route) => false,
-            );
-          }
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const GameSelectionScreen()),
+            (route) => false,
+          );
         }
       } else {
         final msg = jsonDecode(response.body)['message'] ??
@@ -204,34 +190,17 @@ class _LoginScreenState extends State<LoginScreen> {
       final photo = account.photoUrl ?? '';
       final googleId = account.id;
 
-      http.Response response;
+      final uri = Uri.parse('$LURL/api/user/login');
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'gameName': "Wordix",
+        }),
+      );
 
-      if (widget.isRegistration) {
-        final uri = Uri.parse('$LURL/api/user/google');
-        response = await http.post(
-          uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'registeredID': googleId,
-            'email': email,
-            'gameName': "Wordix",
-            'userName': name,
-            'photo': photo,
-          }),
-        );
-      } else {
-        final uri = Uri.parse('$LURL/api/user/login');
-        response = await http.post(
-          uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'email': email,
-            'gameName': "Wordix",
-          }),
-        );
-      }
-
-      print('Status register: ${response.statusCode} | Body: ${response.body}');
+      print('Status google page: ${response.statusCode} | Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
@@ -280,34 +249,18 @@ class _LoginScreenState extends State<LoginScreen> {
           ]);
         }
         if (mounted) {
-          if (widget.isRegistration) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const TermsAndPolicyScreen(
-                  policyType: 'terms_conditions',
-                  isRegistration: true,
-                ),
-              ),
-              (route) => false,
-            );
-          } else {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const GameSelectionScreen()),
-              (route) => false,
-            );
-          }
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const GameSelectionScreen()),
+            (route) => false,
+          );
         }
-      } else if (response.statusCode == 409 && widget.isRegistration) {
-        Fluttertoast.showToast(
-          msg: jsonDecode(response.body)['message'] ??
-              "User already exists. Please login.",
-          backgroundColor: Colors.orange,
-        );
       } else {
-        Fluttertoast.showToast(msg: "Authentication failed. Please try again.");
+        final errorMsg = (response.statusCode == 404 || response.statusCode == 400)
+            ? "Account not found. Please register first."
+            : "Login failed (${response.statusCode}). Please try again.";
+        Fluttertoast.showToast(msg: errorMsg);
       }
     } on PlatformException catch (e) {
       print("Google error: ${e.code} - ${e.message}");
@@ -439,11 +392,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                             width: 1,
                                           ),
                                         ),
-                                        child: Text(
-                                          widget.isRegistration
-                                              ? "NEW PLAYER"
-                                              : "AUTHENTICATION",
-                                          style: const TextStyle(
+                                        child: const Text(
+                                          "AUTHENTICATION",
+                                          style: TextStyle(
                                             color: Color(0xFF80DEEA),
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.w900,
@@ -454,11 +405,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                       const SizedBox(height: 12),
 
-                                      Text(
-                                        widget.isRegistration
-                                            ? "Create Account"
-                                            : "Welcome Back",
-                                        style: const TextStyle(
+                                      const Text(
+                                        "Welcome Back",
+                                        style: TextStyle(
                                           fontSize: 28,
                                           fontWeight: FontWeight.w900,
                                           color: Colors.white,
@@ -480,9 +429,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       const SizedBox(height: 6),
 
                                       Text(
-                                        widget.isRegistration
-                                            ? "Sign up to track levels & earn coins!"
-                                            : "Login with your email or Google to continue.",
+                                        "Login with your email or Google to continue.",
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: 14.5,
@@ -527,34 +474,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                       const SizedBox(height: 26),
 
-                                      // 3D Login / Sign Up Button
+                                      // 3D Login Button
                                       App3DButton(
-                                        text: widget.isRegistration
-                                            ? 'SIGN UP'
-                                            : 'LOGIN',
-                                        icon: widget.isRegistration
-                                            ? Icons.person_add_rounded
-                                            : Icons.login_rounded,
+                                        text: 'LOGIN',
+                                        icon: Icons.login_rounded,
                                         height: 52,
                                         fontSize: 16,
                                         borderRadius: 26.0,
                                         width: double.infinity,
                                         isLoading: isLoading,
-                                        gradientColors: widget.isRegistration
-                                            ? const [
-                                                Color(0xFF00E676),
-                                                Color(0xFF00B0FF)
-                                              ]
-                                            : const [
-                                                Color(0xFF00E5FF),
-                                                Color(0xFF0091EA)
-                                              ],
-                                        shadowColor: widget.isRegistration
-                                            ? const Color(0xFF00796B)
-                                            : const Color(0xFF01579B),
-                                        glowColor: widget.isRegistration
-                                            ? const Color(0xFF00E676)
-                                            : const Color(0xFF00E5FF),
+                                        gradientColors: const [
+                                          Color(0xFF00E5FF),
+                                          Color(0xFF0091EA)
+                                        ],
+                                        shadowColor: const Color(0xFF01579B),
+                                        glowColor: const Color(0xFF00E5FF),
                                         textColor: const Color(0xFF021B2D),
                                         iconColor: const Color(0xFF021B2D),
                                         onPressed: _handleEmailSignIn,
@@ -611,7 +545,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         shadowColor: const Color(0xFF90A4AE),
                                         glowColor: Colors.white,
                                         isLoading: googleLoading,
-                                        onPressed: _handleGoogleSignIn,
+                                        onPressed: googleLoading ? null : _handleGoogleSignIn,
                                         child: Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
@@ -643,9 +577,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             MainAxisAlignment.center,
                                         children: [
                                           Text(
-                                            widget.isRegistration
-                                                ? "Already have an account? "
-                                                : "New player? ",
+                                            "New player? ",
                                             style: TextStyle(
                                               color: Colors.white
                                                   .withValues(alpha: 0.8),
@@ -654,23 +586,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ),
                                           GestureDetector(
                                             onTap: () {
-                                              if (widget.isRegistration) {
-                                                Navigator.pop(context);
-                                              } else {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        const RegistrationScreen(),
-                                                  ),
-                                                );
-                                              }
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const RegistrationScreen(),
+                                                ),
+                                              );
                                             },
-                                            child: Text(
-                                              widget.isRegistration
-                                                  ? 'Login'
-                                                  : 'Register now',
-                                              style: const TextStyle(
+                                            child: const Text(
+                                              'Register now',
+                                              style: TextStyle(
                                                 color: Color(0xFF00E5FF),
                                                 fontWeight: FontWeight.w900,
                                                 fontSize: 15,

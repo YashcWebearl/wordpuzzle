@@ -242,7 +242,12 @@ class DailyService {
                 final int total = (taskMap['total'] as num?)?.toInt() ??
                     (taskMap['target'] as num?)?.toInt() ??
                     1;
-                final isClaimed = taskMap['isClaimed'] == true || taskMap['claimed'] == true;
+                final bool localClaimed =
+                    prefs.getBool('task_claimed_${userId}_${todayStr}_$key') ??
+                        false;
+                final bool serverClaimed =
+                    taskMap['isClaimed'] == true || taskMap['claimed'] == true;
+                final isClaimed = localClaimed || serverClaimed;
                 int remoteProg = (taskMap['progress'] as num?)?.toInt() ?? 0;
 
                 // When already claimed, progress MUST equal total and completed MUST be true
@@ -315,6 +320,12 @@ class DailyService {
           if (root['streak'] == null && decoded['streak'] != null) {
             root['streak'] = decoded['streak'];
           }
+          final lastStreakClaim =
+              prefs.getString('daily_streak_claimed_date_$userId');
+          if (lastStreakClaim == todayStr && root['streak'] is Map) {
+            root['streak']['isTodayClaimed'] = true;
+            root['streak']['canClaim'] = false;
+          }
           if (root['spin'] == null && decoded['spin'] != null) {
             root['spin'] = decoded['spin'];
           }
@@ -342,6 +353,15 @@ class DailyService {
     final todayStr = _getTodayString();
     final userId = await _getUserId();
 
+    // 🛡️ Strict idempotency check: Never allow double claim today!
+    final lastClaim = prefs.getString('daily_streak_claimed_date_$userId');
+    if (lastClaim == todayStr) {
+      return {
+        'success': false,
+        'message': 'Already claimed today! Come back tomorrow.',
+      };
+    }
+
     try {
       final headers = await _getHeaders();
       final url = Uri.parse('$LURL/api/daily/claim-streak');
@@ -367,20 +387,27 @@ class DailyService {
         }
       } else {
         final decoded = json.decode(response.body);
-        if (decoded is Map<String, dynamic> && decoded['message'] != null) {
+        if (decoded is Map<String, dynamic>) {
+          if (decoded['message']?.toString().toLowerCase().contains('already') == true) {
+            await prefs.setString('daily_streak_claimed_date_$userId', todayStr);
+          }
           return {
             'success': false,
-            'message': decoded['message'],
+            'message': decoded['message'] ?? 'Already claimed today.',
           };
         }
+        return {
+          'success': false,
+          'message': 'Already claimed today. Please try again tomorrow.',
+        };
       }
     } catch (e) {
       debugPrint('DailyService: claimStreak error: $e. Using local fallback.');
     }
 
-    // Local Fallback
-    final lastClaim = prefs.getString('daily_streak_claimed_date_$userId');
-    if (lastClaim == todayStr) {
+    // Local Fallback (only on network error)
+    final recheck = prefs.getString('daily_streak_claimed_date_$userId');
+    if (recheck == todayStr) {
       return {
         'success': false,
         'message': 'Already claimed today! Come back tomorrow.',
@@ -553,8 +580,15 @@ class DailyService {
     final todayStr = _getTodayString();
     final userId = await _getUserId();
 
-    // 1. Mark claimed locally with user and date scope
-    await prefs.setBool('task_claimed_${userId}_${todayStr}_$taskKey', true);
+    // 🛡️ Strict idempotency check: Never allow double task claim today!
+    final bool isAlreadyClaimed =
+        prefs.getBool('task_claimed_${userId}_${todayStr}_$taskKey') ?? false;
+    if (isAlreadyClaimed) {
+      return {
+        'success': false,
+        'message': 'Task reward already claimed today!',
+      };
+    }
 
     try {
       final headers = await _getHeaders();
@@ -574,13 +608,45 @@ class DailyService {
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
-        return decoded;
+        if (decoded is Map<String, dynamic> && decoded['success'] == true) {
+          await prefs.setBool(
+              'task_claimed_${userId}_${todayStr}_$taskKey', true);
+          return decoded;
+        }
+      } else {
+        // Server returned 400 (already claimed) or another non-200 status code
+        // 🛡️ DO NOT fall through to Local Fallback! Mark claimed locally and return error!
+        await prefs.setBool(
+            'task_claimed_${userId}_${todayStr}_$taskKey', true);
+        try {
+          final decoded = json.decode(response.body);
+          if (decoded is Map<String, dynamic>) {
+            return {
+              'success': false,
+              'message': decoded['message'] ?? 'Task reward already claimed.',
+            };
+          }
+        } catch (_) {}
+        return {
+          'success': false,
+          'message': 'Task reward already claimed or unavailable.',
+        };
       }
     } catch (e) {
       debugPrint('DailyService: claimTask backend error: $e');
     }
 
-    // Local Fallback
+    // Local Fallback (ONLY on network exception when not already claimed)
+    final bool stillClaimed =
+        prefs.getBool('task_claimed_${userId}_${todayStr}_$taskKey') ?? false;
+    if (stillClaimed) {
+      return {
+        'success': false,
+        'message': 'Task reward already claimed today!',
+      };
+    }
+
+    await prefs.setBool('task_claimed_${userId}_${todayStr}_$taskKey', true);
     final currentCoins = prefs.getInt('user_coins') ?? 0;
     await prefs.setInt('user_coins', currentCoins + coins);
 

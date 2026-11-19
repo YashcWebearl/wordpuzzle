@@ -444,7 +444,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
     final int currentDay = (streak['currentDay'] as num?)?.toInt() ?? 1;
     final int cycle = (streak['cycle'] as num?)?.toInt() ?? 1;
-    final bool isTodayClaimed = (streak['isTodayClaimed'] as bool?) ?? false;
+    final bool isTodayClaimed =
+        _isTodayClaimed || ((streak['isTodayClaimed'] as bool?) ?? false);
 
     // Update 7-day rewards calendar status
     if (catalog.isNotEmpty && catalog.length >= 7) {
@@ -508,7 +509,17 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
         final int total = (task['total'] as num?)?.toInt() ??
             (task['target'] as num?)?.toInt() ??
             1;
-        final isClaimed = task['isClaimed'] == true || task['claimed'] == true;
+
+        // 🛡️ Lock: If task was already claimed locally in current state, never reset to unclaimed!
+        final existingTask = _dailyTasks.firstWhere(
+          (t) => (t['taskKey'] ?? t['key'])?.toString() == key,
+          orElse: () => {},
+        );
+        final bool wasAlreadyClaimedLocally =
+            existingTask['isClaimed'] == true;
+        final isClaimed = wasAlreadyClaimedLocally ||
+            task['isClaimed'] == true ||
+            task['claimed'] == true;
         int rawProg = (task['progress'] as num?)?.toInt() ?? 0;
 
         if (isClaimed) {
@@ -656,14 +667,22 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
           newWalletBalance: newBalance,
         );
 
-        _loadData();
+        // 🛡️ Await fresh data while keeping button locked until refresh finishes
+        await _loadData();
       } else {
+        if (res['message']?.toString().toLowerCase().contains('already') == true) {
+          setState(() {
+            _isTodayClaimed = true;
+            _streakRewards[(_currentStreak - 1).clamp(0, 6)]['status'] = 'claimed';
+          });
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(res['message'] ?? 'Already claimed today.'),
             backgroundColor: const Color(0xFFFF5252),
           ),
         );
+        await _loadData();
       }
     } catch (e) {
       debugPrint("Error claiming streak: $e");
@@ -686,7 +705,8 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
       return;
     }
 
-    // Synchronously lock this specific task AND lock all claims until dialog finishes
+    // 🛡️ Synchronously lock this specific task AND lock all claims immediately
+    // Keep task['isClaimed'] false until server responds so the button displays the circular loading spinner!
     setState(() {
       _claimingTaskId = taskKey;
       _isRewardDialogActive = true;
@@ -722,7 +742,21 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
           newWalletBalance: newBalance,
         );
 
-        _loadData();
+        // 🛡️ Await fresh data before releasing lock
+        await _loadData();
+      } else {
+        final msg = res['message']?.toString() ?? '';
+        final bool isAlready = msg.toLowerCase().contains('already');
+        setState(() {
+          task['isClaimed'] = isAlready; // If already claimed, stay claimed; otherwise revert
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg.isNotEmpty ? msg : 'Task already claimed.'),
+            backgroundColor: const Color(0xFFFF5252),
+          ),
+        );
+        await _loadData();
       }
     } catch (e) {
       debugPrint("Error claiming task $taskKey: $e");
@@ -1648,7 +1682,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                   width: double.infinity,
                   height: 54,
                   isLoading: _isClaimingStreak,
-                  onPressed: (_isClaimingStreak || _isRewardDialogActive) ? null : _claimStreakReward,
+                  onPressed: (_isTodayClaimed || _isClaimingStreak || _isRewardDialogActive) ? null : _claimStreakReward,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -1715,7 +1749,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
 
     return GestureDetector(
       onTap: () {
-        if (isAvailable && !_isClaimingStreak && !_isRewardDialogActive) {
+        if (isAvailable && !_isTodayClaimed && !_isClaimingStreak && !_isRewardDialogActive) {
           _claimStreakReward();
         } else if (isTomorrow) {
           Fluttertoast.showToast(
@@ -2438,7 +2472,7 @@ class _DailyRewardsTasksScreenState extends State<DailyRewardsTasksScreen>
                         fontSize: isSmallScreen ? 10 : 10.5,
                         height: 36,
                         isLoading: _claimingTaskId == task['taskKey'],
-                        onPressed: (_isRewardDialogActive || _claimingTaskId != null || _isSpinning)
+                        onPressed: (isClaimed || _isRewardDialogActive || _claimingTaskId != null || _isSpinning)
                             ? null
                             : () => _claimTask(index),
                       )
