@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -24,6 +26,17 @@ class _AdPlaybackPageState extends State<AdPlaybackPage> {
   bool _isAdLoaded = false;
   bool _isRewardEarned = false;
   bool _hasClosed = false;
+
+  String get _adUnitId {
+    if (kDebugMode) {
+      // Official Google AdMob sample test ad unit ID for Rewarded Interstitial
+      return Platform.isAndroid
+          ? 'ca-app-pub-3940256099942544/5354046379'
+          : 'ca-app-pub-3940256099942544/6978759866';
+    }
+    // Production real ad unit ID
+    return 'ca-app-pub-3212732022684570/8803285020';
+  }
 
   @override
   void initState() {
@@ -79,7 +92,7 @@ class _AdPlaybackPageState extends State<AdPlaybackPage> {
     }
 
     RewardedInterstitialAd.load(
-      adUnitId: 'ca-app-pub-3212732022684570/8803285020',
+      adUnitId: _adUnitId,
       request: const AdRequest(),
       rewardedInterstitialAdLoadCallback: RewardedInterstitialAdLoadCallback(
         onAdLoaded: (RewardedInterstitialAd ad) {

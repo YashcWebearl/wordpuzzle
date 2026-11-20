@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -33,6 +34,11 @@ Future<void> main() async {
   await coinProvider.initialize();
 
   MobileAds.instance.initialize();
+  if (kDebugMode) {
+    MobileAds.instance.updateRequestConfiguration(
+      RequestConfiguration(testDeviceIds: ['850145C6E96CF0D0E51D14B6F80E9C32']),
+    );
+  }
 
   PlatformDispatcher.instance.onError = (error, stack) {
     print('Caught Dart Error: $error');

@@ -971,13 +971,16 @@ class WordSearchPageState extends State<WordSearchPage>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    AdPlaybackPage(onAdComplete: () {
-                                  if (actionType == 'extra_move')
-                                    _addExtraMove(useCoins: false);
-                                  else
-                                    _showHint(useCoins: false);
-                                }),
+                                builder: (context) => AdPlaybackPage(
+                                  isRewardAd: true,
+                                  onAdComplete: () {
+                                    if (actionType == 'extra_move') {
+                                      _addExtraMove(useCoins: false);
+                                    } else {
+                                      _showHint(useCoins: false);
+                                    }
+                                  },
+                                ),
                               ),
                             ).then((_) {
                               _isWatchingAd = false;

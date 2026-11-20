@@ -22,7 +22,7 @@ class BalloonPuzzle {
 
 class BalloonLevelData {
   // ==========================================
-  // TIER 1: 3-LETTER WORDS (Levels 1 - 5)
+  // TIER 1: 3-LETTER WORDS (Levels 1 - 5) - 50 Words
   // ==========================================
   static const List<Map<String, dynamic>> _words3 = [
     {'word': 'CAT', 'cat': 'ANIMALS', 'emoji': '🐱', 'clue': 'A furry pet that purrs'},
@@ -50,10 +50,35 @@ class BalloonLevelData {
     {'word': 'CAR', 'cat': 'VEHICLES', 'emoji': '🚗', 'clue': 'Four wheeled road transport'},
     {'word': 'ZOO', 'cat': 'PLACES', 'emoji': '🦁', 'clue': 'Park filled with wild animals'},
     {'word': 'BOX', 'cat': 'OBJECTS', 'emoji': '📦', 'clue': 'Cardboard container for gifts'},
+    {'word': 'PEN', 'cat': 'STATIONERY', 'emoji': '🖊️', 'clue': 'Tool for writing in ink'},
+    {'word': 'BED', 'cat': 'FURNITURE', 'emoji': '🛏️', 'clue': 'Cozy place to sleep at night'},
+    {'word': 'EGG', 'cat': 'FOOD', 'emoji': '🥚', 'clue': 'Laid by hens for breakfast'},
+    {'word': 'JAM', 'cat': 'FOOD', 'emoji': '🍓', 'clue': 'Sweet fruit spread on toast'},
+    {'word': 'BOY', 'cat': 'PEOPLE', 'emoji': '👦', 'clue': 'Young cheerful male child'},
+    {'word': 'EYE', 'cat': 'BODY', 'emoji': '👁️', 'clue': 'Used for seeing the world'},
+    {'word': 'GEM', 'cat': 'TREASURE', 'emoji': '💎', 'clue': 'Sparkling precious jewel'},
+    {'word': 'LIP', 'cat': 'BODY', 'emoji': '👄', 'clue': 'Part of the smiling mouth'},
+    {'word': 'PAN', 'cat': 'KITCHEN', 'emoji': '🍳', 'clue': 'Cookware for frying food'},
+    {'word': 'POT', 'cat': 'KITCHEN', 'emoji': '🍲', 'clue': 'Deep vessel for hot soup'},
+    {'word': 'BOW', 'cat': 'ACCESSORY', 'emoji': '🎀', 'clue': 'Decorative ribbon knot'},
+    {'word': 'FAN', 'cat': 'OBJECTS', 'emoji': '🪭', 'clue': 'Creates a refreshing breeze'},
+    {'word': 'LOG', 'cat': 'FOREST', 'emoji': '🪵', 'clue': 'Fallen tree trunk wood'},
+    {'word': 'PIN', 'cat': 'OBJECTS', 'emoji': '🧷', 'clue': 'Sharp metal fastener'},
+    {'word': 'JAR', 'cat': 'KITCHEN', 'emoji': '🫙', 'clue': 'Glass container for jams'},
+    {'word': 'NET', 'cat': 'TOOLS', 'emoji': '🕸️', 'clue': 'Woven mesh to catch fish'},
+    {'word': 'BUG', 'cat': 'NATURE', 'emoji': '🐛', 'clue': 'Tiny crawling insect'},
+    {'word': 'TOP', 'cat': 'TOYS', 'emoji': '🪙', 'clue': 'Spins rapidly on its tip'},
+    {'word': 'FLY', 'cat': 'INSECTS', 'emoji': '🪰', 'clue': 'Buzzing winged creature'},
+    {'word': 'HEN', 'cat': 'FARM', 'emoji': '🐔', 'clue': 'Female chicken on the farm'},
+    {'word': 'ARM', 'cat': 'BODY', 'emoji': '💪', 'clue': 'Limb used to lift things'},
+    {'word': 'LEG', 'cat': 'BODY', 'emoji': '🦵', 'clue': 'Limb used for walking'},
+    {'word': 'EAR', 'cat': 'BODY', 'emoji': '👂', 'clue': 'Sense organ for hearing'},
+    {'word': 'DAY', 'cat': 'TIME', 'emoji': '☀️', 'clue': 'Period of bright daylight'},
+    {'word': 'SKY', 'cat': 'NATURE', 'emoji': '🌌', 'clue': 'Blue expanse above earth'},
   ];
 
   // ==========================================
-  // TIER 2: 4-LETTER WORDS (Levels 6 - 25)
+  // TIER 2: 4-LETTER WORDS (Levels 6 - 25) - 80 Words
   // ==========================================
   static const List<Map<String, dynamic>> _words4 = [
     {'word': 'LION', 'cat': 'WILDLIFE', 'emoji': '🦁', 'clue': 'The fearless jungle king'},
@@ -91,10 +116,55 @@ class BalloonLevelData {
     {'word': 'DRUM', 'cat': 'MUSIC', 'emoji': '🥁', 'clue': 'Beats with rhythm sticks'},
     {'word': 'KITE', 'cat': 'GAMES', 'emoji': '🪁', 'clue': 'Soars in high windy sky'},
     {'word': 'COIN', 'cat': 'TREASURE', 'emoji': '🪙', 'clue': 'Shiny round currency token'},
+    {'word': 'BLUE', 'cat': 'COLORS', 'emoji': '💙', 'clue': 'Color of clear skies & sea'},
+    {'word': 'PINK', 'cat': 'COLORS', 'emoji': '🌸', 'clue': 'Soft pastel rosy shade'},
+    {'word': 'RUBY', 'cat': 'GEMS', 'emoji': '💎', 'clue': 'Deep crimson red gemstone'},
+    {'word': 'PEAR', 'cat': 'FRUITS', 'emoji': '🍐', 'clue': 'Juicy bell-shaped orchard fruit'},
+    {'word': 'PLUM', 'cat': 'FRUITS', 'emoji': '🫐', 'clue': 'Sweet purple stone fruit'},
+    {'word': 'KIWI', 'cat': 'FRUITS', 'emoji': '🥝', 'clue': 'Brown fuzzy fruit green inside'},
+    {'word': 'CRAB', 'cat': 'OCEAN', 'emoji': '🦀', 'clue': 'Side-walking beach crustacean'},
+    {'word': 'SEAL', 'cat': 'ARCTIC', 'emoji': '🦭', 'clue': 'Whiskered playful sea mammal'},
+    {'word': 'GOAT', 'cat': 'FARM', 'emoji': '🐐', 'clue': 'Horned animal that climbs'},
+    {'word': 'LAMB', 'cat': 'FARM', 'emoji': '🐑', 'clue': 'Gentle young woolly sheep'},
+    {'word': 'PONY', 'cat': 'ANIMALS', 'emoji': '🐴', 'clue': 'Small adorable gentle horse'},
+    {'word': 'SWAN', 'cat': 'BIRDS', 'emoji': '🦢', 'clue': 'Graceful white lake bird'},
+    {'word': 'MOTH', 'cat': 'INSECTS', 'emoji': '🦋', 'clue': 'Nocturnal flutterer near light'},
+    {'word': 'WASP', 'cat': 'INSECTS', 'emoji': '🐝', 'clue': 'Stinging yellow striped flyer'},
+    {'word': 'WAVE', 'cat': 'OCEAN', 'emoji': '🌊', 'clue': 'Curling surge of seawater'},
+    {'word': 'SAND', 'cat': 'BEACH', 'emoji': '🏖️', 'clue': 'Fine grains along sunny shores'},
+    {'word': 'ROCK', 'cat': 'NATURE', 'emoji': '🪨', 'clue': 'Solid natural stone boulder'},
+    {'word': 'DUST', 'cat': 'NATURE', 'emoji': '💨', 'clue': 'Tiny dry earth particles'},
+    {'word': 'SOIL', 'cat': 'GARDEN', 'emoji': '🌱', 'clue': 'Rich earth where seeds grow'},
+    {'word': 'SEED', 'cat': 'PLANTS', 'emoji': '🌰', 'clue': 'Sprouts into green plants'},
+    {'word': 'BARK', 'cat': 'TREES', 'emoji': '🪵', 'clue': 'Rough outer skin of trees'},
+    {'word': 'WOOD', 'cat': 'FOREST', 'emoji': '🪵', 'clue': 'Timber from forest trees'},
+    {'word': 'ROOT', 'cat': 'PLANTS', 'emoji': '🌿', 'clue': 'Anchors the plant in earth'},
+    {'word': 'HERB', 'cat': 'GARDEN', 'emoji': '🌿', 'clue': 'Fragrant plant for cooking'},
+    {'word': 'MINT', 'cat': 'GARDEN', 'emoji': '🌱', 'clue': 'Cool refreshing fragrant leaf'},
+    {'word': 'FERN', 'cat': 'PLANTS', 'emoji': '🌿', 'clue': 'Feathery green shade plant'},
+    {'word': 'ROPE', 'cat': 'TOOLS', 'emoji': '🪢', 'clue': 'Strong twisted cord for tying'},
+    {'word': 'LAMP', 'cat': 'LIGHT', 'emoji': '🪔', 'clue': 'Electric light on side table'},
+    {'word': 'DESK', 'cat': 'STUDY', 'emoji': '🪵', 'clue': 'Wooden table for study work'},
+    {'word': 'BOWL', 'cat': 'KITCHEN', 'emoji': '🥣', 'clue': 'Curved dish for cereal & soup'},
+    {'word': 'FORK', 'cat': 'DINING', 'emoji': '🍴', 'clue': 'Pronged utensil for eating'},
+    {'word': 'COOK', 'cat': 'KITCHEN', 'emoji': '👨‍🍳', 'clue': 'Prepares delicious warm meals'},
+    {'word': 'BAKE', 'cat': 'KITCHEN', 'emoji': '🥖', 'clue': 'Cooks bread inside hot oven'},
+    {'word': 'BALL', 'cat': 'SPORTS', 'emoji': '⚽', 'clue': 'Round sphere for fun games'},
+    {'word': 'GAME', 'cat': 'FUN', 'emoji': '🎮', 'clue': 'Playful recreational activity'},
+    {'word': 'SONG', 'cat': 'MUSIC', 'emoji': '🎵', 'clue': 'Melody sung with sweet voice'},
+    {'word': 'TUNE', 'cat': 'MUSIC', 'emoji': '🎶', 'clue': 'Catchy musical pitch notes'},
+    {'word': 'ECHO', 'cat': 'SOUNDS', 'emoji': '📢', 'clue': 'Sound bouncing off canyon walls'},
+    {'word': 'ROAD', 'cat': 'TRAVEL', 'emoji': '🛣️', 'clue': 'Paved path for car journeys'},
+    {'word': 'PATH', 'cat': 'OUTDOORS', 'emoji': '🛤️', 'clue': 'Walking trail through nature'},
+    {'word': 'CITY', 'cat': 'PLACES', 'emoji': '🏙️', 'clue': 'Bustling metropolis skyline'},
+    {'word': 'TOWN', 'cat': 'PLACES', 'emoji': '🏘️', 'clue': 'Cozy community of houses'},
+    {'word': 'BARN', 'cat': 'FARM', 'emoji': '🚜', 'clue': 'Red farm storage for hay'},
+    {'word': 'SHED', 'cat': 'GARDEN', 'emoji': '🛖', 'clue': 'Backyard hut for garden tools'},
+    {'word': 'FORT', 'cat': 'CASTLES', 'emoji': '🏰', 'clue': 'Stronghold built for defense'},
   ];
 
   // ==========================================
-  // TIER 3: 5-LETTER WORDS (Levels 26 - 70)
+  // TIER 3: 5-LETTER WORDS (Levels 26 - 70) - 80 Words
   // ==========================================
   static const List<Map<String, dynamic>> _words5 = [
     {'word': 'APPLE', 'cat': 'FRUITS', 'emoji': '🍎', 'clue': 'Crisp sweet orchard fruit'},
@@ -137,10 +207,50 @@ class BalloonLevelData {
     {'word': 'ONION', 'cat': 'VEGGIES', 'emoji': '🧅', 'clue': 'Layers that make cooks tear'},
     {'word': 'BERRY', 'cat': 'FRUITS', 'emoji': '🍓', 'clue': 'Small tart forest fruit'},
     {'word': 'CLOCK', 'cat': 'TIME', 'emoji': '⏰', 'clue': 'Keeps accurate track of hours'},
+    {'word': 'KOALA', 'cat': 'ANIMALS', 'emoji': '🐨', 'clue': 'Sleepy eucalyptus tree climber'},
+    {'word': 'OTTER', 'cat': 'WILDLIFE', 'emoji': '🦦', 'clue': 'Playful river swimmer with fur'},
+    {'word': 'MOOSE', 'cat': 'WILDLIFE', 'emoji': '🫎', 'clue': 'Large antlered forest giant'},
+    {'word': 'VIPER', 'cat': 'REPTILES', 'emoji': '🐍', 'clue': 'Slithering venomous snake'},
+    {'word': 'ROBIN', 'cat': 'BIRDS', 'emoji': '🐦', 'clue': 'Red-breasted singing bird'},
+    {'word': 'HERON', 'cat': 'BIRDS', 'emoji': '🪿', 'clue': 'Long-legged wading fisherman'},
+    {'word': 'TULIP', 'cat': 'FLOWERS', 'emoji': '🌷', 'clue': 'Bright cup-shaped spring bloom'},
+    {'word': 'DAISY', 'cat': 'FLOWERS', 'emoji': '🌼', 'clue': 'White petals with golden center'},
+    {'word': 'LOTUS', 'cat': 'FLOWERS', 'emoji': '🪷', 'clue': 'Sacred water lily on ponds'},
+    {'word': 'MAPLE', 'cat': 'TREES', 'emoji': '🍁', 'clue': 'Leaf that turns fiery red'},
+    {'word': 'CEDAR', 'cat': 'TREES', 'emoji': '🌲', 'clue': 'Aromatic evergreen timber'},
+    {'word': 'MELON', 'cat': 'FRUITS', 'emoji': '🍈', 'clue': 'Juicy sweet ribbed green fruit'},
+    {'word': 'PEACH', 'cat': 'FRUITS', 'emoji': '🍑', 'clue': 'Velvety fuzzy sweet orchard fruit'},
+    {'word': 'GUAVA', 'cat': 'FRUITS', 'emoji': '🍐', 'clue': 'Tropical pink centered treat'},
+    {'word': 'CHILI', 'cat': 'SPICES', 'emoji': '🌶️', 'clue': 'Hot spicy fiery red pepper'},
+    {'word': 'SALAD', 'cat': 'FOOD', 'emoji': '🥗', 'clue': 'Tossed fresh healthy greens'},
+    {'word': 'TOAST', 'cat': 'FOOD', 'emoji': '🍞', 'clue': 'Crisp browned warm bread'},
+    {'word': 'HONEY', 'cat': 'SWEETS', 'emoji': '🍯', 'clue': 'Golden syrup made by bees'},
+    {'word': 'SUGAR', 'cat': 'SWEETS', 'emoji': '🧂', 'clue': 'Sweet white crystal sweetener'},
+    {'word': 'FLUTE', 'cat': 'MUSIC', 'emoji': '🪈', 'clue': 'Wind instrument with airy tone'},
+    {'word': 'PIANO', 'cat': 'MUSIC', 'emoji': '🎹', 'clue': 'Keyboard with black & white keys'},
+    {'word': 'ORGAN', 'cat': 'MUSIC', 'emoji': '🎼', 'clue': 'Keyboard with echoing pipes'},
+    {'word': 'RADIO', 'cat': 'TECH', 'emoji': '📻', 'clue': 'Broadcasts songs across airwaves'},
+    {'word': 'SPACE', 'cat': 'COSMOS', 'emoji': '🌌', 'clue': 'Infinite expanse beyond clouds'},
+    {'word': 'COMET', 'cat': 'COSMOS', 'emoji': '☄️', 'clue': 'Icy celestial body with tail'},
+    {'word': 'SOLAR', 'cat': 'ENERGY', 'emoji': '☀️', 'clue': 'Energy powered by the sun'},
+    {'word': 'SHINE', 'cat': 'LIGHT', 'emoji': '✨', 'clue': 'Radiate bright sparkling light'},
+    {'word': 'FLAME', 'cat': 'FIRE', 'emoji': '🔥', 'clue': 'Licking tongue of hot blaze'},
+    {'word': 'FROST', 'cat': 'WINTER', 'emoji': '❄️', 'clue': 'Delicate ice crust on leaves'},
+    {'word': 'CLIFF', 'cat': 'NATURE', 'emoji': '🧗', 'clue': 'Steep vertical rocky precipice'},
+    {'word': 'OASIS', 'cat': 'DESERT', 'emoji': '🌴', 'clue': 'Fertile spring amid sandy dunes'},
+    {'word': 'TRAIL', 'cat': 'HIKING', 'emoji': '🥾', 'clue': 'Path winding up mountain slope'},
+    {'word': 'CABIN', 'cat': 'HOUSES', 'emoji': '🛖', 'clue': 'Rustic wooden lodge in woods'},
+    {'word': 'HOTEL', 'cat': 'TRAVEL', 'emoji': '🏨', 'clue': 'Lodging for traveling guests'},
+    {'word': 'WATCH', 'cat': 'TIME', 'emoji': '⌚', 'clue': 'Timepiece worn around wrist'},
+    {'word': 'BADGE', 'cat': 'AWARDS', 'emoji': '📛', 'clue': 'Emblem pinned for achievement'},
+    {'word': 'MEDAL', 'cat': 'AWARDS', 'emoji': '🏅', 'clue': 'Ribbon award for athletic champions'},
+    {'word': 'SCARF', 'cat': 'CLOTHES', 'emoji': '🧣', 'clue': 'Warm knit wrap around neck'},
+    {'word': 'GLOVE', 'cat': 'CLOTHES', 'emoji': '🧤', 'clue': 'Protective cover for cold hands'},
+    {'word': 'SHIRT', 'cat': 'CLOTHES', 'emoji': '👕', 'clue': 'Upper body everyday clothing'},
   ];
 
   // ==========================================
-  // TIER 4: 6-LETTER WORDS (Levels 71 - 140)
+  // TIER 4: 6-LETTER WORDS (Levels 71 - 140) - 80 Words
   // ==========================================
   static const List<Map<String, dynamic>> _words6 = [
     {'word': 'MONKEY', 'cat': 'WILDLIFE', 'emoji': '🐒', 'clue': 'Swings between jungle trees'},
@@ -178,10 +288,55 @@ class BalloonLevelData {
     {'word': 'BASKET', 'cat': 'PICNIC', 'emoji': '🧺', 'clue': 'Woven container for goods'},
     {'word': 'CIRCUS', 'cat': 'SHOWS', 'emoji': '🎪', 'clue': 'Acrobats and tent wonders'},
     {'word': 'FALCON', 'cat': 'BIRDS', 'emoji': '🦅', 'clue': 'Fastest diving hunting bird'},
+    {'word': 'BADGER', 'cat': 'WILDLIFE', 'emoji': '🦡', 'clue': 'Burrowing animal with striped head'},
+    {'word': 'BEAVER', 'cat': 'WILDLIFE', 'emoji': '🦫', 'clue': 'Builds wooden dams across creeks'},
+    {'word': 'JAGUAR', 'cat': 'WILDLIFE', 'emoji': '🐆', 'clue': 'Spotted solitary jungle hunter'},
+    {'word': 'WALRUS', 'cat': 'ARCTIC', 'emoji': '🦭', 'clue': 'Tusked mammal on polar ice'},
+    {'word': 'TOUCAN', 'cat': 'BIRDS', 'emoji': '🦜', 'clue': 'Enormous colorful banana bill'},
+    {'word': 'CANARY', 'cat': 'BIRDS', 'emoji': '🐤', 'clue': 'Bright yellow melody singer'},
+    {'word': 'PIGEON', 'cat': 'BIRDS', 'emoji': '🐦', 'clue': 'Urban bird cooing on rooftops'},
+    {'word': 'BAMBOO', 'cat': 'PLANTS', 'emoji': '🎋', 'clue': 'Fastest growing hollow green cane'},
+    {'word': 'CACTUS', 'cat': 'DESERT', 'emoji': '🌵', 'clue': 'Spiny succulent in arid sands'},
+    {'word': 'CLOVER', 'cat': 'NATURE', 'emoji': '☘️', 'clue': 'Lucky four leaf green foliage'},
+    {'word': 'PAPAYA', 'cat': 'FRUITS', 'emoji': '🍈', 'clue': 'Orange tropical sweet flesh'},
+    {'word': 'TOMATO', 'cat': 'GARDEN', 'emoji': '🍅', 'clue': 'Plump red vine-grown garden fruit'},
+    {'word': 'CARROT', 'cat': 'VEGGIES', 'emoji': '🥕', 'clue': 'Crunchy orange root beloved by hares'},
+    {'word': 'PEPPER', 'cat': 'VEGGIES', 'emoji': '🫑', 'clue': 'Bell shaped crisp crunchy veggie'},
+    {'word': 'COOKIE', 'cat': 'BAKERY', 'emoji': '🍪', 'clue': 'Baked round biscuit with choc chips'},
+    {'word': 'WAFFLE', 'cat': 'BREAKFAST', 'emoji': '🧇', 'clue': 'Grid-patterned crisp breakfast cake'},
+    {'word': 'BUTTER', 'cat': 'DAIRY', 'emoji': '🧈', 'clue': 'Creamy spread churned from milk'},
+    {'word': 'CHEESE', 'cat': 'DAIRY', 'emoji': '🧀', 'clue': 'Cultured dairy wedge with holes'},
+    {'word': 'MUFFIN', 'cat': 'BAKERY', 'emoji': '🧁', 'clue': 'Cup-shaped quick-baked breakfast treat'},
+    {'word': 'VIOLIN', 'cat': 'MUSIC', 'emoji': '🎻', 'clue': 'Wooden string instrument with bow'},
+    {'word': 'HARBOR', 'cat': 'COAST', 'emoji': '⚓', 'clue': 'Sheltered port where ships dock'},
+    {'word': 'PALACE', 'cat': 'ROYALTY', 'emoji': '🏰', 'clue': 'Magnificent royal stately estate'},
+    {'word': 'TUNNEL', 'cat': 'ROADS', 'emoji': '🚇', 'clue': 'Underground passage through hills'},
+    {'word': 'STATUE', 'cat': 'ART', 'emoji': '🗽', 'clue': 'Sculpted figure of historic hero'},
+    {'word': 'SHADOW', 'cat': 'LIGHT', 'emoji': '👤', 'clue': 'Dark silhouette cast by sunlight'},
+    {'word': 'MIRROR', 'cat': 'OBJECTS', 'emoji': '🪞', 'clue': 'Reflective glass showing your face'},
+    {'word': 'BOTTLE', 'cat': 'OBJECTS', 'emoji': '🍾', 'clue': 'Glass container holding beverages'},
+    {'word': 'KETTLE', 'cat': 'KITCHEN', 'emoji': '🫖', 'clue': 'Whistles when boiling tea water'},
+    {'word': 'RIBBON', 'cat': 'CRAFTS', 'emoji': '🎀', 'clue': 'Silk strip tying celebratory gifts'},
+    {'word': 'JACKET', 'cat': 'CLOTHES', 'emoji': '🧥', 'clue': 'Zipped outerwear for cool evenings'},
+    {'word': 'BANNER', 'cat': 'FESTIVAL', 'emoji': '🚩', 'clue': 'Hanging fabric displaying slogans'},
+    {'word': 'PUZZLE', 'cat': 'GAMES', 'emoji': '🧩', 'clue': 'Jigsaw interlocking challenge'},
+    {'word': 'SHIELD', 'cat': 'DEFENSE', 'emoji': '🛡️', 'clue': 'Armor plate deflecting blows'},
+    {'word': 'HELMET', 'cat': 'SAFETY', 'emoji': '🪖', 'clue': 'Hard cap guarding the skull'},
+    {'word': 'ANCHOR', 'cat': 'NAUTICAL', 'emoji': '⚓', 'clue': 'Heavy iron hook holding ships fast'},
+    {'word': 'CANYON', 'cat': 'GEOGRAPHY', 'emoji': '🏜️', 'clue': 'Deep ravine carved by rushing river'},
+    {'word': 'DESERT', 'cat': 'BIOMES', 'emoji': '🏜️', 'clue': 'Vast arid expanse of sand dunes'},
+    {'word': 'VALLEY', 'cat': 'GEOGRAPHY', 'emoji': '🏞️', 'clue': 'Lowland nestled between green peaks'},
+    {'word': 'STREAM', 'cat': 'NATURE', 'emoji': '🫧', 'clue': 'Narrow bubbling freshwater brook'},
+    {'word': 'MEADOW', 'cat': 'NATURE', 'emoji': '🌾', 'clue': 'Grassy field blanketed in wildflowers'},
+    {'word': 'AURORA', 'cat': 'NIGHT', 'emoji': '🌌', 'clue': 'Shimmering polar light spectacle'},
+    {'word': 'COSMOS', 'cat': 'SPACE', 'emoji': '🪐', 'clue': 'Harmonious universe of nebulae'},
+    {'word': 'METEOR', 'cat': 'SPACE', 'emoji': '☄️', 'clue': 'Shooting star streaking across night'},
+    {'word': 'FARMER', 'cat': 'PEOPLE', 'emoji': '🧑‍🌾', 'clue': 'Tills the land to harvest crops'},
+    {'word': 'SAILOR', 'cat': 'NAUTICAL', 'emoji': '🧑‍✈️', 'clue': 'Navigates ships across rough waves'},
   ];
 
   // ==========================================
-  // TIER 5: 7-LETTER WORDS (Levels 141 - 240)
+  // TIER 5: 7-LETTER WORDS (Levels 141 - 240) - 75 Words
   // ==========================================
   static const List<Map<String, dynamic>> _words7 = [
     {'word': 'PENGUIN', 'cat': 'POLAR', 'emoji': '🐧', 'clue': 'Waddles over freezing ice'},
@@ -214,10 +369,55 @@ class BalloonLevelData {
     {'word': 'COCONUT', 'cat': 'PALMS', 'emoji': '🥥', 'clue': 'Hard brown tropical nut juice'},
     {'word': 'GLACIER', 'cat': 'ARCTIC', 'emoji': '🧊', 'clue': 'Massive flowing sheet of ice'},
     {'word': 'UNICORN', 'cat': 'MYTHICAL', 'emoji': '🦄', 'clue': 'Magical horse with a horn'},
+    {'word': 'LEOPARD', 'cat': 'SAFARI', 'emoji': '🐆', 'clue': 'Graceful spotted tree-climbing cat'},
+    {'word': 'BUFFALO', 'cat': 'WILDLIFE', 'emoji': '🦬', 'clue': 'Massive horned beast of prairies'},
+    {'word': 'GORILLA', 'cat': 'WILDLIFE', 'emoji': '🦍', 'clue': 'Gentle giant ape of misty forests'},
+    {'word': 'OSTRICH', 'cat': 'BIRDS', 'emoji': '🦤', 'clue': 'Tall flightless bird of savannas'},
+    {'word': 'SPARROW', 'cat': 'BIRDS', 'emoji': '🐦', 'clue': 'Small brown songbird on fences'},
+    {'word': 'AVOCADO', 'cat': 'FRUITS', 'emoji': '🥑', 'clue': 'Creamy green superfood with pit'},
+    {'word': 'APRICOT', 'cat': 'FRUITS', 'emoji': '🍑', 'clue': 'Golden-orange velvety sweet fruit'},
+    {'word': 'PUMPKIN', 'cat': 'GARDEN', 'emoji': '🎃', 'clue': 'Carved orange winter squash'},
+    {'word': 'SPINACH', 'cat': 'VEGGIES', 'emoji': '🥬', 'clue': 'Iron-rich leafy green superfood'},
+    {'word': 'PANCAKE', 'cat': 'BREAKFAST', 'emoji': '🥞', 'clue': 'Flat round griddle cake with syrup'},
+    {'word': 'DESSERT', 'cat': 'SWEETS', 'emoji': '🍰', 'clue': 'Sweet finale to a sumptuous meal'},
+    {'word': 'VIOLIST', 'cat': 'MUSIC', 'emoji': '🎻', 'clue': 'Musician playing the bow strings'},
+    {'word': 'DRUMMER', 'cat': 'MUSIC', 'emoji': '🥁', 'clue': 'Percussionist setting the beat'},
+    {'word': 'ECLIPSE', 'cat': 'ASTRONOMY', 'emoji': '🌒', 'clue': 'Moon obscuring light of the sun'},
+    {'word': 'HORIZON', 'cat': 'NATURE', 'emoji': '🌅', 'clue': 'Distant line where earth meets sky'},
+    {'word': 'SUNRISE', 'cat': 'DAWN', 'emoji': '🌅', 'clue': 'Morning break of radiant dawn light'},
+    {'word': 'TORNADO', 'cat': 'STORMS', 'emoji': '🌪️', 'clue': 'Violent spinning funnel of wind'},
+    {'word': 'TSUNAMI', 'cat': 'OCEAN', 'emoji': '🌊', 'clue': 'Gigantic seismic ocean tidal wave'},
+    {'word': 'ICEBERG', 'cat': 'ARCTIC', 'emoji': '🧊', 'clue': 'Colossal mountain of floating ice'},
+    {'word': 'KINGDOM', 'cat': 'HERITAGE', 'emoji': '👑', 'clue': 'Realm governed by a reigning crown'},
+    {'word': 'MANSION', 'cat': 'HOUSES', 'emoji': '🏛️', 'clue': 'Stately grand luxurious residence'},
+    {'word': 'AIRPORT', 'cat': 'AVIATION', 'emoji': '🛫', 'clue': 'Terminal where airliners depart'},
+    {'word': 'HIGHWAY', 'cat': 'TRANSIT', 'emoji': '🛣️', 'clue': 'Multilane arterial transit express'},
+    {'word': 'COMPASS', 'cat': 'NAVIGATION', 'emoji': '🧭', 'clue': 'Magnetic needle pointing to north'},
+    {'word': 'JEWELRY', 'cat': 'LUXURY', 'emoji': '💍', 'clue': 'Adornments of gold and gems'},
+    {'word': 'EMERALD', 'cat': 'GEMS', 'emoji': '💚', 'clue': 'Precious vivid green gemstone'},
+    {'word': 'COSTUME', 'cat': 'THEATER', 'emoji': '🎭', 'clue': 'Disguise worn for masquerade or play'},
+    {'word': 'PAJAMAS', 'cat': 'SLEEP', 'emoji': '🛌', 'clue': 'Comfortable garments for slumber'},
+    {'word': 'SWEATER', 'cat': 'CLOTHES', 'emoji': '🧶', 'clue': 'Knitted wool pull-over for autumn'},
+    {'word': 'PAINTER', 'cat': 'ARTS', 'emoji': '🎨', 'clue': 'Artist creating portraits with brush'},
+    {'word': 'ATHLETE', 'cat': 'SPORTS', 'emoji': '🏃', 'clue': 'Competitor trained in agility & speed'},
+    {'word': 'EXPLORER', 'cat': 'VOYAGES', 'emoji': '🧭', 'clue': 'Venturer charting untrodden realms'},
+    {'word': 'WARRIOR', 'cat': 'HEROES', 'emoji': '⚔️', 'clue': 'Brave defender wielding valiant shield'},
+    {'word': 'FORTUNE', 'cat': 'WEALTH', 'emoji': '💰', 'clue': 'Great prosperity of golden riches'},
+    {'word': 'VICTORY', 'cat': 'SUCCESS', 'emoji': '🏆', 'clue': 'Triumph won after noble struggle'},
+    {'word': 'BICYCLE', 'cat': 'TRANSPORT', 'emoji': '🚲', 'clue': 'Two-wheeled pedal-powered ride'},
+    {'word': 'SCOOTER', 'cat': 'TRANSIT', 'emoji': '🛴', 'clue': 'Step-on handlebar commute wheel'},
+    {'word': 'SUNSHINE', 'cat': 'DAYLIGHT', 'emoji': '☀️', 'clue': 'Warm radiant morning light'},
+    {'word': 'FIREFLY', 'cat': 'INSECTS', 'emoji': '🪲', 'clue': 'Nocturnal beetle that glows'},
+    {'word': 'CRYSTAL', 'cat': 'MINERALS', 'emoji': '💎', 'clue': 'Sparkling clear mineral rock'},
+    {'word': 'DOLPHIN', 'cat': 'OCEAN', 'emoji': '🐬', 'clue': 'Friendly mammal leaping in surf'},
+    {'word': 'GARDNER', 'cat': 'OUTDOORS', 'emoji': '🧑‍🌾', 'clue': 'Tends flowers and green foliage'},
+    {'word': 'PIRATES', 'cat': 'ADVENTURE', 'emoji': '🏴‍☠️', 'clue': 'Crew sailing in search of booty'},
+    {'word': 'CAROUSEL', 'cat': 'CARNIVAL', 'emoji': '🎠', 'clue': 'Merry-go-round with wooden ponies'},
+    {'word': 'GALAXY', 'cat': 'SPACE', 'emoji': '🌌', 'clue': 'Massive cosmic spiral system'},
   ];
 
   // ==========================================
-  // TIER 6: 8-LETTER WORDS (Levels 241+)
+  // TIER 6: 8-LETTER WORDS (Levels 241+) - 70 Words
   // ==========================================
   static const List<Map<String, dynamic>> _words8 = [
     {'word': 'ELEPHANT', 'cat': 'SAFARI', 'emoji': '🐘', 'clue': 'Gentle giant with trunk & tusks'},
@@ -250,6 +450,36 @@ class BalloonLevelData {
     {'word': 'SUBMARINE', 'cat': 'NAVAL', 'emoji': '🚢', 'clue': 'Cruises deep below surface'},
     {'word': 'TELESCOPE', 'cat': 'ASTRONOMY', 'emoji': '🔭', 'clue': 'Magnifies distant galaxies'},
     {'word': 'CHOCOLATE', 'cat': 'CONFECTION', 'emoji': '🍫', 'clue': 'Delicious cocoa bean treat'},
+    {'word': 'ANTELOPE', 'cat': 'SAFARI', 'emoji': '🦌', 'clue': 'Swift graceful horned gazelle'},
+    {'word': 'HEDGEHOG', 'cat': 'WILDLIFE', 'emoji': '🦔', 'clue': 'Quilled small spiny woodland ball'},
+    {'word': 'REINDEER', 'cat': 'ARCTIC', 'emoji': '🦌', 'clue': 'Antlered Arctic herd pulling sleds'},
+    {'word': 'STALLION', 'cat': 'ANIMALS', 'emoji': '🐎', 'clue': 'Spirited uncastrated adult horse'},
+    {'word': 'SUNFLOWER', 'cat': 'FLOWERS', 'emoji': '🌻', 'clue': 'Towering blossom turning to sun'},
+    {'word': 'PINEAPPLE', 'cat': 'FRUITS', 'emoji': '🍍', 'clue': 'Prickly crown tropical golden fruit'},
+    {'word': 'CUCUMBER', 'cat': 'VEGGIES', 'emoji': '🥒', 'clue': 'Cool green salad vine crop'},
+    {'word': 'BROCCOLI', 'cat': 'VEGGIES', 'emoji': '🥦', 'clue': 'Nutritious green tree-like vegetable'},
+    {'word': 'ORCHESTRA', 'cat': 'MUSIC', 'emoji': '🎻', 'clue': 'Symphonic ensemble of instruments'},
+    {'word': 'TROMBONE', 'cat': 'MUSIC', 'emoji': '🎺', 'clue': 'Brass horn with sliding tube'},
+    {'word': 'ASTEROID', 'cat': 'SPACE', 'emoji': '☄️', 'clue': 'Rocky fragment orbiting interplanetary'},
+    {'word': 'SPACESHIP', 'cat': 'SCI-FI', 'emoji': '🚀', 'clue': 'Vessel traversing cosmic constellations'},
+    {'word': 'BLIZZARD', 'cat': 'WINTER', 'emoji': '🌨️', 'clue': 'Blinding winter snowstorm gales'},
+    {'word': 'AQUARIUM', 'cat': 'OCEAN', 'emoji': '🐠', 'clue': 'Glass habitat displaying marine fauna'},
+    {'word': 'WINDMILL', 'cat': 'ENERGY', 'emoji': '🌬️', 'clue': 'Rotating vanes harvesting gusts of air'},
+    {'word': 'FIREPLACE', 'cat': 'HEARTH', 'emoji': '🪵', 'clue': 'Warm stone hearth crackling with logs'},
+    {'word': 'NOTEBOOK', 'cat': 'STUDY', 'emoji': '📓', 'clue': 'Bound sheets for penning thoughts'},
+    {'word': 'UMBRELLA', 'cat': 'RAIN', 'emoji': '☂️', 'clue': 'Canopy sheltering from torrential rain'},
+    {'word': 'NECKLACE', 'cat': 'JEWELRY', 'emoji': '📿', 'clue': 'Ornamental chain encircling collar'},
+    {'word': 'RAINCOAT', 'cat': 'CLOTHES', 'emoji': '🧥', 'clue': 'Waterproof coat for storm showers'},
+    {'word': 'SNEAKERS', 'cat': 'SHOES', 'emoji': '👟', 'clue': 'Rubber-soled athletic casual footwear'},
+    {'word': 'MARATHON', 'cat': 'RACES', 'emoji': '🏃', 'clue': 'Endurance race spanning many miles'},
+    {'word': 'CLIMBING', 'cat': 'OUTDOORS', 'emoji': '🧗', 'clue': 'Ascending sheer vertical cliff faces'},
+    {'word': 'GARDENER', 'cat': 'OUTDOORS', 'emoji': '🧑‍🌾', 'clue': 'Cares for blossoming garden beds'},
+    {'word': 'ASTRONAUT', 'cat': 'SPACE', 'emoji': '🧑‍🚀', 'clue': 'Space explorer floating in orbit'},
+    {'word': 'CAROUSEL', 'cat': 'CARNIVAL', 'emoji': '🎠', 'clue': 'Carnival ride with music & lights'},
+    {'word': 'FESTIVAL', 'cat': 'CELEBRATE', 'emoji': '🎉', 'clue': 'Joyous communal celebration day'},
+    {'word': 'LEMONADE', 'cat': 'DRINKS', 'emoji': '🍋', 'clue': 'Chilled sweet & sour summer drink'},
+    {'word': 'SURPRISE', 'cat': 'JOY', 'emoji': '🎁', 'clue': 'Unexpected delightful wonder'},
+    {'word': 'SMILING', 'cat': 'HAPPINESS', 'emoji': '😁', 'clue': 'Grinning with joyful delight'},
   ];
 
   static const List<String> _distractorLetters = [
@@ -307,12 +537,20 @@ class BalloonLevelData {
 
   /// Master level generator supporting infinite levels (Level 1 to 10,000+)
   /// with deterministic progressive difficulty.
+  /// Uses cycle-based non-repeating permutations so all words in a tier are
+  /// played before any word repeats, ensuring huge variety across levels!
   static BalloonPuzzle getPuzzleForLevel(int level) {
     final wordLength = getWordLengthForLevel(level);
     final wordList = _getWordListForLength(wordLength);
 
-    // Pick deterministically without consecutive repeats using coprime stride 7
-    final itemIndex = (level * 7 + 13) % wordList.length;
+    // Guaranteed non-repeating cycle permutation:
+    // For each cycle of wordList.length levels, generate a deterministic shuffle
+    // seeded by the tier length and cycle index.
+    final cycle = (level - 1) ~/ wordList.length;
+    final indexInCycle = (level - 1) % wordList.length;
+    final perm = List<int>.generate(wordList.length, (i) => i);
+    perm.shuffle(math.Random(wordLength * 9973 + cycle * 7919 + 31));
+    final itemIndex = perm[indexInCycle];
     final item = wordList[itemIndex];
 
     final word = (item['word'] as String).toUpperCase();

@@ -321,16 +321,18 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    AdPlaybackPage(onAdComplete: () {
-                                  if (actionType == 'extra_move') {
-                                    _addExtraMove(useCoins: false);
-                                  } else if (actionType == 'shuffle') {
-                                    _performShuffleWithCoins(useCoins: false);
-                                  } else {
-                                    _useHint(useCoins: false);
-                                  }
-                                }),
+                                builder: (context) => AdPlaybackPage(
+                                  isRewardAd: true,
+                                  onAdComplete: () {
+                                    if (actionType == 'extra_move') {
+                                      _addExtraMove(useCoins: false);
+                                    } else if (actionType == 'shuffle') {
+                                      _performShuffleWithCoins(useCoins: false);
+                                    } else {
+                                      _useHint(useCoins: false);
+                                    }
+                                  },
+                                ),
                               ),
                             ).then((_) {
                               _isWatchingAd = false;
@@ -503,9 +505,22 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
 
     if (_selectedIndices.isNotEmpty) {
       final formed = _selectedIndices.map((i) => _wheelLetters[i]).join();
+      final upper = formed.toUpperCase();
 
       // Swipe attempt of 2 or more letters counts as 1 move
       if (_selectedIndices.length >= 2) {
+        // If the exact word was ALREADY found (e.g. "POT"), do NOT count as a move.
+        // Partial words ("PO") or incorrect attempts are not in _foundWords,
+        // so they fall through and deduct a move.
+        if (_foundWords.contains(upper)) {
+          Fluttertoast.showToast(msg: "Already solved!");
+          setState(() {
+            _selectedIndices.clear();
+            _currentDragPoint = null;
+          });
+          return;
+        }
+
         setState(() {
           if (_remainingMoves > 0) {
             _remainingMoves--;
@@ -516,7 +531,7 @@ class _CrosswordGameScreenState extends State<CrosswordGameScreen>
 
         // Immediate check if out of moves on incorrect attempt
         if (_remainingMoves <= 0 &&
-            !_levelData.targetWords.contains(formed.toUpperCase()) &&
+            !_levelData.targetWords.contains(upper) &&
             _foundWords.length < _levelData.targetWords.length &&
             !_isGameOver) {
           _handleGameOver(reason: 'moves');

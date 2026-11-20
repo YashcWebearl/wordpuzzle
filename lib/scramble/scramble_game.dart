@@ -274,7 +274,7 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
     }
 
     _timeLeft = math.max(75, _levelData.targetWords.length * 15 + 15);
-    _totalMoves = math.max(10, _levelData.targetWords.length * 3 + 2);
+    _totalMoves = _levelData.targetWords.length + 3;
     _remainingMoves = _totalMoves;
     _remainingShuffles = 2;
     _currentHintWord = null;
@@ -933,16 +933,18 @@ class _ScrambleGameScreenState extends State<ScrambleGameScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    AdPlaybackPage(onAdComplete: () {
-                                  if (actionType == 'extra_move') {
-                                    _addExtraMove(useCoins: false);
-                                  } else if (actionType == 'shuffle') {
-                                    _performShuffle(useCoins: false);
-                                  } else {
-                                    _useHint(useCoins: false);
-                                  }
-                                }),
+                                builder: (context) => AdPlaybackPage(
+                                  isRewardAd: true,
+                                  onAdComplete: () {
+                                    if (actionType == 'extra_move') {
+                                      _addExtraMove(useCoins: false);
+                                    } else if (actionType == 'shuffle') {
+                                      _performShuffle(useCoins: false);
+                                    } else {
+                                      _useHint(useCoins: false);
+                                    }
+                                  },
+                                ),
                               ),
                             ).then((_) {
                               _isWatchingAd = false;
